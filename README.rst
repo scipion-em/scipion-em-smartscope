@@ -9,13 +9,9 @@ Installation
 You will need to install SmartScope previous the plugin installation
 https://docs.smartscope.org/
 
-a) Stable version
 
-   .. code-block::
 
-      scipion installp -p scipion-em-smartscope
-
-b) Developer's version
+Developer's version
 
    * download repository
 
