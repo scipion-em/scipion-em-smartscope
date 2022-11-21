@@ -32,3 +32,11 @@ _references = ['you2019']
 
 class Plugin(pwem.Plugin):
     pass
+
+
+    @classmethod
+    def getEnviron(cls, xmippFirst=True):
+        pass
+
+    #conda create --name smartscopeenv python==3.9
+
