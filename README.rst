@@ -7,7 +7,10 @@ Plugin to manage the interaction with the SmartScope program.
 Installation
 ------------
 You will need to install SmartScope previous the plugin installation
-https://docs.smartscope.org/
+https://docs.smartscope.org/ 
+Follow the steps to install it with Docker
+https://docs.smartscope.org/installation.html
+(Installation with Anaconda/Miniconda is not abailable yet)
 
 
 
