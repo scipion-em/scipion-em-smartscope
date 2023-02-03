@@ -179,7 +179,7 @@ class MainPyClient():
         url = f'{self.getMainEndpoint()}{route}/{filter}/'
         str2Put = {'hole_id': 'autoloader_square52_hVo2oU8n7A', 'id': 'autoloader_square52_hVo2oU8n7A', 'name': 'autoloader_square52_hole76', 'number': 76, 'pixel_size': None, 'shape_x': None, 'shape_y': None, 'selected': True, 'status': 'completed', 'completion_time': None, 'radius': 65, 'area': 13478.217882063609, 'bis_group': '52_76', 'bis_type': 'center', 'grid_id': '1autoloadermdll0XaKyIC5XYWo86D', 'square_id': 'autoloader_square52s56Y8DKiaVw'}
         print(url)
-        r = requests.put(url, verify=False, data={"selected": 'false'})
+        r = requests.patch(url, verify=False, headers=self.getHeaders(), data={"selected": 'false'})
         #r = requests.post(url, verify=False, data=str2Put)
 
         print(r)
