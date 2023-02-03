@@ -173,19 +173,19 @@ class MainPyClient():
         resp_jason = resp.json()
         print(resp_jason)
 
-    def putHoleAPI(self, route: str, filter: str, put: str):
+    def putHoleAPI(self, holeID: str):
         #https://linuxhint.com/python-requests-put-method/
         #https://stackoverflow.com/questions/31089221/what-is-the-difference-between-put-post-and-patch
-        url = f'{self.getMainEndpoint()}{route}/{filter}/'
-        str2Put = {'hole_id': 'autoloader_square52_hVo2oU8n7A', 'id': 'autoloader_square52_hVo2oU8n7A', 'name': 'autoloader_square52_hole76', 'number': 76, 'pixel_size': None, 'shape_x': None, 'shape_y': None, 'selected': True, 'status': 'completed', 'completion_time': None, 'radius': 65, 'area': 13478.217882063609, 'bis_group': '52_76', 'bis_type': 'center', 'grid_id': '1autoloadermdll0XaKyIC5XYWo86D', 'square_id': 'autoloader_square52s56Y8DKiaVw'}
+        holes='holes'
+        url = f'{self.getMainEndpoint()}{holes}/{holeID}/'
         print(url)
         r = requests.patch(url, verify=False, headers=self.getHeaders(), data={"selected": 'false'})
-        #r = requests.post(url, verify=False, data=str2Put)
+        if r.status_code == 200:
+            print('hole put')
+            return
+        else:
+            print('Error code: {}'.format(r.status_code))
 
-        print(r)
-        print(r.headers)
-        print(r.content)
-        print('Fin')
 
 
 def correctEndpointsDictFormat(urlsDict):
@@ -215,7 +215,7 @@ if __name__ == "__main__":
     #response = pyClient.getDetailedFromSmartScopeAPI('squares', filters=dict(square_id='autoloader_square52s56Y8DKiaVw'))
     #response = pyClient.getholeBasicFromSmartScopeAPI('holes', filter='autoloader_square52_hVo2oU8n7A')
     #print(response)
-    put = pyClient.putHoleAPI('holes', filter='autoloader_square52_hVo2oU8n7A', put='?format=api')
+    put = pyClient.putHoleAPI(holeID='autoloader_square52_hVo2oU8n7A')
 
     #print(response)
     #https://dev.smartscope.org/api/holes/?square_id=grid1_square35sxLmmo6CmPOTPkAB&
