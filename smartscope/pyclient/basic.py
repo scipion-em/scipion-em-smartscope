@@ -174,11 +174,18 @@ class MainPyClient():
         print(resp_jason)
 
     def putHoleAPI(self, route: str, filter: str, put: str):
-        url = f'{self.getMainEndpoint()}{route}/{filter}/{put}'
-        #str2Put = {'hole_id': 'autoloader_square52_hVo2oU8n7A', 'id': 'autoloader_square52_hVo2oU8n7A', 'name': 'autoloader_square52_hole76', 'number': 76, 'pixel_size': None, 'shape_x': None, 'shape_y': None, 'selected': True, 'status': 'completed', 'completion_time': None, 'radius': 65, 'area': 13478.217882063609, 'bis_group': '52_76', 'bis_type': 'center', 'grid_id': '1autoloadermdll0XaKyIC5XYWo86D', 'square_id': 'autoloader_square52s56Y8DKiaVw'}
+        #https://linuxhint.com/python-requests-put-method/
+        #https://stackoverflow.com/questions/31089221/what-is-the-difference-between-put-post-and-patch
+        url = f'{self.getMainEndpoint()}{route}/{filter}/'
+        str2Put = {'hole_id': 'autoloader_square52_hVo2oU8n7A', 'id': 'autoloader_square52_hVo2oU8n7A', 'name': 'autoloader_square52_hole76', 'number': 76, 'pixel_size': None, 'shape_x': None, 'shape_y': None, 'selected': True, 'status': 'completed', 'completion_time': None, 'radius': 65, 'area': 13478.217882063609, 'bis_group': '52_76', 'bis_type': 'center', 'grid_id': '1autoloadermdll0XaKyIC5XYWo86D', 'square_id': 'autoloader_square52s56Y8DKiaVw'}
         print(url)
-        r = requests.put(url, data={"selected": 'false'}, verify=False)
-        print(r, '\n', r.content)
+        r = requests.put(url, verify=False, data={"selected": 'false'})
+        #r = requests.post(url, verify=False, data=str2Put)
+
+        print(r)
+        print(r.headers)
+        print(r.content)
+        print('Fin')
 
 
 def correctEndpointsDictFormat(urlsDict):
