@@ -84,11 +84,23 @@ class MainPyClient():
 
 
 ##COMMUNICATION
-    def getSessions(self):
-        route = 'sessions'
+    def getDetailsFromParameter(self, route):
+        response = []
         request = f'{self.getMainEndpoint()}{route}/?'
         print(f'Requested url: {request}')
         resp = requests.get(request, headers=self.getHeaders(), verify=False)
+        resp_jason = resp.json()
+        page_response = resp_jason['results']
+        response.extend(page_response)
+
+        while resp_jason['next'] != None:
+            corrected_endpoint = correctEndpointFormat(resp_jason['next'])
+            r = requests.get(corrected_endpoint, headers=self.getHeaders(), verify=False)
+            resp_jason = r.json()
+            page_response = resp_jason['results']
+            #print(page_response)
+            response.extend(page_response)
+
         return resp.json()
 
     def getGrids(self):
@@ -98,14 +110,27 @@ class MainPyClient():
         resp = requests.get(request, headers=self.getHeaders(), verify=False)
         return resp.json()
 
-    def getAtlas(self):
-        route = 'atlas'
-        request = f'{self.getMainEndpoint()}{route}/?'
-        print(f'Requested url: {request}')
-        resp = requests.get(request, headers=self.getHeaders(), verify=False)
 
-        return resp.json()
+    def getRouteFromID(self, route, from_id, id):
+        response = []
+        roude_id = '{}_id='.format(from_id)
+        request_hole = f'{self.getMainEndpoint()}{route}/?{roude_id}{id}&'
+        print(f'Requested url: {request_hole}')
+        resp = requests.get(request_hole, headers=self.getHeaders(), verify=False)
+        resp_jason = resp.json()
+        page_response = resp_jason['results']
+        response.extend(page_response)
 
+        while resp_jason['next'] != None:
+            corrected_endpoint = correctEndpointFormat(resp_jason['next'])
+            print(corrected_endpoint)
+            r = requests.get(corrected_endpoint, headers=self.getHeaders(), verify=False)
+            resp_jason = r.json()
+            page_response = resp_jason['results']
+            #print(page_response)
+            response.extend(page_response)
+
+        return response
     def getSquaresDetail(self):
         route = 'squares'
         response = []
@@ -122,7 +147,6 @@ class MainPyClient():
             r = requests.get(corrected_endpoint, headers=self.getHeaders(), verify=False)
             resp_jason = r.json()
             page_response = resp_jason['results']
-            #print(page_response)
             response.extend(page_response)
 
         return response
@@ -213,13 +237,20 @@ if __name__ == "__main__":
     # print(pyClient.getDetailedLabelUrl('squares'))
     #print(pyClient.getAllDetailedObject('squares')[1])
 
-    response = pyClient.getSessions()
-    response = pyClient.getGrids()
-    response = pyClient.getAtlas()
+    # dictPages = {'users': None, 'groups': None, 'holetypes': None,
+    #              'meshsizes': None, 'meshmaterial': None, 'microscopes': None,
+    #              'detectors': None, 'sessions': None}
+    # for key, value in dictPages.items():
+    #     dictPages[key] = pyClient.getDetailsFromParameter(key)
+    #
+
+    grids = pyClient.getGrids()
+    atlas = pyClient.getRouteFromID('atlas', 'grid', '1grid12I5SxUblVpbQIjywrKpYZruu')
+    squares = pyClient.getRouteFromID('squares', 'atlas', '1grid12I5SxUblVpbQIjywrKpYZruu')
 
     #response = pyClient.getSquaresDetail()
     #response = pyClient.getHolesFromSquare( filters=dict(square_id='grid1_square35sxLmmo6CmPOTPkAB'))
     #pyClient.putHoleAPI(holeID='autoloader_square52_hVo2oU8n7A')
     #pyClient.putSquareAPI(squareID='grid1_square35sxLmmo6CmPOTPkAB')
 
-    print(response)
+    print(squares)
