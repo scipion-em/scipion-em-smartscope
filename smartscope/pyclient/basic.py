@@ -84,6 +84,24 @@ class MainPyClient():
 
 
 ##COMMUNICATION
+    def getDetailsFromParameter(self, route):
+        response = []
+        request = f'{self.getMainEndpoint()}{route}/?'
+        print(f'Requested url: {request}')
+        resp = requests.get(request, headers=self.getHeaders(), verify=False)
+        resp_jason = resp.json()
+        page_response = resp_jason['results']
+        response.extend(page_response)
+
+        while resp_jason['next'] != None:
+            corrected_endpoint = correctEndpointFormat(resp_jason['next'])
+            r = requests.get(corrected_endpoint, headers=self.getHeaders(), verify=False)
+            resp_jason = r.json()
+            page_response = resp_jason['results']
+            #print(page_response)
+            response.extend(page_response)
+
+        return resp.json()
     def getRouteFromID(self, route, from_id, id, detailed=False, selected=False):
         '''
         route: element you request for
