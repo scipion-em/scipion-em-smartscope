@@ -22,11 +22,11 @@ class MainPyClient():
     def getCurrentEndpoint(self):
         return self._current_endpoint
 
-    def setCurrentEndpoint(self, newEndpoint):
-        self._current_endpoint = newEndpoint
-
     def getUrlsDict(self):
         return self._urlsDict
+
+    def setCurrentEndpoint(self, newEndpoint):
+        self._current_endpoint = newEndpoint
 
     def setUrlsDict(self, dictUrls):
         self._urlsDict.set(dictUrls)
@@ -82,54 +82,29 @@ class MainPyClient():
             print('The label is not found in the APIs endpoints')
             return None
 
-    # def getAllObjects(self, label):
-    #     results = []
-    #     endpoint = self.getLabelUrl(label)
-    #     r = requests.get(endpoint, headers=self.getHeaders(), verify=False)
-    #     resp_jason = r.json()
-    #     results = r.json()['results']
-    #
-    #     while resp_jason['next'] != None:
-    #         endpoint = correctEndpointFormat(resp_jason['next'])
-    #         print(endpoint)
-    #         r = requests.get(endpoint, headers=self.getHeaders(), verify=False)
-    #         results.extend(r.json()['results'])
-    #         resp_jason = r.json()
-    #
-    #     return results
-    #
-    # def getAllDetailedObjects(self, label):
-    #     results = []
-    #     detailed_endpoint = self.getDetailedLabelUrl(label)
-    #     if detailed_endpoint:
-    #         r = requests.get(detailed_endpoint, headers=self.getHeaders(), verify=False)
-    #         resp_jason = r.json()
-    #         results = r.json()['results']
-    #
-    #         while resp_jason['next'] != None:
-    #             detailed_endpoint = correctEndpointFormat(resp_jason['next'])
-    #             print(detailed_endpoint)
-    #             r = requests.get(detailed_endpoint, headers=self.getHeaders(), verify=False)
-    #             results.extend(r.json()['results'])
-    #             resp_jason = r.json()
-    #
-    #     return results
 
-    # Method from Smartscope API
-    # def get_from_API(self, route: str, filters: dict) -> list[dict]:
-    #     request_hole = f'{self.getMainEndpoint()}{route}/?'
-    #     for i, j in filters.items():
-    #         request_hole += f'{i}={j}&'
-    #     print(f'Requested url: {request_hole}')
-    #     resp = requests.get(request_hole, headers=self.getHeaders(), verify=False)
-    #     return json.loads(resp.content)['results']
+##COMMUNICATION
+    def getRouteFromID(self, route, from_id, id, detailed=False, selected=False):
+        '''
+        route: element you request for
+        from_id: father of the requested element (square is the father of hole)
+        id: identification of the requested element
+        detailed: True if ou want a detailed response
+        selected: A filter for recieve just the selected elements
 
-
-    def getFromSmartScopeAPI(self, route: str, filters: dict) -> list[dict]:
+        return: the response, json format
+        '''
         response = []
-        request_hole = f'{self.getMainEndpoint()}{route}/?'
-        for i, j in filters.items():
-            request_hole += f'{i}={j}&'
+        roude_id = '{}_id='.format(from_id)
+        if selected == True:
+            selected = 'selected=true'
+        else:
+            selected = ''
+        if detailed == True:
+            detailed = '/detailed'
+        else:
+            detailed = ''
+        request_hole = f'{self.getMainEndpoint()}{route}{detailed}/?{roude_id}{id}&{selected}'
         print(f'Requested url: {request_hole}')
         resp = requests.get(request_hole, headers=self.getHeaders(), verify=False)
         resp_jason = resp.json()
@@ -138,32 +113,25 @@ class MainPyClient():
 
         while resp_jason['next'] != None:
             corrected_endpoint = correctEndpointFormat(resp_jason['next'])
+            print(corrected_endpoint)
             r = requests.get(corrected_endpoint, headers=self.getHeaders(), verify=False)
             resp_jason = r.json()
             page_response = resp_jason['results']
+            #print(page_response)
             response.extend(page_response)
 
         return response
 
-    def getDetailedFromSmartScopeAPI(self, route: str, filters: dict) -> list[dict]:
-        response = []
-        request_hole = f'{self.getMainEndpoint()}{route}/{DETAILED}/?'
-        for i, j in filters.items():
-            request_hole += f'{i}={j}&'
-        print(f'Requested url: {request_hole}')
-        resp = requests.get(request_hole, headers=self.getHeaders(), verify=False)
-        resp_jason = resp.json()
-        page_response = resp_jason['results']
-        response.extend(page_response)
-
-        while resp_jason['next'] != None:
-            corrected_endpoint = correctEndpointFormat(resp_jason['next'])
-            r = requests.get(corrected_endpoint, headers=self.getHeaders(), verify=False)
-            resp_jason = r.json()
-            page_response = resp_jason['results']
-            response.extend(page_response)
-
-        return response
+    def putParameterFromID(self, route, ID, data=''):
+        #https://linuxhint.com/python-requests-put-method/
+        #https://stackoverflow.com/questions/31089221/what-is-the-difference-between-put-post-and-patch
+        url = f'{self.getMainEndpoint()}{route}/{ID}/'
+        print(url)
+        r = requests.patch(url, verify=False, headers=self.getHeaders(), data=data)
+        if r.status_code == 200:
+            print('element status updated')
+        else:
+            print('Error code: {}'.format(r.status_code))
 
 
 def correctEndpointsDictFormat(urlsDict):
@@ -181,13 +149,33 @@ def correctEndpointFormat(url):
 if __name__ == "__main__":
     pyClient = MainPyClient()
     #print(pyClient.getUrlsDict())
-    # print(pyclient.getLabelUrl('users'))
-    # print(pyClient.getDetailedLabelUrl('squares'))
-    #print(pyClient.getAllDetailedObject('squares')[1])
-    # Query the holes from a specific square that were not selected or acquired
-    # print(pyClient.get_from_API('holes', filters=dict(square_id='grid1_square35sxLmmo6CmPOTPkAB')))#, status='null'))))
 
-    # response = pyClient.getFromSmartScopeAPI('holes', filters=dict(square_id='grid1_square35sxLmmo6CmPOTPkAB'))
-    response = pyClient.getDetailedFromSmartScopeAPI('squares', filters=dict(square_id='grid1_square35sxLmmo6CmPOTPkAB'))
-    print(response)
-    #https://dev.smartscope.org/api/holes/?square_id=grid1_square35sxLmmo6CmPOTPkAB&
+    # metadataSession = {'users': None, 'groups': None, 'holetypes': None,
+    #              'meshsizes': None, 'meshmaterial': None, 'microscopes': None,
+    #              'detectors': None, 'sessions': None}
+    # for key, value in metadataSession.items():
+    #     metadataSession[key] = pyClient.getDetailsFromParameter(key)
+
+
+    #grids = pyClient.getGrids()
+    # atlas = pyClient.getRouteFromID('grids', 'session', '20230201IreneBSQl7vwE4YGYREBZW')
+    # atlas = pyClient.getRouteFromID('atlas', 'grid', '1autoloaderucI1Nd2F55R0OY5E18g')
+    square = pyClient.getRouteFromID('squares', 'atlas', 'autoloader_atlastk768KPue7nlAZ',detailed=True, selected=True)
+    # hole = pyClient.getRouteFromID('holes', 'square', 'autoloader_square23JZQjerrJVd9')#selected does not work for holes
+    # highmag = pyClient.getRouteFromID('highmag', 'hole', 'autoloader_square23_KKtfGVyhM6')#selected does not work for holes
+
+    #response = pyClient.getSquaresDetail()
+    #response = pyClient.getHolesFromSquare( filters=dict(square_id='grid1_square35sxLmmo6CmPOTPkAB'))
+    #pyClient.putHoleAPI(holeID='autoloader_square52_hVo2oU8n7A')
+    #pyClient.putSquareAPI(squareID='grid1_square35sxLmmo6CmPOTPkAB')
+    pyClient.putParameterFromID('squares', 'autoloader_square23JZQjerrJVd9', data={"selected": 'true'})
+    pyClient.putParameterFromID('holes', 'autoloader_square23_KKtfGVyhM6', data={"selected": 'true'})
+
+    '''
+    session = 20230201IreneBSQl7vwE4YGYREBZW
+    grid = 1autoloaderucI1Nd2F55R0OY5E18g
+    atlas = autoloader_atlastk768KPue7nlAZ
+    square = autoloader_square23JZQjerrJVd9
+    hole = autoloader_square23_KKtfGVyhM6
+    
+    '''
