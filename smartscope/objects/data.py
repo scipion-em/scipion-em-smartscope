@@ -25,7 +25,7 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-from pwem.objects import EMObject, Image, EMSet, Pointer
+from pwem.objects import EMObject, Image, EMSet, Movie, Pointer, SetOfMovies
 from pyworkflow.object import (Float, String, List, Integer, CsvList, Boolean)
 
 
@@ -330,7 +330,7 @@ class Square(Image):
 
 
 class Hole(Image):
-    """ Represents an EM Square object """
+    """ Represents an EM Hole object """
 
     def __init__(self, location=None, **kwargs):
         Image.__init__(self, location, **kwargs)
@@ -532,6 +532,166 @@ class Hole(Image):
         return self._classifier_label.get()
 
 
+class MovieSS(Movie):
+    """ Represents an EM Movie object """
+
+    # TODO  Movie or Micrograph? AND where we can find this in smartscope
+
+    def __init__(self, location=None, **kwargs):
+        Image.__init__(self, location, **kwargs)
+        self._hm_id = String()
+        self._png_path = String()
+        self._png_url = String()
+        self._ctf_img = String()
+        self._name = String()
+        self._number = Integer()
+        self._pixel_size = Float()
+        self._shape_x = Integer()
+        self._shape_y = Integer()
+        self._status = String()
+        self._is_x = Float()
+        self._is_y = Float()
+        self._offset = Float()
+        self._frames = Float()
+        self._defocus = Float()
+        self._astig = Float()
+        self._angast = Float()
+        self._ctffit = Float()
+        self._completion_time = String()
+        self._hole_id = String()
+        self._grid_id = String()
+
+
+    # Setters
+    def setHmId(self, id):
+        self._hm_id.set(id)
+
+    def setPngPath(self, path):
+        self._png_path.set(path)
+
+    def setPngUrl(self, url):
+        self._png_url.set(url)
+
+    def setCtfImg(self, ctf):
+        self._ctf_img.set(ctf)
+
+    def setName(self, name):
+        self._name.set(name)
+
+    def setNumber(self, number):
+        self._number.set(number)
+
+    def setPixelSize(self, pixelSpacing):
+        self._pixel_size.set(pixelSpacing)
+
+    def setShapeX(self, xDim):
+        self._shape_x.set(xDim)
+
+    def setShapeY(self, yDim):
+        self._shape_y.set(yDim)
+
+    def setStatus(self, status):
+        self._status.set(status)
+
+    def setIsX(self, x):
+        self._is_x.set(x)
+
+    def setIsY(self, y):
+        self._is_y.set(y)
+
+    def setOffset(self, offset):
+        self._offset.set(offset)
+
+    def setFrames(self, frames):
+        self._frames.set(frames)
+
+    def setDefocus(self, defocus):
+        self._defocus.set(defocus)
+
+    def setAstig(self, astig):
+        self._astig.set(astig)
+
+    def setAngast(self, angast):
+        self._angast.set(angast)
+
+    def setCtffit(self, fit):
+        self._ctffit.set(fit)
+
+    def setCompletionTime(self, time):
+        self._completion_time.set(time)
+
+    def setHoleId(self, id):
+        self._hole_id.set(id)
+
+    def setGridId(self, id):
+        self._grid_id.set(id)
+
+
+    # Getter
+    def getHmId(self):
+        return self._hm_id.get()
+
+    def getPngPath(self):
+        return self._png_path.get()
+
+    def getPngUrl(self):
+        return self._png_url.get()
+
+    def getCtfImg(self):
+        return self._ctf_img.get()
+
+    def getName(self):
+        return self._name.get()
+
+    def getNumber(self):
+        return self._number.get()
+
+    def getPixelSize(self):
+        return self._pixel_size.get()
+
+    def getShapeX(self):
+        return self._shape_x.get()
+
+    def getShapeY(self):
+        return self._shape_y.get()
+
+    def getStatus(self):
+        return self._status.get()
+
+    def getIsX(self):
+        return self._is_x.get()
+
+    def getIsY(self):
+        return self._is_y.get()
+
+    def getOffset(self):
+        return self._offset.get()
+
+    def getFrames(self):
+        return self._frames.get()
+
+    def getDefocus(self):
+        return self._defocus.get()
+
+    def getAstig(self):
+        return self._astig.get()
+
+    def getAngast(self):
+        return self._angast.get()
+
+    def getCtffit(self):
+        return self._ctffit.get()
+
+    def getCompletionTime(self):
+        return self._completion_time.get()
+
+    def getHoleId(self):
+        return self._hole_id.get()
+
+    def getGridId(self):
+        return self._grid_id.get()
+
+
 # -------SETS------------
 class SetOfAtlas(EMSet):
     ITEM_TYPE = Atlas
@@ -595,6 +755,21 @@ class SetOfHoles(EMSet):
 
     def __init__(self,  **kwargs):
         EMSet.__init__(self,  **kwargs)
+        self._pixel_size = Float()
+
+
+    def setPixelSize(self, pixelSize):
+        self._pixel_size = Float(pixelSize)
+
+    def getPixelSize(self):
+        return self._pixel_size.get()
+
+
+class SetOfMoviesSS(SetOfMovies):
+    ITEM_TYPE = MovieSS
+
+    def __init__(self,  **kwargs):
+        SetOfMovies.__init__(self,  **kwargs)
         self._pixel_size = Float()
 
 
