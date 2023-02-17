@@ -1,7 +1,3 @@
 scipion-pyworkflow
 scipion-em
-django==3.2
-djangorestframework
-pyyaml
 requests
-django-cors-headers

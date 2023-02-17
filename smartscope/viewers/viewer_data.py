@@ -28,7 +28,7 @@
 
 
 from pwem.viewers.viewers_data import DataViewer
-from ..objects.data import *
+from ..objects.data_deprecated import *
 from pwem.viewers import DataView, ObjectView
 from pwem.viewers.showj import ORDER, VISIBLE, MODE, RENDER, MODE_MD
 

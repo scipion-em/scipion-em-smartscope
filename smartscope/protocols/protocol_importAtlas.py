@@ -33,7 +33,7 @@ from pwem.protocols.protocol_import.base import ProtImportFiles, ProtImport
 from pyworkflow.constants import BETA
 from pyworkflow.protocol import params
 from pyworkflow.utils import Message
-from ..objects.data import *
+from ..objects.data_deprecated import *
 from datetime import datetime
 from pwem.emlib.image import ImageHandler
 import numpy as np
