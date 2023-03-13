@@ -31,7 +31,260 @@ from pyworkflow.object import (Float, String, List, Integer, CsvList, Boolean)
 
 ## TODO: there is information of the .mdoc of all kinds of data (atlas, squares, holes and high mag) provided by SmartScope that could be useful
 
-# -------ATLAS------------
+
+
+# -------MICROSCOPE------------
+class Microscope(EMObject):
+    """Microscope information"""
+    def __init__(self,  **kwargs):
+        EMObject.__init__(self, location=None, **kwargs)
+        self._microscope_id = String()
+        self._name = String()
+        self._location = String()
+        self._voltage = String()
+        self._spherical_abberation = String()
+        self._vendor = String()
+        '''
+        self._loader_size = String()
+        self._worker_hostname = String()
+        self._executable = String()
+        self._serialem_IP = String()
+        self._serialem_PORT = String()
+        self._windows_path = String()
+        self._scope_path = String()
+        '''
+    
+    def setMicroscopeId(self, MicroscopeId):
+        self._microscope_id.set(MicroscopeId)
+    def setName(self, Name):
+        self._name.set(Name)
+    def setLocation(self, Location):
+        self._location.set(Location)
+    def setVoltage(self, Voltage):
+        self._voltage.set(Voltage)
+    def setSphericalabberation(self, Sphericalabberation):
+        self._spherical_abberation.set(Sphericalabberation)
+    def setVendor(self, Vendor):
+        self._vendor.set(Vendor)
+
+    def getMicroscopeId(self):
+        return self._microscope_id.get()
+    def getName(self):
+        return self._name.get()
+    def getLocation(self):
+        return self._location.get()
+    def getVoltage(self):
+        return self._voltage.get()
+    def getSphericalabberation(self):
+        return self._spherical_abberation.get()
+    def getVendor(self):
+        return self._vendor.get()
+
+# -------DETECTOR------------
+class Detector(EMObject):
+    """Detector information"""
+    def __init__(self,  **kwargs):
+        EMObject.__init__(self, location=None, **kwargs)
+        self._Id = String()
+        self._name = String()
+        self._detector_model = String()
+        self._atlas_mag = Integer()
+        self._atlas_max_tiles_X = Integer()
+        self._atlas_max_tiles_Y = Integer()
+        self._spot_size = Integer()
+        self._c2_perc = Integer()
+        self._atlas_to_search_offset_x = Integer()
+        self._atlas_to_search_offset_y = Integer()
+        self._frame_align_cmd = String()
+        self._gain_rot = Integer()
+        self._gain_flip = String()
+        self._energy_filter = String()
+
+    def set_Id(self, id):
+        self._grid_id.set(id)
+    def setName(self, _name):
+        self._name.set(_name)
+    def setDetectorModel(self, _detector_model):
+        self._detector_model.set(_detector_model)
+    def setAtlasMag(self, _atlas_mag):
+        self._atlas_mag.set(_atlas_mag)
+    def setAtlasMaxTilesX(self, _atlas_max_tiles_X):
+        self._atlas_max_tiles_X.set(_atlas_max_tiles_X)
+    def setAtlasMaxTilesY(self, _atlas_max_tiles_Y):
+        self._atlas_max_tiles_Y.set(_atlas_max_tiles_Y)
+    def setSpotSize(self, _spot_size):
+        self._spot_size.set(_spot_size)
+    def setC2Perc(self, _c2_perc):
+        self._c2_perc.set(_c2_perc)
+    def setAtlasToSearchOffsetX(self, _atlas_to_search_offset_x):
+        self._atlas_to_search_offset_x.set(_atlas_to_search_offset_x)
+    def setAtlasToSearchOffsetY(self, _atlas_to_search_offset_Y):
+        self._atlas_to_search_offset_y.set(_atlas_to_search_offset_Y)
+    def setFrameAlignCmd(self, _frame_align_cmd):
+        self._frame_align_cmd.set(_frame_align_cmd)
+    def setGainRot(self, _gain_rot):
+        self._gain_rot.set(_gain_rot)
+    def setGainFlip(self, _gain_flip):
+        self._gain_flip.set(_gain_flip)
+    def setEnergyFilter(self, _energy_filter):
+        self._energy_filter.set(_energy_filter)
+        
+    def get_Id(self):
+        return self._grid_id.get()
+    def getName(self):
+        return self._name.get()
+    def getDetectorModel(self):
+        return self._detector_model.get()
+    def getAtlasMag(self):
+        return self._atlas_mag.get()
+    def getAtlasMaxTilesX(self):
+        return self._atlas_max_tiles_X.get()
+    def getAtlasMaxTilesY(self):
+        return self._atlas_max_tiles_Y.get()
+    def getSpotSize(self):
+        return self._spot_size.get()
+    def getC2Perc(self):
+        return self._c2_perc.get()
+    def getAtlasToSearchOffgetX(self):
+        return self._atlas_to_search_offget_x.get()
+    def getAtlasToSearchOffgetY(self):
+        return self._atlas_to_search_offget_y.get()
+    def getFrameAlignCmd(self):
+        return self._frame_align_cmd.get()
+    def getGainRot(self):
+        return self._gain_rot.get()
+    def getGainFlip(self):
+        return self._gain_flip.get()
+    def getEnergyFilter(self):
+        return self._energy_filter.get()
+
+# -------SESSION------------
+class Sessions(EMObject):
+    """Sessions information"""
+    def __init__(self,  **kwargs):
+        EMObject.__init__(self, location=None, **kwargs)
+        self._session_id = String()
+        self._session = String()
+        self._date = String()
+        self._version = String()
+        self._working_dir = String()
+        self._group = String()
+        self._microscope_id = String()
+        self._detector_id = Integer()
+        
+    def setSessionId(self, id):
+        self._session_id.set(id)
+    def setSession(self, session):
+        self._session.set(session)
+    def setDate(self, date):
+        self._date.set(date)
+    def setVersion(self, Version):
+        self._version.set(Version)
+    def setWorkingDir(self, WorkingDir):
+        self._working_dir.set(WorkingDir)
+    def setGroup(self, Group):
+        self._group.set(Group)
+    def setMicroscopeId(self, MicroscopeId):
+        self._microscope_id.set(MicroscopeId)
+    def setDetectorId(self, DetectorId):
+        self._detector_id.set(DetectorId)
+        
+    def getSessionId(self):
+        return self._session_id.get()
+    def getSession(self):
+        return self._session.get()
+    def getDate(self):
+        return self._date.get()
+    def getVersion(self):
+        return self._version.get()
+    def getWorkingDir(self):
+        return self._working_dir.get()
+    def getGroup(self):
+        return self._group.get()
+    def getMicroscopeId(self):
+        return self._microscope_id.get()
+    def getDetectorId(self):
+        return self._detector_id.get()
+
+# -------GRID------------
+
+class Grid(EMObject):
+    """Grid information"""
+    def __init__(self,  **kwargs):
+        EMObject.__init__(self, location=None, **kwargs)
+        self._grid_id = String()
+        self._position = Integer()
+        self._name = String()
+        self._hole_angle = String()
+        self._mesh_angle = String()
+        self._notes = String()
+        self._status = String()
+        self._start_time = String()
+        self._last_update = String()
+        self._session_id = String()
+        self._holeType = String()
+        self._meshSize = String()
+        self._meshMaterial = String()
+        self._params_id = String()
+        
+    def setGridId(self, id):
+        self._grid_id.set(id)
+    def setPosition(self, position):
+        self._position.set(position)
+    def setName(self, name):
+        self._name.set(name)
+    def setHoleAngle(self, holeAngle):
+        self._hole_angle.set(holeAngle)
+    def setMeshAngle(self, mesh_angle):
+        self._mesh_angle.set(mesh_angle)
+    def setNotes(self, Notes):
+        self._notes.set(Notes)
+    def setStatus(self, Status):
+        self._status.set(Status)
+    def setStartTime(self, StartTime):
+        self._start_time.set(StartTime)
+    def setLastUpdate(self, LastUpdate):
+        self._last_update.set(LastUpdate)
+    def setSessionId(self, SessionId):
+        self._session_id.set(SessionId)
+    def setHoleType(self, HoleType):
+        self._holeType.set(HoleType)
+    def setMeshSize(self, MeshSize):
+        self._meshSize.set(MeshSize)
+    def setMeshMaterial(self, MeshMaterial):
+        self._meshMaterial.set(MeshMaterial)
+    def setParamsId(self, ParamsId):
+        self._params_id.set(ParamsId)
+
+    def getGridId(self):
+        return self._grid_id.set()
+    def getPosition(self):
+        return self._position.get()
+    def getName(self):
+        return self._name.get()
+    def getHoleAngle(self):
+        return self._hole_angle.get()
+    def getMeshAngle(self):
+        return self._mesh_angle.get()
+    def getNotes(self):
+        return self._notes.get()
+    def getStatus(self):
+        return self._status.get()
+    def getStartTime(self):
+        return self._start_time.get()
+    def getLastUpdate(self):
+        return self._last_update.get()
+    def getSessionId(self):
+        return self._session_id.get()
+    def getHoleType(self):
+        return self._holeType.get()
+    def getMeshSize(self):
+        return self._meshSize.get()
+    def getMeshMaterial(self):
+        return self._meshMaterial.get()
+    def getParamsId(self):
+        return self._params_id.get()
+
 class Atlas(Image):
     """Atlas low magnification information"""
 

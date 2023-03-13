@@ -7,8 +7,11 @@ DETAILED = 'detailed'
 class MainPyClient():
 
     def __init__(self):
-        self._headers = {'Authorization': 'Token 2aacc9f9fceb89117ae61b9dc0b5ad84901e28e3'}
-        self._main_endpoint = 'https://dev.smartscope.org/api/'
+        #self._headers = {'Authorization': 'Token 2aacc9f9fceb89117ae61b9dc0b5ad84901e28e3'}#Tocken de Servidor
+        self._headers = {'Authorization': 'Token 136737181feb270a1bc4120b19d5440b2f697c94'}#Token @pavlov (alberto)
+        #self._main_endpoint = 'https://dev.smartscope.org/api/'
+        self._main_endpoint = 'http://localhost:48000/api/'
+
         self._current_endpoint = self._main_endpoint # No se si me convence esto
         self._urlsDict = self._getAllEndpoints()
         self._keys = self._urlsDict.keys()
@@ -102,7 +105,7 @@ class MainPyClient():
             response.extend(page_response)
 
         return resp.json()
-    def getRouteFromID(self, route, from_id, id, detailed=False, selected=False):
+    def getRouteFromID(self, route, from_id, id, detailed=False, selected=False, completed=False):
         '''
         route: element you request for
         from_id: father of the requested element (square is the father of hole)
@@ -122,7 +125,11 @@ class MainPyClient():
             detailed = '/detailed'
         else:
             detailed = ''
-        request_hole = f'{self.getMainEndpoint()}{route}{detailed}/?{roude_id}{id}&{selected}'
+        if completed == True:
+            completed = 'status=completed'
+        else:
+            completed = ''
+        request_hole = f'{self.getMainEndpoint()}{route}{detailed}/?{roude_id}{id}&{selected}&{completed}'
         print(f'Requested url: {request_hole}')
         resp = requests.get(request_hole, headers=self.getHeaders(), verify=False)
         resp_jason = resp.json()
@@ -178,22 +185,30 @@ if __name__ == "__main__":
     #grids = pyClient.getGrids()
     # atlas = pyClient.getRouteFromID('grids', 'session', '20230201IreneBSQl7vwE4YGYREBZW')
     # atlas = pyClient.getRouteFromID('atlas', 'grid', '1autoloaderucI1Nd2F55R0OY5E18g')
-    square = pyClient.getRouteFromID('squares', 'atlas', 'autoloader_atlastk768KPue7nlAZ',detailed=True, selected=True)
-    # hole = pyClient.getRouteFromID('holes', 'square', 'autoloader_square23JZQjerrJVd9')#selected does not work for holes
-    # highmag = pyClient.getRouteFromID('highmag', 'hole', 'autoloader_square23_KKtfGVyhM6')#selected does not work for holes
+    square = pyClient.getRouteFromID('squares', 'atlas', 'aaa_atlas3eITQ1lfEplhiFI73tEGz',detailed=True, selected=True)
+    # hole = pyClient.getRouteFromID('holes', 'square', 'aaa_square436wzJ6ZzSH6oq5Nnr0o', completed=True, selected=True)#selected does not work for holes
+    highmag = pyClient.getRouteFromID('highmag', 'hole', 'aaa_square43_hole612z66b3yBcw9',detailed=True)#selected does not work for holes
 
     #response = pyClient.getSquaresDetail()
     #response = pyClient.getHolesFromSquare( filters=dict(square_id='grid1_square35sxLmmo6CmPOTPkAB'))
     #pyClient.putHoleAPI(holeID='autoloader_square52_hVo2oU8n7A')
     #pyClient.putSquareAPI(squareID='grid1_square35sxLmmo6CmPOTPkAB')
-    pyClient.putParameterFromID('squares', 'autoloader_square23JZQjerrJVd9', data={"selected": 'true'})
-    pyClient.putParameterFromID('holes', 'autoloader_square23_KKtfGVyhM6', data={"selected": 'true'})
+    #pyClient.putParameterFromID('squares', 'aaa_square436wzJ6ZzSH6oq5Nnr0o', data={"selected": 'true'})
+    pyClient.putParameterFromID('holes', 'aaa_square43_hole612z66b3yBcw9', data={"selected": 'true'})
 
     '''
+    Sesion garciaa en servidor:
+    
     session = 20230201IreneBSQl7vwE4YGYREBZW
     grid = 1autoloaderucI1Nd2F55R0OY5E18g
     atlas = autoloader_atlastk768KPue7nlAZ
     square = autoloader_square23JZQjerrJVd9
     hole = autoloader_square23_KKtfGVyhM6
     
+    Session en local @pavlov:
+    session = 20230216pruebaguenaQHCyjsBSSMq
+    grid = 1aaaGuDtnwQ0lFlmGu0Tkjkplf8cJZ
+    atlas = aaa_atlas3eITQ1lfEplhiFI73tEGz
+    square = aaa_square436wzJ6ZzSH6oq5Nnr0o
+    hole = aaa_square43_hole612z66b3yBcw9
     '''
