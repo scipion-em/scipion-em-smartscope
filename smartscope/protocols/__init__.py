@@ -5,3 +5,4 @@
 # **************************************************************************
 from .protocol_hello_world import smartscopeConnection
 from .protocol_importAtlas import ProtImportAtlas
+from . protocol_smartscope import *

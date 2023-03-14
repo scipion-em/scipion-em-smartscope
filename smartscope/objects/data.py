@@ -33,7 +33,7 @@ from pyworkflow.object import (Float, String, List, Integer, CsvList, Boolean)
 
 
 
-# -------MICROSCOPE------------
+#-----METADATA
 class Microscope(EMObject):
     """Microscope information"""
     def __init__(self,  **kwargs):
@@ -80,7 +80,6 @@ class Microscope(EMObject):
     def getVendor(self):
         return self._vendor.get()
 
-# -------DETECTOR------------
 class Detector(EMObject):
     """Detector information"""
     def __init__(self,  **kwargs):
@@ -158,8 +157,7 @@ class Detector(EMObject):
     def getEnergyFilter(self):
         return self._energy_filter.get()
 
-# -------SESSION------------
-class Sessions(EMObject):
+class Session(EMObject):
     """Sessions information"""
     def __init__(self,  **kwargs):
         EMObject.__init__(self, location=None, **kwargs)
@@ -206,8 +204,8 @@ class Sessions(EMObject):
     def getDetectorId(self):
         return self._detector_id.get()
 
-# -------GRID------------
 
+#-----SCREENING
 class Grid(EMObject):
     """Grid information"""
     def __init__(self,  **kwargs):
@@ -391,7 +389,6 @@ class Atlas(Image):
     #
     # def getMagnification(self):
     #     return self._magnification
-
 
 class Square(Image):
     """ Represents an EM Square object """
@@ -580,7 +577,6 @@ class Square(Image):
 
     def getClassifierLabel(self):
         return self._classifier_label.get()
-
 
 class Hole(Image):
     """ Represents an EM Hole object """
@@ -784,7 +780,6 @@ class Hole(Image):
     def getClassifierLabel(self):
         return self._classifier_label.get()
 
-
 class MovieSS(Movie):
     """ Represents an EM Movie object """
 
@@ -946,6 +941,16 @@ class MovieSS(Movie):
 
 
 # -------SETS------------
+class SetOfSessions(EMSet):
+    ITEM_TYPE = Session
+    def __init__(self,  **kwargs):
+        EMSet.__init__(self,  **kwargs)
+
+class SetOfGrids(EMSet):
+    ITEM_TYPE = Grid
+    def __init__(self,  **kwargs):
+        EMSet.__init__(self,  **kwargs)
+
 class SetOfAtlas(EMSet):
     ITEM_TYPE = Atlas
     def __init__(self,  **kwargs):
@@ -972,7 +977,6 @@ class SetOfAtlas(EMSet):
 
     def getPixelSize(self):
         return self._pixel_size.get()
-
 
 class SetOfSquares(EMSet):
     ITEM_TYPE = Square
@@ -1002,7 +1006,6 @@ class SetOfSquares(EMSet):
     def getPixelSize(self):
         return self._pixel_size.get()
 
-
 class SetOfHoles(EMSet):
     ITEM_TYPE = Hole
 
@@ -1016,7 +1019,6 @@ class SetOfHoles(EMSet):
 
     def getPixelSize(self):
         return self._pixel_size.get()
-
 
 class SetOfMoviesSS(SetOfMovies):
     ITEM_TYPE = MovieSS

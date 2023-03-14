@@ -6,12 +6,13 @@ DETAILED = 'detailed'
 
 class MainPyClient():
 
-    def __init__(self):
+    def __init__(self,
+                 Authorization='Token 136737181feb270a1bc4120b19d5440b2f697c94',
+                 endpoint='http://localhost:48000/api/'):
         #self._headers = {'Authorization': 'Token 2aacc9f9fceb89117ae61b9dc0b5ad84901e28e3'}#Tocken de Servidor
-        self._headers = {'Authorization': 'Token 136737181feb270a1bc4120b19d5440b2f697c94'}#Token @pavlov (alberto)
+        self._headers = {'Authorization': Authorization}#Token @pavlov (alberto)
         #self._main_endpoint = 'https://dev.smartscope.org/api/'
-        self._main_endpoint = 'http://localhost:48000/api/'
-
+        self._main_endpoint = endpoint
         self._current_endpoint = self._main_endpoint # No se si me convence esto
         self._urlsDict = self._getAllEndpoints()
         self._keys = self._urlsDict.keys()
@@ -104,7 +105,7 @@ class MainPyClient():
             #print(page_response)
             response.extend(page_response)
 
-        return resp.json()
+        return page_response
     def getRouteFromID(self, route, from_id, id, detailed=False, selected=False, completed=False):
         '''
         route: element you request for
@@ -175,11 +176,10 @@ if __name__ == "__main__":
     pyClient = MainPyClient()
     #print(pyClient.getUrlsDict())
 
-    # metadataSession = {'users': None, 'groups': None, 'holetypes': None,
-    #              'meshsizes': None, 'meshmaterial': None, 'microscopes': None,
-    #              'detectors': None, 'sessions': None}
-    # for key, value in metadataSession.items():
-    #     metadataSession[key] = pyClient.getDetailsFromParameter(key)
+    metadataSession = {'microscopes': None,'detectors': None, 'sessions': None}
+    for key, value in metadataSession.items():
+        metadataSession[key] = pyClient.getDetailsFromParameter(key)
+    print(metadataSession['microscopes'])
 
 
     #grids = pyClient.getGrids()
@@ -187,14 +187,14 @@ if __name__ == "__main__":
     # atlas = pyClient.getRouteFromID('atlas', 'grid', '1autoloaderucI1Nd2F55R0OY5E18g')
     square = pyClient.getRouteFromID('squares', 'atlas', 'aaa_atlas3eITQ1lfEplhiFI73tEGz',detailed=True, selected=True)
     # hole = pyClient.getRouteFromID('holes', 'square', 'aaa_square436wzJ6ZzSH6oq5Nnr0o', completed=True, selected=True)#selected does not work for holes
-    highmag = pyClient.getRouteFromID('highmag', 'hole', 'aaa_square43_hole612z66b3yBcw9',detailed=True)#selected does not work for holes
+    #highmag = pyClient.getRouteFromID('highmag', 'hole', 'aaa_square43_hole612z66b3yBcw9',detailed=True)#selected does not work for holes
 
     #response = pyClient.getSquaresDetail()
     #response = pyClient.getHolesFromSquare( filters=dict(square_id='grid1_square35sxLmmo6CmPOTPkAB'))
     #pyClient.putHoleAPI(holeID='autoloader_square52_hVo2oU8n7A')
     #pyClient.putSquareAPI(squareID='grid1_square35sxLmmo6CmPOTPkAB')
     #pyClient.putParameterFromID('squares', 'aaa_square436wzJ6ZzSH6oq5Nnr0o', data={"selected": 'true'})
-    pyClient.putParameterFromID('holes', 'aaa_square43_hole612z66b3yBcw9', data={"selected": 'true'})
+    #pyClient.putParameterFromID('holes', 'aaa_square43_hole612z66b3yBcw9', data={"selected": 'true'})
 
     '''
     Sesion garciaa en servidor:
