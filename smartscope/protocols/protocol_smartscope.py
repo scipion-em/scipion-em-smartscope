@@ -86,10 +86,10 @@ class smartscopeConnection(Protocol):
         print(self.connectionClient.microscopeList)
 
         print('Detectors: ')
-        print(self.connectionClient.detectorList)
+        print(len(self.connectionClient.detectorList))
 
-        print('Sessions: ')
-        print(self.connectionClient.sessionList)
+        print('Sessions elements: ')
+        print(len(self.connectionClient.sessionList))
 
 
     def screeningCollection(self):
