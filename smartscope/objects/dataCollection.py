@@ -48,12 +48,13 @@ class dataCollection():
 
         self.microscopeList = [] #list of microscope Scipion object
         self.detectorList = [] #list of detector Scipion object
-        self.sesionList = [] #list of sessions Scipion object
+        self.sessionList = [] #list of sessions Scipion object
+
     def metadataCollection(self):
-        microscopes = pyClient.getDetailsFromParameter('microscopes')
+        microscopes = self.pyClient.getDetailsFromParameter('microscopes')
         for m in microscopes:
             micro = Microscope()
-            micro.setMicroscopeId(m['micoscope_id'])
+            micro.setMicroscopeId(m['microscope_id'])
             micro.setName(m['name'])
             micro.setLocation(m['location'])
             micro.setVoltage(m['voltage'])
@@ -61,10 +62,10 @@ class dataCollection():
             micro.setVendor(m['vendor'])
             self.microscopeList.append(micro)
 
-        detector = pyClient.getDetailsFromParameter('detectors')
+        detector = self.pyClient.getDetailsFromParameter('detectors')
         for d in detector:
             det = Detector()
-            det.set_Id(d['_id'])
+            det.set_Id(d['id'])
             det.setName(d['name'])
             det.setDetectorModel(d['detector_model'])
             det.setAtlasMag(d['atlas_mag'])
@@ -80,9 +81,9 @@ class dataCollection():
             det.setEnergyFilter(d['energy_filter'])
             self.detectorList.append(det)
 
-        Sessions = pyClient.getDetailsFromParameter('Sessions')
+        Sessions = self.pyClient.getDetailsFromParameter('sessions')
         for s in Sessions:
-            ses = Detector()
+            ses = Session()
             ses.setSessionId(s['session_id'])
             ses.setSession(s['session'])
             ses.setDate(s['date'])
@@ -91,7 +92,7 @@ class dataCollection():
             ses.setGroup(s['group'])
             ses.setMicroscopeId(s['microscope_id'])
             ses.setDetectorId(s['detector_id'])
-            self.sesionList.append(det)
+            self.sessionList.append(ses)
 
 
     def screeningCollection(self):

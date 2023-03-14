@@ -100,7 +100,7 @@ class Detector(EMObject):
         self._energy_filter = String()
 
     def set_Id(self, id):
-        self._grid_id.set(id)
+        self._Id.set(id)
     def setName(self, _name):
         self._name.set(_name)
     def setDetectorModel(self, _detector_model):
@@ -129,7 +129,7 @@ class Detector(EMObject):
         self._energy_filter.set(_energy_filter)
         
     def get_Id(self):
-        return self._grid_id.get()
+        return self._Id.get()
     def getName(self):
         return self._name.get()
     def getDetectorModel(self):

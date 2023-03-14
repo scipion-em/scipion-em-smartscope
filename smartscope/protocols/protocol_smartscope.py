@@ -55,12 +55,12 @@ class smartscopeConnection(Protocol):
         # You need a params to belong to a section:
         form.addSection(label=Message.LABEL_INPUT)
         form.addParam('Authorization', params.StringParam,
-                      default='Token ...!',
+                      default='Token ...',
                       label='Authorization token', important=True,
                       help='Provide the authorization token to communicate to Smartscope'
                            'Token xxxxc9f9fceb89117ae61b9dc0b5adxxxxxxxxxxxx')
 
-        form.addParam('endpoint', params.IntParam,
+        form.addParam('endpoint', params.StringParam,
                       default='http://localhost:48000/api/',
                       label='endpoint', important=True,
                       help='The url to connect to Smartscope.'
@@ -75,20 +75,25 @@ class smartscopeConnection(Protocol):
             endpoint=self.endpoint)
     def _insertAllSteps(self):
         # Insert processing steps
+        self._insertFunctionStep(self._initialize)
         self._insertFunctionStep('metadataCollection')
         self._insertFunctionStep('screeningCollection')
 
     def metadataCollection(self):
         self.connectionClient.metadataCollection()
 
-        print('Microscopes')
-        print(dataCollection.microscopeList)
+        print('Microscopes: ')
+        print(self.connectionClient.microscopeList)
 
-        print('Detectors')
-        print(dataCollection.detectorList)
+        print('Detectors: ')
+        print(self.connectionClient.detectorList)
 
-        print('Sessions')
-        print(dataCollection.sesionList)
+        print('Sessions: ')
+        print(self.connectionClient.sessionList)
+
+
+    def screeningCollection(self):
+        self.connectionClient.screeningCollection()
 
 
 

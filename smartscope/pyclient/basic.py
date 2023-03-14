@@ -105,7 +105,7 @@ class MainPyClient():
             #print(page_response)
             response.extend(page_response)
 
-        return page_response
+        return response
     def getRouteFromID(self, route, from_id, id, detailed=False, selected=False, completed=False):
         '''
         route: element you request for
@@ -179,7 +179,7 @@ if __name__ == "__main__":
     metadataSession = {'microscopes': None,'detectors': None, 'sessions': None}
     for key, value in metadataSession.items():
         metadataSession[key] = pyClient.getDetailsFromParameter(key)
-    print(metadataSession['microscopes'])
+    print(metadataSession['sessions'])
 
 
     #grids = pyClient.getGrids()
