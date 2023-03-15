@@ -215,6 +215,7 @@ class Grid(EMObject):
         self._name = String()
         self._hole_angle = String()
         self._mesh_angle = String()
+        self._quality = String()
         self._notes = String()
         self._status = String()
         self._start_time = String()
@@ -235,6 +236,8 @@ class Grid(EMObject):
         self._hole_angle.set(holeAngle)
     def setMeshAngle(self, mesh_angle):
         self._mesh_angle.set(mesh_angle)
+    def setQuality(self, Quality):
+        self._quality.set(Quality)
     def setNotes(self, Notes):
         self._notes.set(Notes)
     def setStatus(self, Status):
@@ -255,7 +258,7 @@ class Grid(EMObject):
         self._params_id.set(ParamsId)
 
     def getGridId(self):
-        return self._grid_id.set()
+        return self._grid_id.get()
     def getPosition(self):
         return self._position.get()
     def getName(self):
@@ -264,6 +267,8 @@ class Grid(EMObject):
         return self._hole_angle.get()
     def getMeshAngle(self):
         return self._mesh_angle.get()
+    def getQuality(self):
+        return self._quality.get()
     def getNotes(self):
         return self._notes.get()
     def getStatus(self):
@@ -295,7 +300,7 @@ class Atlas(Image):
         self._binning_factor = Integer()
         self._shape_x = Integer()
         self._shape_y = Integer()
-        self._stage_z = Float()
+        self._shape_z = Float()
         self._status = String()
         self._completion_time = String()
         self._grid_id = String()
@@ -326,8 +331,8 @@ class Atlas(Image):
     def setShapeY(self, yDim):
         self._shape_y.set(yDim)
 
-    def setStageZ(self, stageZ):
-        self._stage_z.set(stageZ)
+    def setShapeZ(self, shapeZ):
+        self._shape_z.set(shapeZ)
 
     def setStatus(self, status):
         self._status.set(status)
@@ -369,8 +374,8 @@ class Atlas(Image):
     def getShapeY(self):
         return self._shape_y.get()
 
-    def getStageZ(self):
-        return self._stage_z.get()
+    def getShapeZ(self):
+        return self._shape_z.get()
 
     def getStatus(self):
         return self._status.get()
@@ -941,11 +946,6 @@ class MovieSS(Movie):
 
 
 # -------SETS------------
-class SetOfSessions(EMSet):
-    ITEM_TYPE = Session
-    def __init__(self,  **kwargs):
-        EMSet.__init__(self,  **kwargs)
-
 class SetOfGrids(EMSet):
     ITEM_TYPE = Grid
     def __init__(self,  **kwargs):

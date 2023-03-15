@@ -14,8 +14,8 @@ class MainPyClient():
         #self._main_endpoint = 'https://dev.smartscope.org/api/'
         self._main_endpoint = endpoint
         self._current_endpoint = self._main_endpoint # No se si me convence esto
-        self._urlsDict = self._getAllEndpoints()
-        self._keys = self._urlsDict.keys()
+        # self._urlsDict = self._getAllEndpoints()
+        # self._keys = self._urlsDict.keys()
 
     def getHeaders(self):
         return self._headers
@@ -35,23 +35,23 @@ class MainPyClient():
     def setUrlsDict(self, dictUrls):
         self._urlsDict.set(dictUrls)
 
-    def _getAllEndpoints(self):
-        try:
-            r = requests.get(self.getMainEndpoint(), headers=self.getHeaders(), verify=False)
-            r.raise_for_status()
-            urlsDict = r.json()
-            correctDict = correctEndpointsDictFormat(urlsDict)
-            return correctDict
-        except requests.exceptions.HTTPError as errh:
-            print("Http Error:", errh)
-        except requests.exceptions.ConnectionError as errc:
-            print("Error Connecting:", errc)
-        except requests.exceptions.Timeout as errt:
-            print("Timeout Error:", errt)
-        except requests.exceptions.RequestException as err:
-            print("OOps: Something Else", err)
-
-        return None
+    # def _getAllEndpoints(self):
+    #     try:
+    #         r = requests.get(self.getMainEndpoint(), headers=self.getHeaders(), verify=False)
+    #         r.raise_for_status()
+    #         urlsDict = r.json()
+    #         correctDict = correctEndpointsDictFormat(urlsDict)
+    #         return correctDict
+    #     except requests.exceptions.HTTPError as errh:
+    #         print("Http Error:", errh)
+    #     except requests.exceptions.ConnectionError as errc:
+    #         print("Error Connecting:", errc)
+    #     except requests.exceptions.Timeout as errt:
+    #         print("Timeout Error:", errt)
+    #     except requests.exceptions.RequestException as err:
+    #         print("OOps: Something Else", err)
+    #
+    #     return None
 
     def getLabelUrl(self, label):
         if label in self._keys:
@@ -139,8 +139,8 @@ class MainPyClient():
 
         while resp_jason['next'] != None:
             corrected_endpoint = correctEndpointFormat(resp_jason['next'])
-            print(corrected_endpoint)
-            r = requests.get(corrected_endpoint, headers=self.getHeaders(), verify=False)
+            print(f'Requested next url: {corrected_endpoint}')
+            r = requests.get(corrected_endpoint, verify=False, headers=self.getHeaders())
             resp_jason = r.json()
             page_response = resp_jason['results']
             #print(page_response)
@@ -168,7 +168,8 @@ def correctEndpointsDictFormat(urlsDict):
     return newDict
 
 def correctEndpointFormat(url):
-    newUrl = url.replace("http", "https")
+    newUrl = url.replace("http", "http")
+    #newUrl = url.replace("http", "https")
     return newUrl
 
 
@@ -176,17 +177,16 @@ if __name__ == "__main__":
     pyClient = MainPyClient()
     #print(pyClient.getUrlsDict())
 
-    metadataSession = {'microscopes': None,'detectors': None, 'sessions': None}
-    for key, value in metadataSession.items():
-        metadataSession[key] = pyClient.getDetailsFromParameter(key)
-    print(metadataSession['sessions'])
+    # metadataSession = {'microscopes': None,'detectors': None, 'sessions': None}
+    # for key, value in metadataSession.items():
+    #     metadataSession[key] = pyClient.getDetailsFromParameter(key)
+    # print(metadataSession['sessions'])
 
 
-    #grids = pyClient.getGrids()
-    # atlas = pyClient.getRouteFromID('grids', 'session', '20230201IreneBSQl7vwE4YGYREBZW')
+    grid = pyClient.getRouteFromID('grids', 'session', '20230216sdddnzXCTGbuvlikPiKAQw')
     # atlas = pyClient.getRouteFromID('atlas', 'grid', '1autoloaderucI1Nd2F55R0OY5E18g')
-    square = pyClient.getRouteFromID('squares', 'atlas', 'aaa_atlas3eITQ1lfEplhiFI73tEGz',detailed=True, selected=True)
-    # hole = pyClient.getRouteFromID('holes', 'square', 'aaa_square436wzJ6ZzSH6oq5Nnr0o', completed=True, selected=True)#selected does not work for holes
+    #square = pyClient.getRouteFromID('squares', 'atlas', 'aaa_atlas3eITQ1lfEplhiFI73tEGz',detailed=True, selected=True)
+    hole = pyClient.getRouteFromID('holes', 'square', 'aaa_square436wzJ6ZzSH6oq5Nnr0o')#selected does not work for holes
     #highmag = pyClient.getRouteFromID('highmag', 'hole', 'aaa_square43_hole612z66b3yBcw9',detailed=True)#selected does not work for holes
 
     #response = pyClient.getSquaresDetail()

@@ -73,6 +73,15 @@ class smartscopeConnection(Protocol):
         self.connectionClient = dataCollection(
             Authorization=self.Authorization,
             endpoint=self.endpoint)
+        self.microscopeList = [] #list of microscope Scipion object
+        self.detectorList = [] #list of detector Scipion object
+        self.sessionList = []#list of sessions Scipion object
+        self.setOfGrids = SetOfGrids.create(outputPath=self._getPath())
+        self.setOfAtlas = SetOfAtlas.create(outputPath=self._getPath())
+        self.setOfSquares = SetOfSquares.create(outputPath=self._getPath())
+        self.setOfHoles = SetOfHoles.create(outputPath=self._getPath())
+        self._store(self.setOfGrids)
+
     def _insertAllSteps(self):
         # Insert processing steps
         self._insertFunctionStep(self._initialize)
@@ -80,20 +89,26 @@ class smartscopeConnection(Protocol):
         self._insertFunctionStep('screeningCollection')
 
     def metadataCollection(self):
-        self.connectionClient.metadataCollection()
+        self.connectionClient.metadataCollection(self.microscopeList,
+                                                 self.detectorList,
+                                                 self.sessionList)
 
-        print('Microscopes: ')
-        print(self.connectionClient.microscopeList)
+        print('Microscopes: ', len(self.microscopeList))
+        print('Detectors: ', len(self.detectorList))
+        print('Sessions elements: ', len(self.sessionList))
+        for s in self.sessionList:
+            print(s.getSession())
 
-        print('Detectors: ')
-        print(len(self.connectionClient.detectorList))
-
-        print('Sessions elements: ')
-        print(len(self.connectionClient.sessionList))
-
+        self.sessionId = '20230216sdddnzXCTGbuvlikPiKAQw'
 
     def screeningCollection(self):
-        self.connectionClient.screeningCollection()
+        self.connectionClient.screeningCollection(self.sessionId,
+                                                  self.setOfGrids,
+                                                  self.setOfAtlas,
+                                                  self.setOfSquares,
+                                                  self.setOfHoles)
+        self._store()
+        print('Hole: ', len(self.setOfHoles))
 
 
 

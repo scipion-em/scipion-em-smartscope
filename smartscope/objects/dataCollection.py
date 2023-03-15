@@ -46,11 +46,8 @@ class dataCollection():
             'Token 136737181feb270a1bc4120b19d5440b2f697c94',
             'http://localhost:48000/api/')
 
-        self.microscopeList = [] #list of microscope Scipion object
-        self.detectorList = [] #list of detector Scipion object
-        self.sessionList = [] #list of sessions Scipion object
 
-    def metadataCollection(self):
+    def metadataCollection(self, microscopeList, detectorList, sessionList):
         microscopes = self.pyClient.getDetailsFromParameter('microscopes')
         for m in microscopes:
             micro = Microscope()
@@ -60,7 +57,7 @@ class dataCollection():
             micro.setVoltage(m['voltage'])
             micro.setSphericalabberation(m['spherical_abberation'])
             micro.setVendor(m['vendor'])
-            self.microscopeList.append(micro)
+            microscopeList.append(micro)
 
         detector = self.pyClient.getDetailsFromParameter('detectors')
         for d in detector:
@@ -79,7 +76,7 @@ class dataCollection():
             det.setGainRot(d['gain_rot'])
             det.setGainFlip(d['gain_flip'])
             det.setEnergyFilter(d['energy_filter'])
-            self.detectorList.append(det)
+            detectorList.append(det)
 
         Sessions = self.pyClient.getDetailsFromParameter('sessions')
         for s in Sessions:
@@ -92,8 +89,88 @@ class dataCollection():
             ses.setGroup(s['group'])
             ses.setMicroscopeId(s['microscope_id'])
             ses.setDetectorId(s['detector_id'])
-            self.sessionList.append(ses)
+            sessionList.append(ses)
 
 
-    def screeningCollection(self):
-        pass
+    def screeningCollection(self, sessionId, setOfGrids, setOfAtlas, setOfSquares, setOfHoles):
+        print('sessionID: {}'.format(sessionId))
+        grid = self.pyClient.getRouteFromID('grids', 'session', sessionId)
+        for g in grid:
+            gr = Grid()
+            gr.setGridId(g['grid_id'])
+            gr.setPosition(g['position'])
+            gr.setName(g['name'])
+            gr.setHoleAngle(g['hole_angle'])
+            gr.setMeshAngle(g['mesh_angle'])
+            gr.setQuality(g['quality'])
+            gr.setNotes(g['notes'])
+            gr.setStatus(g['status'])
+            gr.setStartTime(g['start_time'])
+            gr.setLastUpdate(g['last_update'])
+            gr.setSessionId(g['session_id'])
+            gr.setHoleType(g['holeType'])
+            gr.setMeshSize(g['meshSize'])
+            gr.setMeshMaterial(g['meshMaterial'])
+            gr.setParamsId(g['params_id'])
+            setOfGrids.append(gr)
+
+            atlas = self.pyClient.getRouteFromID('atlas', 'grid', gr.getGridId())
+            for a in atlas:
+                at = Atlas()
+                at.setAtlasId(a['atlas_id'])
+                at.setAtlasName(a['name'])
+                at.setPixelSize(a['pixel_size'])
+                at.setBinningFactor(a['binning_factor'])
+                at.setShapeX(a['shape_x'])
+                at.setShapeY(a['shape_y'])
+                at.setShapeZ(a['stage_z'])
+                at.setStatus(a['status'])
+                at.setCompletionTime(a['completion_time'])
+                at.setGridId(a['grid_id'])
+                setOfAtlas.append(at)
+
+                squares = self.pyClient.getRouteFromID('squares', 'atlas', at.getAtlasId())
+                for s in squares:
+                    sq = Square()
+                    sq.setSquareId(s['square_id'])
+                    sq.setName(s['name'])
+                    sq.setNumber(s['number'])
+                    sq.setPixelSize(s['pixel_size'])
+                    sq.setShapeX(s['shape_x'])
+                    sq.setShapeY(s['shape_y'])
+                    sq.setSelected(s['selected'])
+                    sq.setStatus(s['status'])
+                    sq.setCompletionTime(s['completion_time'])
+                    sq.setArea(s['area'])
+                    sq.setGridId(s['grid_id'])
+                    sq.setAtlasId(s['atlas_id'])
+                    setOfSquares.append(sq)
+
+                    holes = self.pyClient.getRouteFromID('holes', 'square', sq.getSquareId())
+                    for h in holes:
+                        ho = Hole()
+                        ho.setHoleId(h['hole_id'])
+                        ho.setName(h['name'])
+                        ho.setNumber(h['number'])
+                        ho.setPixelSize(h['pixel_size'])
+                        ho.setShapeX(h['shape_x'])
+                        ho.setShapeY(h['shape_y'])
+                        ho.setSelected(h['selected'])
+                        ho.setStatus(h['status'])
+                        ho.setCompletionTime(h['completion_time'])
+                        ho.setRadius(h['radius'])
+                        ho.setArea(h['area'])
+                        ho.setBisGroup(h['bis_group'])
+                        ho.setBisType(h['bis_type'])
+                        ho.setGridId(h['grid_id'])
+                        ho.setSquareId(h['square_id'])
+                        setOfHoles.append(ho)
+
+
+
+
+
+
+
+
+
