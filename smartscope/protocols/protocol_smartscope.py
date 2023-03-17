@@ -104,19 +104,17 @@ class smartscopeConnection(Protocol):
         for s in self.sessionList:
             print(s.getSession())
 
-        self.sessionId = '20230216sdddnzXCTGbuvlikPiKAQw'
+        self.sessionId = '20230216pruebaguenaQHCyjsBSSMq'
 
 
     def screeningCollection(self):
         self.connectionClient.screeningCollection(self.dataPath,
                                                   self.sessionId,
-                                                  'testing/20230216_sddd',
                                                   self.setOfGrids,
                                                   self.setOfAtlas,
                                                   self.setOfSquares,
                                                   self.setOfHoles)
         self._store()
-        print('Hole: ', len(self.setOfHoles))
 
 
 
