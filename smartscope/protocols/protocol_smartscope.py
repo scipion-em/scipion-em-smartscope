@@ -66,6 +66,11 @@ class smartscopeConnection(Protocol):
                       help='The url to connect to Smartscope.'
                            ' Check the port set up to smartscope in the installation.')
 
+        form.addParam('dataPath', params.StringParam,
+                      default='',
+                      label='Smartscope data path', important=True,
+                      help='Path assigned to the data in the Smartscope installation')
+
 
 
     # --------------------------- STEPS functions ------------------------------
@@ -101,8 +106,11 @@ class smartscopeConnection(Protocol):
 
         self.sessionId = '20230216sdddnzXCTGbuvlikPiKAQw'
 
+
     def screeningCollection(self):
-        self.connectionClient.screeningCollection(self.sessionId,
+        self.connectionClient.screeningCollection(self.dataPath,
+                                                  self.sessionId,
+                                                  'testing/20230216_sddd',
                                                   self.setOfGrids,
                                                   self.setOfAtlas,
                                                   self.setOfSquares,

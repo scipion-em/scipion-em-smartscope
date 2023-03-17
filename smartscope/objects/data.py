@@ -25,6 +25,7 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
+import os.path
 from pwem.objects import EMObject, Image, EMSet, Movie, Pointer, SetOfMovies
 from pyworkflow.object import (Float, String, List, Integer, CsvList, Boolean)
 
@@ -44,7 +45,6 @@ class Microscope(EMObject):
         self._voltage = String()
         self._spherical_abberation = String()
         self._vendor = String()
-        '''
         self._loader_size = String()
         self._worker_hostname = String()
         self._executable = String()
@@ -52,7 +52,7 @@ class Microscope(EMObject):
         self._serialem_PORT = String()
         self._windows_path = String()
         self._scope_path = String()
-        '''
+        
     
     def setMicroscopeId(self, MicroscopeId):
         self._microscope_id.set(MicroscopeId)
@@ -66,6 +66,20 @@ class Microscope(EMObject):
         self._spherical_abberation.set(Sphericalabberation)
     def setVendor(self, Vendor):
         self._vendor.set(Vendor)
+    def setLoaderSize(self, loader_size):
+        self._loader_size.set(loader_size)
+    def setWorkerHostname(self, worker_hostname):
+        self._worker_hostname.set(worker_hostname)
+    def setExecutable(self, executable):
+        self._executable.set(executable)
+    def setSerialemIP(self, serialem_IP):
+        self._serialem_IP.set(serialem_IP)
+    def setSerialemPORT(self, serialem_PORT):
+        self._serialem_PORT.set(serialem_PORT)
+    def setWindowsPath(self, windows_path):
+        self._windows_path.set(windows_path)    
+    def setScopePath(self, scope_path):
+        self._scope_path.set(scope_path)
 
     def getMicroscopeId(self):
         return self._microscope_id.get()
@@ -79,6 +93,18 @@ class Microscope(EMObject):
         return self._spherical_abberation.get()
     def getVendor(self):
         return self._vendor.get()
+    def getWorkerHostname(self):
+        return self._worker_hostname.get()
+    def getExecutable(self):
+        return self._executable.get()
+    def getSerialemIP(self):
+        return self._serialem_IP.get()
+    def getSerialemPORT(self):
+        return self._serialem_PORT.get()
+    def getWindowsPath(self):
+        return self._windows_path.get()
+    def getScopePath(self):
+        return self._scope_path.get()
 
 class Detector(EMObject):
     """Detector information"""
@@ -211,7 +237,7 @@ class Grid(EMObject):
     def __init__(self,  **kwargs):
         EMObject.__init__(self, location=None, **kwargs)
         self._grid_id = String()
-        self._position = Integer()
+        self._position = String()
         self._name = String()
         self._hole_angle = String()
         self._mesh_angle = String()
@@ -225,6 +251,9 @@ class Grid(EMObject):
         self._meshSize = String()
         self._meshMaterial = String()
         self._params_id = String()
+        self._rawDir = String()
+        self._pngDir = String()
+
         
     def setGridId(self, id):
         self._grid_id.set(id)
@@ -257,6 +286,19 @@ class Grid(EMObject):
     def setParamsId(self, ParamsId):
         self._params_id.set(ParamsId)
 
+    def setRawDir(self, dataPath, sessionDir):
+        gridRelativePath = str(self._position) + '_' + str(self._name)
+        self._rawDir = os.path.join(str(dataPath),
+                                    str(sessionDir),
+                                    gridRelativePath,
+                                    'raw')
+    def setPNGDir(self, dataPath, sessionDir):
+        gridRelativePath = str(self._position) + '_' + str(self._name)
+        self._pngDir = os.path.join(str(dataPath),
+                                    str(sessionDir),
+                                    gridRelativePath,
+                                    'pngs')
+
     def getGridId(self):
         return self._grid_id.get()
     def getPosition(self):
@@ -288,6 +330,11 @@ class Grid(EMObject):
     def getParamsId(self):
         return self._params_id.get()
 
+    def getRawDir(self):
+        return self._rawDir
+    def getPngDir(self):
+        return self._pngDir
+
 class Atlas(Image):
     """Atlas low magnification information"""
 
@@ -295,7 +342,8 @@ class Atlas(Image):
         Image.__init__(self, location=None, **kwargs)
         self._atlas_id = String()
         self._atlas_name = String()
-        self._filename = String()  # Where is the .PNG?
+        self._filename = String()
+        self._pngDir = String()
         self._pixel_size = Float()
         self._binning_factor = Integer()
         self._shape_x = Integer()
@@ -318,6 +366,9 @@ class Atlas(Image):
 
     def setFileName(self, filename):
         self._filename.set(filename)
+
+    def setPngDir(self, pngDir):
+        self._pngDir.set(pngDir)
 
     def setPixelSize(self, pixelSpacing):
         self._pixel_size.set(pixelSpacing)
@@ -361,6 +412,8 @@ class Atlas(Image):
 
     def getFileName(self):
         return self._filename.get()
+    def getPngDir(self):
+        return self._pngDir.get()
 
     def getPixelSize(self):
         return self._pixel_size.get()
@@ -406,7 +459,9 @@ class Square(Image):
         self._has_active = Boolean()
         self._name = String()
         self._number = Integer()
-        self._filename = String()  # Where is the .PNG?
+        self._filename = String()
+        self._pngDir = String()
+
         self._pixel_size = Float()
         self._shape_x = Integer()
         self._shape_y = Integer()
@@ -449,6 +504,9 @@ class Square(Image):
 
     def setFileName(self, filename):
         self._filename.set(filename)
+
+    def setPngDir(self, pngDir):
+        self._pngDir.set(pngDir)
 
     def setPixelSize(self, pixelSpacing):
         self._pixel_size.set(pixelSpacing)
@@ -525,6 +583,9 @@ class Square(Image):
     def getFileName(self):
         return self._filename.get()
 
+    def getPngDir(self):
+        return self._pngDir.get()
+
     def getNumber(self):
         return self._number.get()
 
@@ -591,7 +652,9 @@ class Hole(Image):
         self._hole_id = String()
         self._name = String()
         self._number = Integer()
-        self._filename = String()  # Where is the .PNG?
+        self._filename = String()
+        self._pngDir = String()
+
         self._pixel_size = Float()
         self._shape_x = Integer()
         self._shape_y = Integer()
@@ -630,6 +693,9 @@ class Hole(Image):
 
     def setFileName(self, filename):
         self._filename.set(filename)
+
+    def setPngDir(self, pngDir):
+        self._pngDir.set(pngDir)
 
     def setPixelSize(self, pixelSpacing):
         self._pixel_size.set(pixelSpacing)
@@ -712,6 +778,9 @@ class Hole(Image):
     def getFileName(self):
         return self._filename.get()
 
+    def getPngDir(self):
+        return self._pngDir.get()
+
     def getNumber(self):
         return self._number.get()
 
@@ -787,9 +856,6 @@ class Hole(Image):
 
 class MovieSS(Movie):
     """ Represents an EM Movie object """
-
-    # TODO  Movie or Micrograph? AND where we can find this in smartscope
-
     def __init__(self, location=None, **kwargs):
         Image.__init__(self, location, **kwargs)
         self._hm_id = String()
@@ -801,6 +867,7 @@ class MovieSS(Movie):
         self._pixel_size = Float()
         self._shape_x = Integer()
         self._shape_y = Integer()
+        self._selected = String()
         self._status = String()
         self._is_x = Float()
         self._is_y = Float()
@@ -842,6 +909,9 @@ class MovieSS(Movie):
 
     def setShapeY(self, yDim):
         self._shape_y.set(yDim)
+
+    def setSelected(self, selected):
+        self._status.set(selected)
 
     def setStatus(self, status):
         self._status.set(status)
@@ -910,6 +980,8 @@ class MovieSS(Movie):
 
     def getStatus(self):
         return self._status.get()
+    def getSelected(self):
+        return self._selected.get()
 
     def getIsX(self):
         return self._is_x.get()

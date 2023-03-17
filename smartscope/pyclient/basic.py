@@ -139,7 +139,49 @@ class MainPyClient():
 
         while resp_jason['next'] != None:
             corrected_endpoint = correctEndpointFormat(resp_jason['next'])
-            print(f'Requested next url: {corrected_endpoint}')
+            #print(f'Requested next url: {corrected_endpoint}')
+            r = requests.get(corrected_endpoint, verify=False, headers=self.getHeaders())
+            resp_jason = r.json()
+            page_response = resp_jason['results']
+            #print(page_response)
+            response.extend(page_response)
+
+        return response
+
+    def getRouteFromName(self, route, from_name, name, detailed=False, selected=False, completed=False):
+        '''
+        route: element you request for
+        from_id: father of the requested element (square is the father of hole)
+        id: identification of the requested element
+        detailed: True if ou want a detailed response
+        selected: A filter for recieve just the selected elements
+
+        return: the response, json format
+        '''
+        response = []
+        roude_name = '{}='.format(from_name)
+        if selected == True:
+            selected = 'selected=true'
+        else:
+            selected = ''
+        if detailed == True:
+            detailed = '/detailed'
+        else:
+            detailed = ''
+        if completed == True:
+            completed = 'status=completed'
+        else:
+            completed = ''
+        request_hole = f'{self.getMainEndpoint()}{route}{detailed}/?{roude_name}{name}&{selected}&{completed}'
+        print(f'Requested url: {request_hole}')
+        resp = requests.get(request_hole, headers=self.getHeaders(), verify=False)
+        resp_jason = resp.json()
+        page_response = resp_jason['results']
+        response.extend(page_response)
+
+        while resp_jason['next'] != None:
+            corrected_endpoint = correctEndpointFormat(resp_jason['next'])
+            #print(f'Requested next url: {corrected_endpoint}')
             r = requests.get(corrected_endpoint, verify=False, headers=self.getHeaders())
             resp_jason = r.json()
             page_response = resp_jason['results']
@@ -182,15 +224,14 @@ if __name__ == "__main__":
     #     metadataSession[key] = pyClient.getDetailsFromParameter(key)
     # print(metadataSession['sessions'])
 
+    grid = pyClient.getRouteFromID('microscopes', 'microscope', 'h0PgRUjUq2K2Cr1CGZJq3q08il8i5n')
 
-    grid = pyClient.getRouteFromID('grids', 'session', '20230216sdddnzXCTGbuvlikPiKAQw')
+    grid = pyClient.getRouteFromID('sessions', 'session', '20230216sdddnzXCTGbuvlikPiKAQw')
     # atlas = pyClient.getRouteFromID('atlas', 'grid', '1autoloaderucI1Nd2F55R0OY5E18g')
     #square = pyClient.getRouteFromID('squares', 'atlas', 'aaa_atlas3eITQ1lfEplhiFI73tEGz',detailed=True, selected=True)
-    hole = pyClient.getRouteFromID('holes', 'square', 'aaa_square436wzJ6ZzSH6oq5Nnr0o')#selected does not work for holes
+    #hole = pyClient.getRouteFromID('holes', 'square', 'aaa_square436wzJ6ZzSH6oq5Nnr0o')#selected does not work for holes
     #highmag = pyClient.getRouteFromID('highmag', 'hole', 'aaa_square43_hole612z66b3yBcw9',detailed=True)#selected does not work for holes
 
-    #response = pyClient.getSquaresDetail()
-    #response = pyClient.getHolesFromSquare( filters=dict(square_id='grid1_square35sxLmmo6CmPOTPkAB'))
     #pyClient.putHoleAPI(holeID='autoloader_square52_hVo2oU8n7A')
     #pyClient.putSquareAPI(squareID='grid1_square35sxLmmo6CmPOTPkAB')
     #pyClient.putParameterFromID('squares', 'aaa_square436wzJ6ZzSH6oq5Nnr0o', data={"selected": 'true'})

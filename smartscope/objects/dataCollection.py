@@ -57,6 +57,14 @@ class dataCollection():
             micro.setVoltage(m['voltage'])
             micro.setSphericalabberation(m['spherical_abberation'])
             micro.setVendor(m['vendor'])
+            micro.setLoaderSize(m['loader_size'])
+            micro.setWorkerHostname(m['worker_hostname'])
+            micro.setExecutable(m['executable'])
+            micro.setSerialemIP(m['serialem_IP'])
+            micro.setSerialemPORT(m['serialem_PORT'])
+            micro.setWindowsPath(m['windows_path'])
+            micro.setScopePath(m['scope_path'])
+
             microscopeList.append(micro)
 
         detector = self.pyClient.getDetailsFromParameter('detectors')
@@ -92,7 +100,8 @@ class dataCollection():
             sessionList.append(ses)
 
 
-    def screeningCollection(self, sessionId, setOfGrids, setOfAtlas, setOfSquares, setOfHoles):
+    def screeningCollection(self, dataPath, sessionId, sessionDir, setOfGrids, setOfAtlas,
+                            setOfSquares, setOfHoles):
         print('sessionID: {}'.format(sessionId))
         grid = self.pyClient.getRouteFromID('grids', 'session', sessionId)
         for g in grid:
@@ -112,6 +121,7 @@ class dataCollection():
             gr.setMeshSize(g['meshSize'])
             gr.setMeshMaterial(g['meshMaterial'])
             gr.setParamsId(g['params_id'])
+            gr.setRawDir(dataPath, sessionDir)
             setOfGrids.append(gr)
 
             atlas = self.pyClient.getRouteFromID('atlas', 'grid', gr.getGridId())
@@ -127,6 +137,12 @@ class dataCollection():
                 at.setStatus(a['status'])
                 at.setCompletionTime(a['completion_time'])
                 at.setGridId(a['grid_id'])
+                at.setFileName(os.path.join(gr.getRawDir(),
+                                            at.getAtlasName(),
+                                            '.mrc'))
+                at.setPngDir(os.path.join(gr.getPngDir(),
+                                            at.getAtlasName(),
+                                            '.png'))
                 setOfAtlas.append(at)
 
                 squares = self.pyClient.getRouteFromID('squares', 'atlas', at.getAtlasId())
@@ -144,6 +160,12 @@ class dataCollection():
                     sq.setArea(s['area'])
                     sq.setGridId(s['grid_id'])
                     sq.setAtlasId(s['atlas_id'])
+                    sq.setFileName(os.path.join(gr.getRawDir(),
+                                                sq.getName(),
+                                                '.mrc'))
+                    sq.setPngDir(os.path.join(gr.getPngDir(),
+                                              sq.getName(),
+                                              '.png'))
                     setOfSquares.append(sq)
 
                     holes = self.pyClient.getRouteFromID('holes', 'square', sq.getSquareId())
@@ -164,13 +186,161 @@ class dataCollection():
                         ho.setBisType(h['bis_type'])
                         ho.setGridId(h['grid_id'])
                         ho.setSquareId(h['square_id'])
+                        ho.setFileName(os.path.join(gr.getRawDir(),
+                                                    ho.getName(),
+                                                    '.mrc'))
+                        ho.setPngDir(os.path.join(gr.getPngDir(),
+                                                  ho.getName(),
+                                                  '.png'))
                         setOfHoles.append(ho)
+                        highMag = self.pyClient.getRouteFromID('highmag', 'hole', ho.getHoleId())
+                        for hm in highMag:
+                            mSS = MovieSS()
+                            mSS.setHmId(hm['hm_id'])
+                            mSS.setName(hm['name'])
+                            mSS.setNumber(hm['number'])
+                            mSS.setPixelSize(hm['pixel_size'])
+                            mSS.setShapeX(hm['shape_x'])
+                            mSS.setShapeY(hm['shape_y'])
+                            mSS.setSelected(hm['selected'])
+                            mSS.setStatus(hm['status'])
+                            mSS.setCompletionTime(hm['completion_time'])
+                            mSS.setIsX(hm['is_x'])
+                            mSS.setIsY(hm['is_y'])
+                            mSS.setOffset(hm['offset'])
+                            mSS.setFrames(hm['frames'])
+                            mSS.setDefocus(hm['defocus'])
+                            mSS.setAstig(hm['astig'])
+                            mSS.setAngast(hm['angast'])
+                            mSS.setCtffit(hm['ctffit'])
+                            mSS.setGridId(hm['grid_id'])
+                            mSS.setHoleId(hm['hole_id'])
+                            self.getSubFramePath(gr, mSS.getName())
+                            mSS.setFileName(self.getSubFramePath(gr, mSS.getName()))
+
+                            # la movie no esta en el raw, sino en la carpeta donde sreialEM escribe
+
+
+    def windowsPath(self, sessionId):
+        session = self.pyClient.getRouteFromID('sessions', 'session', sessionId)
+        microscopeId = session[0]['microscope_id']
+        microscope = self.pyClient.getRouteFromID('microscopes', 'microscope', microscopeId)
+        return microscope[0]['windows_path']
+
+    def getSubFramePath(self, grid, highMagID):
+        highMag = self.pyClient.getRouteFromID('highmags','highmag',highMagID)
+        mdocFile = os.path.join(grid.getRawDir(),
+                                highMag[0]['name'],
+                                '.mrc.mdoc')
+        mdoc = MDoc(mdoc_file)
+        hDict, valueList = mdoc.parseMdoc()
+        return zvalueList[0]['SubFramePath']
 
 
 
 
 
+class MDoc:
+    """class define mdoc files from SerialEM
+    This format consists of keyword-value pairs organized into blocks
+    called sections.
+    A section begins with a bracketed key-value pair:
+      [sectionType = name]
+    where the section "name" or value will typically be unique.
+    Lines below a section header of the form
+      key = value
+    provide data associated with that section.
 
+    In addition, key-value pairs can occur at the beginning of the file,
+    before any section header, and these are referred to as global values.
+    Files with extension ".mdoc" provides data about an MRC file and has
+    the same name as the image file, with the additional extension ".mdoc".
+    In these files, the main section type is "ZValue" and the name
+    for each section is the Z value of the image in the file, numbered from 0.
+    A description of each key is available at URL:
+    https://bio3d.colorado.edu/SerialEM/hlp/html/about_formats.htm
 
+    Additional information may be stored in section headers of the type "T"
+    (i.e. [T  a = b ]). In theory these information in also stored in the
+    "titles" of the MRC files.
+    """
 
+    def __init__(self, fileName):
+        self._mdocFileName = str(fileName)
+
+    def createDictTem(self):
+            return {
+                'zvalue': None,
+                'PieceCoordinates': None,
+                'MinMaxMean': None,
+                'TiltAngle': None,
+                'StagePosition': None,
+                'StageZ': None,
+                'Magnification': None,
+                'Intensity': None,
+                'ExposureDose': None,
+                'DoseRate': None,
+                'PixelSpacing': None,
+                'SpotSize': None,
+                'Defocus': None,
+                'ImageShift': None,
+                'RotationAngle': None,
+                'ExposureTime': None,
+                'Binning': None,
+                'CameraIndex': None,
+                'DividedBy2': None,
+                'OperatingMode': None,
+                'UsingCDS': None,
+                'MagIndex': None,
+                'LowDoseConSet': None,
+                'CountsPerElectron': None,
+                'TargetDefocus': None,
+                'DateTime': None,
+                'FilterSlitAndLoss': None,
+                'UncroppedSize': None,
+                'RotationAndFlip': None,
+                'AlignedPieceCoords': None,
+                'XedgeDxy': None,
+                'YedgeDxy': None}
+
+    def parseMdoc(self):
+        """
+        Parse the mdoc file and return a list with a dict key=value for each
+        of the [Zvalue = X] sections and a dictionary for the first lines
+        global variables.
+
+        :return: dictionary (header), list of dictionaries (Z slices)
+        """
+        headerDict = {}
+        headerParsed = False
+        zvalueList = []  # list of dictionaries with
+        with open(self._mdocFileName) as f:
+            for line in f:
+                if line.startswith('[T'):  # auxiliary global information
+                    strLine = line.strip().replace(' ', '').\
+                                           replace(',', '').lower()
+                    headerDict['auxiliary'] = strLine
+                elif line.startswith('[ZValue'):  # each tilt movie
+                    # We have found a new z value
+                    headerParsed = True
+                    zvalue = int(line.split(']')[0].split('=')[1])
+                    if zvalue != len(zvalueList):
+                        raise Exception("Unexpected ZValue = %d" % zvalue)
+                    zvalueDict = self.createDictTem()
+                    zvalueDict['zvalue'] = str(zvalue)
+                    zvalueList.append(zvalueDict)
+
+                elif line.strip():  # global variables no in [T sections]
+                    key, value = line.split('=')
+                    if not headerParsed:
+                        headerDict[key.strip()] = value.strip()
+                    if zvalueList:
+                        zvalueDict[key.strip()] = value.strip()
+                        #print('zvalue: {} key.strip(): {}'.format(zvalue, key.strip()))
+                        #print('zvalueDict[key.strip()] {}'.format(zvalueDict[key.strip()]))
+
+        # print(len(zvalueList))
+        # print(zvalueDict)
+
+        return headerDict, zvalueList
 
