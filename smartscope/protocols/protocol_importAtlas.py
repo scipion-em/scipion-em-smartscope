@@ -220,3 +220,4 @@ class ProtImportAtlas(ProtImport):
         return string
 
 
+

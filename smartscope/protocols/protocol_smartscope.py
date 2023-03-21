@@ -78,6 +78,7 @@ class smartscopeConnection(Protocol):
         self.connectionClient = dataCollection(
             Authorization=self.Authorization,
             endpoint=self.endpoint)
+        self.acquisition = Acquisition()
         self.microscopeList = [] #list of microscope Scipion object
         self.detectorList = [] #list of detector Scipion object
         self.sessionList = []#list of sessions Scipion object
@@ -97,7 +98,8 @@ class smartscopeConnection(Protocol):
     def metadataCollection(self):
         self.connectionClient.metadataCollection(self.microscopeList,
                                                  self.detectorList,
-                                                 self.sessionList)
+                                                 self.sessionList,
+                                                 self.acquisition )
 
         print('Microscopes: ', len(self.microscopeList))
         print('Detectors: ', len(self.detectorList))
@@ -114,18 +116,32 @@ class smartscopeConnection(Protocol):
                                                   self.setOfAtlas,
                                                   self.setOfSquares,
                                                   self.setOfHoles,
-                                                  self.setOfMovies)
-        self._store()
+                                                  self.setOfMovies,
+                                                  self.acquisition)
+
+        self.setOfGrids.write()
+        self.setOfAtlas.write()
+        self.setOfSquares.write()
+        self.setOfHoles.write()
+        self.setOfMovies.write()
+        self._store(self.setOfGrids)
+        self._store(self.setOfAtlas)
+        self._store(self.setOfSquares)
+        self._store(self.setOfHoles)
+        self._store(self.setOfMovies)
 
 
 
     def createOutputStep(self):
+        self._defineOutputs(**self.outputsToDefine)
         # Now count will be an accumulated value
-        self._defineOutputs(setOfGrids=self.setOfGrids,
-                            setOfAtlas=self.setOfAtlas,
-                            setOfSquares=self.setOfSquares,
-                            setOfHoles=self.setOfHoles)
-                            #setOfMovies=self.setOfMovies)
+        self.outputsToDefine = {'setOfGrids': self.setOfGrids,
+                                'setOfAtlas': self.setOfAtlas,
+                                'setOfSquares': self.setOfSquares,
+                                'setOfMovies': self.setOfHoles
+                                #'setOfHoles': self.setOfMovies
+                                }
+        self._defineOutputs(**self.outputsToDefine)
 
     # --------------------------- INFO functions -----------------------------------
     def _summary(self):

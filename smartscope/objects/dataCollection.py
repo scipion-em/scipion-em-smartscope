@@ -37,6 +37,7 @@ from pwem.objects import EMObject, Image, EMSet, Movie, Pointer, SetOfMovies
 from pyworkflow.object import (Float, String, List, Integer, CsvList, Boolean)
 from ..objects.data import *
 from ..pyclient.basic import *
+from pwem.objects.data import Acquisition
 
 class dataCollection():
     def __init__(self, Authorization, endpoint):
@@ -47,7 +48,7 @@ class dataCollection():
             'http://localhost:48000/api/')
 
 
-    def metadataCollection(self, microscopeList, detectorList, sessionList):
+    def metadataCollection(self, microscopeList, detectorList, sessionList, acquisition):
         microscopes = self.pyClient.getDetailsFromParameter('microscopes')
         for m in microscopes:
             micro = Microscope()
@@ -66,6 +67,9 @@ class dataCollection():
             micro.setScopePath(m['scope_path'])
 
             microscopeList.append(micro)
+            acquisition.setVoltage(micro.getVoltage())
+            acquisition.setSphericalAberration(micro.getSphericalabberation())
+
 
         detector = self.pyClient.getDetailsFromParameter('detectors')
         for d in detector:
@@ -101,7 +105,7 @@ class dataCollection():
 
 
     def screeningCollection(self, dataPath, sessionId, sessionName, setOfGrids, setOfAtlas,
-                            setOfSquares, setOfHoles, setOfMoviesSS):
+                            setOfSquares, setOfHoles, setOfMoviesSS, acquisition):
         print('sessionName: {}'.format(sessionName))
         grid = self.pyClient.getRouteFromID('grids', 'session', sessionId)
         if grid != []:print('Number grid in the sesison: {}'.format(len(grid)))
@@ -123,6 +127,7 @@ class dataCollection():
             gr.setMeshMaterial(g['meshMaterial'])
             gr.setParamsId(g['params_id'])
             gr.setRawDir(dataPath, self.sessionWorkingDir(sessionName))
+            gr.setPNGDir(dataPath, self.sessionWorkingDir(sessionName))
             setOfGrids.append(gr)
 
             atlas = self.pyClient.getRouteFromID('atlas', 'grid', gr.getGridId())
@@ -142,11 +147,9 @@ class dataCollection():
                 at.setCompletionTime(a['completion_time'])
                 at.setGridId(a['grid_id'])
                 at.setFileName(os.path.join(gr.getRawDir(),
-                                            at.getAtlasName(),
-                                            '.mrc'))
-                at.setPngDir(os.path.join(str(gr.getPngDir()),
-                                            at.getAtlasName(),
-                                            '.png'))
+                                            str(at.getAtlasName() + '.mrc')))
+                at.setPngDir(os.path.join(gr.getPngDir(),
+                                          str(at.getAtlasName() + '.png')))
                 setOfAtlas.append(at)
 
                 squares = self.pyClient.getRouteFromID('squares', 'atlas', at.getAtlasId())
@@ -168,11 +171,9 @@ class dataCollection():
                     sq.setGridId(s['grid_id'])
                     sq.setAtlasId(s['atlas_id'])
                     sq.setFileName(os.path.join(gr.getRawDir(),
-                                                sq.getName(),
-                                                '.mrc'))
+                                                str(sq.getName() + '.mrc')))
                     sq.setPngDir(os.path.join(str(gr.getPngDir()),
-                                              sq.getName(),
-                                              '.png'))
+                                              str(sq.getName() + '.png')))
                     setOfSquares.append(sq)
                     holes = self.pyClient.getRouteFromID('holes', 'square', sq.getSquareId())
                     if holes != []:
@@ -197,12 +198,11 @@ class dataCollection():
                         ho.setBisType(h['bis_type'])
                         ho.setGridId(h['grid_id'])
                         ho.setSquareId(h['square_id'])
-                        ho.setFileName(os.path.join(gr.getRawDir(),
-                                                    ho.getName(),
-                                                    '.mrc'))
+                        fileName = os.path.join(gr.getRawDir(),
+                                                str(ho.getName() + '.mrc'))
+                        ho.setFileName(fileName)
                         ho.setPngDir(os.path.join(str(gr.getPngDir()),
-                                                  ho.getName(),
-                                                  '.png'))
+                                                  str(ho.getName() + '.png')))
                         setOfHoles.append(ho)
                         highMag = self.pyClient.getRouteFromID('highmag', 'hole', ho.getHoleId(), dev=False)
                         if highMag != []: print(
@@ -222,16 +222,27 @@ class dataCollection():
                             mSS.setIsX(hm['is_x'])
                             mSS.setIsY(hm['is_y'])
                             mSS.setOffset(hm['offset'])
-                            mSS.setFrames(hm['frames'])
+                            #mSS.setFrames(hm['frames'])
+                            mSS.setFrames(self.getFramesNumber(gr, mSS.getName()))
                             mSS.setDefocus(hm['defocus'])
                             mSS.setAstig(hm['astig'])
                             mSS.setAngast(hm['angast'])
                             mSS.setCtffit(hm['ctffit'])
                             mSS.setGridId(hm['grid_id'])
                             mSS.setHoleId(hm['hole_id'])
-                            mSS.setFileName(self.getSubFramePath(gr, mSS.getName()))
-                            # la movie no esta en el raw, sino en la carpeta donde sreialEM escribe
-                            setOfMoviesSS.append(mSS)
+                            fileName = self.getSubFramePath(gr, mSS.getName())
+                            if os.path.isfile(fileName):
+                                mSS.setFileName(fileName)
+                                acquisition.setMagnification(
+                                    self.getMagnification(gr, mSS.getName()))
+                                acquisition.setDosePerFrame(
+                                    self.getDoseRate(gr, mSS.getName()))
+                                mSS.setAcquisition(acquisition)
+                                # la movie no esta en el raw, sino en la carpeta donde sreialEM escribe
+                                setOfMoviesSS.append(mSS)
+                            else:
+                                print('{} has no movie associated'.format(fileName))
+
 
 
     def windowsPath(self, sessionId):
@@ -244,11 +255,30 @@ class dataCollection():
     def sessionWorkingDir(self, sessionName):
         session = self.pyClient.getRouteFromName('sessions', 'session', sessionName)
         return session[0]['working_dir']
-    def getSubFramePath(self, grid, highMagID):
+
+    def getMdocFile(self, grid, highMagID):
         highMag = self.pyClient.getRouteFromID('highmag', 'highmag',highMagID)
         mdocFile = os.path.join(grid.getRawDir(),
                                 str(highMag[0]['name'] + '.mrc.mdoc'))
-        mdoc = MDoc(mdocFile)
+        return MDoc(mdocFile)
+
+    def getMagnification(self, grid, highMagID):
+        mdoc = self.getMdocFile(grid, highMagID)
+        hDict, valueList = mdoc.parseMdoc()
+        return valueList[0]['Magnification']
+
+    def getDoseRate(self, grid, highMagID):
+        mdoc = self.getMdocFile(grid, highMagID)
+        hDict, valueList = mdoc.parseMdoc()
+        return valueList[0]['DoseRate']
+
+    def getFramesNumber(self, grid, highMagID):
+        mdoc = self.getMdocFile(grid, highMagID)
+        hDict, valueList = mdoc.parseMdoc()
+        return valueList[0]['NumSubFrames']
+
+    def getSubFramePath(self, grid, highMagID):
+        mdoc = self.getMdocFile(grid, highMagID)
         hDict, valueList = mdoc.parseMdoc()
         return valueList[0]['SubFramePath']
 
