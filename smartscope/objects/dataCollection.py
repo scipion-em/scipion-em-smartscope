@@ -100,9 +100,9 @@ class dataCollection():
             sessionList.append(ses)
 
 
-    def screeningCollection(self, dataPath, sessionId, setOfGrids, setOfAtlas,
-                            setOfSquares, setOfHoles):
-        print('sessionID: {}'.format(sessionId))
+    def screeningCollection(self, dataPath, sessionId, sessionName, setOfGrids, setOfAtlas,
+                            setOfSquares, setOfHoles, setOfMoviesSS):
+        print('sessionName: {}'.format(sessionName))
         grid = self.pyClient.getRouteFromID('grids', 'session', sessionId)
         if grid != []:print('Number grid in the sesison: {}'.format(len(grid)))
         for g in grid:
@@ -122,12 +122,12 @@ class dataCollection():
             gr.setMeshSize(g['meshSize'])
             gr.setMeshMaterial(g['meshMaterial'])
             gr.setParamsId(g['params_id'])
-            gr.setRawDir(dataPath, self.sessionWorkingDir(sessionId))
+            gr.setRawDir(dataPath, self.sessionWorkingDir(sessionName))
             setOfGrids.append(gr)
 
             atlas = self.pyClient.getRouteFromID('atlas', 'grid', gr.getGridId())
             if atlas != []: print(
-                '\tNmber atlas in the grid: {}'.format(len(atlas)))
+                '\tNmber atlas in the grid{}: {}'.format(gr.getName(), len(atlas)))
 
             for a in atlas:
                 at = Atlas()
@@ -176,8 +176,9 @@ class dataCollection():
                     setOfSquares.append(sq)
                     holes = self.pyClient.getRouteFromID('holes', 'square', sq.getSquareId())
                     if holes != []:
-                        print('square name: {}'.format(sq.getName()))
-                        print('\t\t\tNumber holes in the square: {}'.format(len(holes)))
+                        #print('square name: {}'.format(sq.getName()))
+                        print('\t\t\tNumber holes in the square{}: {}'.format(
+                            sq.getName(), len(holes)))
 
                     for h in holes:
                         ho = Hole()
@@ -206,6 +207,7 @@ class dataCollection():
                         highMag = self.pyClient.getRouteFromID('highmag', 'hole', ho.getHoleId(), dev=False)
                         if highMag != []: print(
                             '\t\t\t\tNumber movies in the hole: {}'.format(len(highMag)))
+                        # else: print('Empty Hole: {}'.format(ho.getName()))
                         for hm in highMag:
                             mSS = MovieSS()
                             mSS.setHmId(hm['hm_id'])
@@ -227,10 +229,9 @@ class dataCollection():
                             mSS.setCtffit(hm['ctffit'])
                             mSS.setGridId(hm['grid_id'])
                             mSS.setHoleId(hm['hole_id'])
-                            self.getSubFramePath(gr, mSS.getName())
                             mSS.setFileName(self.getSubFramePath(gr, mSS.getName()))
-
                             # la movie no esta en el raw, sino en la carpeta donde sreialEM escribe
+                            setOfMoviesSS.append(mSS)
 
 
     def windowsPath(self, sessionId):
@@ -240,14 +241,13 @@ class dataCollection():
         return microscope[0]['windows_path']
 
 
-    def sessionWorkingDir(self, sessionId):
-        session = self.pyClient.getRouteFromID('sessions', 'session', sessionId)
+    def sessionWorkingDir(self, sessionName):
+        session = self.pyClient.getRouteFromName('sessions', 'session', sessionName)
         return session[0]['working_dir']
     def getSubFramePath(self, grid, highMagID):
-        highMag = self.pyClient.getRouteFromID('highmags','highmag',highMagID)
+        highMag = self.pyClient.getRouteFromID('highmag', 'highmag',highMagID)
         mdocFile = os.path.join(grid.getRawDir(),
-                                highMag[0]['name'],
-                                '.mrc.mdoc')
+                                str(highMag[0]['name'] + '.mrc.mdoc'))
         mdoc = MDoc(mdocFile)
         hDict, valueList = mdoc.parseMdoc()
         return valueList[0]['SubFramePath']

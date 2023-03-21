@@ -85,6 +85,7 @@ class smartscopeConnection(Protocol):
         self.setOfAtlas = SetOfAtlas.create(outputPath=self._getPath())
         self.setOfSquares = SetOfSquares.create(outputPath=self._getPath())
         self.setOfHoles = SetOfHoles.create(outputPath=self._getPath())
+        self.setOfMovies = SetOfMoviesSS.create(outputPath=self._getPath())
         self._store(self.setOfGrids)
 
     def _insertAllSteps(self):
@@ -101,28 +102,30 @@ class smartscopeConnection(Protocol):
         print('Microscopes: ', len(self.microscopeList))
         print('Detectors: ', len(self.detectorList))
         print('Sessions elements: ', len(self.sessionList))
-        for s in self.sessionList:
-            print(s.getSession())
 
         self.sessionId = '20230216pruebaguenaQHCyjsBSSMq'
-
+        self.sessionName = 'pruebaguena'
 
     def screeningCollection(self):
         self.connectionClient.screeningCollection(self.dataPath,
                                                   self.sessionId,
+                                                  self.sessionName,
                                                   self.setOfGrids,
                                                   self.setOfAtlas,
                                                   self.setOfSquares,
-                                                  self.setOfHoles)
+                                                  self.setOfHoles,
+                                                  self.setOfMovies)
         self._store()
 
 
 
     def createOutputStep(self):
-        # register how many times the message has been printed
         # Now count will be an accumulated value
-        #self._defineOutputs(count=)
-        pass
+        self._defineOutputs(setOfGrids=self.setOfGrids,
+                            setOfAtlas=self.setOfAtlas,
+                            setOfSquares=self.setOfSquares,
+                            setOfHoles=self.setOfHoles)
+                            #setOfMovies=self.setOfMovies)
 
     # --------------------------- INFO functions -----------------------------------
     def _summary(self):

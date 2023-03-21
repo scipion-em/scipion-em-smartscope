@@ -770,7 +770,7 @@ class Hole(Image):
     # Getters
 
     def getHoleId(self):
-        return self._square_id.get()
+        return self._hole_id.get()
 
     def getName(self):
         return self._name.get()

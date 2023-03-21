@@ -132,9 +132,10 @@ class MainPyClient():
             completed = 'status=completed'
         else:
             completed = ''
-        request_hole = f'{self.getMainEndpoint()}{route}{detailed}/?{roude_id}{id}&{selected}&{completed}'
-        if dev==True: print(f'Requested url: {request_hole}')
-        resp = requests.get(request_hole, headers=self.getHeaders(), verify=False)
+        request = f'{self.getMainEndpoint()}{route}{detailed}/?{roude_id}{id}&{selected}&{completed}'
+        if dev==True: print(f'Requested url: {request}')
+        resp = requests.get(request, headers=self.getHeaders(), verify=False)
+        if route=='highmags':print(request)
         resp_jason = resp.json()
         try:
             page_response = resp_jason['results']
@@ -154,7 +155,7 @@ class MainPyClient():
             return []
 
 
-    def getRouteFromName(self, route, from_name, name, detailed=False, selected=False, completed=False):
+    def getRouteFromName(self, route, from_name, name, detailed=False, selected=False, completed=False, dev=False):
         '''
         route: element you request for
         from_id: father of the requested element (square is the father of hole)
@@ -178,9 +179,9 @@ class MainPyClient():
             completed = 'status=completed'
         else:
             completed = ''
-        request_hole = f'{self.getMainEndpoint()}{route}{detailed}/?{roude_name}{name}&{selected}&{completed}'
-        print(f'Requested url: {request_hole}')
-        resp = requests.get(request_hole, headers=self.getHeaders(), verify=False)
+        request = f'{self.getMainEndpoint()}{route}{detailed}/?{roude_name}{name}&{selected}&{completed}'
+        if dev==True: print(f'Requested url: {request}')
+        resp = requests.get(request, headers=self.getHeaders(), verify=False)
         resp_jason = resp.json()
         try:
             page_response = resp_jason['results']
@@ -234,12 +235,13 @@ if __name__ == "__main__":
     # print(metadataSession['sessions'])
 
     #grid = pyClient.getRouteFromID('microscopes', 'microscope', 'h0PgRUjUq2K2Cr1CGZJq3q08il8i5n')
-    hole = pyClient.getRouteFromID('highmag', 'hole', 'autoloader_square37_C5BucNwOT4', dev=True)
+    #hole = pyClient.getRouteFromID('highmag', 'hole', 'autoloader_square23_KKtfGVyhM6', dev=True)
+    #hm = pyClient.getRouteFromID('highmag', 'highmag', 'aaa_square15_hole27_fflyClmoDr', dev=True)
 
-    #grid = pyClient.getRouteFromID('sessions', 'session', '20230216sdddnzXCTGbuvlikPiKAQw')
+    session = pyClient.getRouteFromID('sessions', 'session', '20230216pruebaguenaQHCyjsBSSMq')
     # atlas = pyClient.getRouteFromID('atlas', 'grid', '1autoloaderucI1Nd2F55R0OY5E18g')
     #square = pyClient.getRouteFromID('squares', 'atlas', 'aaa_atlas3eITQ1lfEplhiFI73tEGz',detailed=True, selected=True)
-    hole = pyClient.getRouteFromID('holes', 'square', 'dd_square11tNPKtKoFhZIZkpFt7kf')#selected does not work for holes
+    #hole = pyClient.getRouteFromID('holes', 'square', 'dd_square11tNPKtKoFhZIZkpFt7kf')#selected does not work for holes
     #highmag = pyClient.getRouteFromID('highmag', 'hole', 'aaa_square43_hole612z66b3yBcw9',detailed=True)#selected does not work for holes
 
     #pyClient.putHoleAPI(holeID='autoloader_square52_hVo2oU8n7A')
@@ -263,4 +265,5 @@ if __name__ == "__main__":
     atlas = aaa_atlas3eITQ1lfEplhiFI73tEGz
     square = aaa_square436wzJ6ZzSH6oq5Nnr0o
     hole = aaa_square43_hole612z66b3yBcw9
+    hm = aaa_square15_hole27_fflyClmoDr
     '''
