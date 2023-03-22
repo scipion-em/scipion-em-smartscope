@@ -104,8 +104,11 @@ class dataCollection():
             sessionList.append(ses)
 
 
+
+
     def screeningCollection(self, dataPath, sessionId, sessionName, setOfGrids, setOfAtlas,
                             setOfSquares, setOfHoles, setOfMoviesSS, acquisition):
+        pathMoviesRaw = '/home/agarcia/Documents/Facility_work/smartscope_Data/smartscope_testfiles/movies'
         print('sessionName: {}'.format(sessionName))
         grid = self.pyClient.getRouteFromID('grids', 'session', sessionId)
         if grid != []:print('Number grid in the sesison: {}'.format(len(grid)))
@@ -132,7 +135,7 @@ class dataCollection():
 
             atlas = self.pyClient.getRouteFromID('atlas', 'grid', gr.getGridId())
             if atlas != []: print(
-                '\tNmber atlas in the grid{}: {}'.format(gr.getName(), len(atlas)))
+                '\tNumber atlas in the grid{}: {}'.format(gr.getName(), len(atlas)))
 
             for a in atlas:
                 at = Atlas()
@@ -150,6 +153,7 @@ class dataCollection():
                                             str(at.getAtlasName() + '.mrc')))
                 at.setPngDir(os.path.join(gr.getPngDir(),
                                           str(at.getAtlasName() + '.png')))
+                print('Atlas filename: {}'.format(at.getFileName()))
                 setOfAtlas.append(at)
 
                 squares = self.pyClient.getRouteFromID('squares', 'atlas', at.getAtlasId())
@@ -231,17 +235,19 @@ class dataCollection():
                             mSS.setGridId(hm['grid_id'])
                             mSS.setHoleId(hm['hole_id'])
                             fileName = self.getSubFramePath(gr, mSS.getName())
-                            if os.path.isfile(fileName):
-                                mSS.setFileName(fileName)
-                                acquisition.setMagnification(
-                                    self.getMagnification(gr, mSS.getName()))
-                                acquisition.setDosePerFrame(
-                                    self.getDoseRate(gr, mSS.getName()))
-                                mSS.setAcquisition(acquisition)
-                                # la movie no esta en el raw, sino en la carpeta donde sreialEM escribe
-                                setOfMoviesSS.append(mSS)
-                            else:
-                                print('{} has no movie associated'.format(fileName))
+                            if not os.path.isfile(fileName):#parche para visualizar movies fake
+                                print(mSS.getName())
+                                fileName = os.path.join(pathMoviesRaw, str(mSS.getName() + '.mrcs'))
+                            mSS.setFileName(fileName)
+                            acquisition.setMagnification(
+                                self.getMagnification(gr, mSS.getName()))
+                            acquisition.setDosePerFrame(
+                                self.getDoseRate(gr, mSS.getName()))
+                            mSS.setAcquisition(acquisition)
+                            # la movie no esta en el raw, sino en la carpeta donde sreialEM escribe
+                            setOfMoviesSS.append(mSS)
+                            # else:
+                            #     print('{} has no movie associated'.format(fileName))
 
 
 

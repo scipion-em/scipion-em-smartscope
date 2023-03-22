@@ -26,7 +26,7 @@
 # *
 # **************************************************************************
 import os.path
-from pwem.objects import EMObject, Image, EMSet, Movie, Pointer, SetOfMovies
+from pwem.objects import EMObject, Image, EMSet, Movie, Pointer, SetOfMovies, SetOfImages
 from pyworkflow.object import (Float, String, List, Integer, CsvList, Boolean)
 
 
@@ -652,9 +652,7 @@ class Hole(Image):
         self._hole_id = String()
         self._name = String()
         self._number = Integer()
-        self._filename = String()
         self._pngDir = String()
-
         self._pixel_size = Float()
         self._shape_x = Integer()
         self._shape_y = Integer()
@@ -690,9 +688,6 @@ class Hole(Image):
 
     def setNumber(self, number):
         self._number.set(number)
-
-    def setFileName(self, filename):
-        self._filename.set(filename)
 
     def setPngDir(self, pngDir):
         self._pngDir.set(pngDir)
@@ -775,9 +770,6 @@ class Hole(Image):
     def getName(self):
         return self._name.get()
 
-    def getFileName(self):
-        return self._filename.get()
-
     def getPngDir(self):
         return self._pngDir.get()
 
@@ -857,7 +849,7 @@ class Hole(Image):
 class MovieSS(Movie):
     """ Represents an EM Movie object """
     def __init__(self, location=None, **kwargs):
-        Image.__init__(self, location, **kwargs)
+        Movie.__init__(self, location, **kwargs)
         self._hm_id = String()
         self._png_path = String()
         self._png_url = String()
@@ -1028,6 +1020,8 @@ class SetOfAtlas(EMSet):
     def __init__(self,  **kwargs):
         EMSet.__init__(self,  **kwargs)
         self._pixel_size = Float()
+        self._filename = String()
+
         # MAYBE we need it-------
         # self._magnification = Float()
         # self._voltage = Float()

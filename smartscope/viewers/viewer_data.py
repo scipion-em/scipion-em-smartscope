@@ -29,8 +29,9 @@
 
 from pwem.viewers.viewers_data import DataViewer
 from ..objects.data_deprecated import *
+from ..objects.data import *
 from pwem.viewers import DataView, ObjectView
-from pwem.viewers.showj import ORDER, VISIBLE, MODE, RENDER, MODE_MD
+from pwem.viewers.showj import ORDER, VISIBLE, MODE, RENDER, MODE_MD, ZOOM
 
 class DataViewer_cnb(DataViewer):
     _targets = [SetOfLowMagImages]
@@ -39,14 +40,11 @@ class DataViewer_cnb(DataViewer):
         self._views.append(DataView(obj.getFileName()))
         return self._views
 
-    # def _visualize(self, obj, **kwargs):
-    #     fn = obj.getFileName()
-    #     # Enabled for the future has to be available
-    #     labels = ('_PieceCoordinates _MinMaxMean _TiltAngle _StagePosition _StageZl ')
-    #     renderLabels = '_filename '
-    #     moviesView = self._addObjView(obj, fn, {ORDER: labels,
-    #                                             VISIBLE: labels,
-    #                                             MODE: MODE_MD,
-    #                                             RENDER: renderLabels})
-    #     return moviesView
 
+class DataViewer_smartscope(DataViewer):
+    _targets = [SetOfGrids, SetOfAtlas, SetOfSquares, SetOfHoles, SetOfMovies]
+
+    def _visualize(self, obj, **kwargs):
+        print('Viewer filename: {}'.format(obj.getFileName()))
+        self._views.append(DataView(obj.getFileName()))
+        return self._views

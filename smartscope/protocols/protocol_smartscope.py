@@ -87,19 +87,20 @@ class smartscopeConnection(Protocol):
         self.setOfSquares = SetOfSquares.create(outputPath=self._getPath())
         self.setOfHoles = SetOfHoles.create(outputPath=self._getPath())
         self.setOfMovies = SetOfMoviesSS.create(outputPath=self._getPath())
-        self._store(self.setOfGrids)
 
     def _insertAllSteps(self):
         # Insert processing steps
         self._insertFunctionStep(self._initialize)
-        self._insertFunctionStep('metadataCollection')
-        self._insertFunctionStep('screeningCollection')
+        self._insertFunctionStep(self.metadataCollection)
+        self._insertFunctionStep(self.screeningCollection)
+        self._insertFunctionStep(self.createOutputStep)
+
 
     def metadataCollection(self):
         self.connectionClient.metadataCollection(self.microscopeList,
                                                  self.detectorList,
                                                  self.sessionList,
-                                                 self.acquisition )
+                                                 self.acquisition)
 
         print('Microscopes: ', len(self.microscopeList))
         print('Detectors: ', len(self.detectorList))
@@ -133,15 +134,16 @@ class smartscopeConnection(Protocol):
 
 
     def createOutputStep(self):
-        self._defineOutputs(**self.outputsToDefine)
+        #self._defineOutputs(**self.outputsToDefine)
         # Now count will be an accumulated value
-        self.outputsToDefine = {'setOfGrids': self.setOfGrids,
-                                'setOfAtlas': self.setOfAtlas,
-                                'setOfSquares': self.setOfSquares,
-                                'setOfMovies': self.setOfHoles
-                                #'setOfHoles': self.setOfMovies
-                                }
+        self.outputsToDefine = {'Squares': self.setOfSquares,
+                                 'Atlas': self.setOfAtlas,
+                                 'Grids': self.setOfGrids,
+                                 'Holes': self.setOfHoles,
+                                 'Movies': self.setOfMovies}
+
         self._defineOutputs(**self.outputsToDefine)
+        self._store(self.setOfSquares)
 
     # --------------------------- INFO functions -----------------------------------
     def _summary(self):
@@ -152,13 +154,3 @@ class smartscopeConnection(Protocol):
             summary.append("This protocol has printed *%s* %i times." % (self.message, self.times))
         return summary
 
-    def _methods(self):
-        methods = []
-
-        if self.isFinished():
-            methods.append("%s has been printed in this run %i times." % (self.message, self.times))
-            if self.previousCount.hasPointer():
-                methods.append("Accumulated count from previous runs were %i."
-                               " In total, %s messages has been printed."
-                               % (self.previousCount, self.count))
-        return methods
