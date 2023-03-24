@@ -102,15 +102,23 @@ class smartscopeConnection(Protocol):
                                                  self.sessionList,
                                                  self.acquisition)
 
-        print('Microscopes: ', len(self.microscopeList))
-        print('Detectors: ', len(self.detectorList))
-        print('Sessions elements: ', len(self.sessionList))
+        MicroNames = [x.getName() for x in self.microscopeList]
+        DetectorNames = [x.getName() for x in self.detectorList]
+        SessionNames = [x.getSession() for x in self.sessionList]
 
-        self.sessionId = '20230216pruebaguenaQHCyjsBSSMq'
-        self.sessionName = 'pruebaguena'
+        # SUMMARY INFO
+        summaryF = self._getPath("summary.txt")
+        summaryF = open(summaryF, "a")
+        summaryF.write("Smartscope Screening\n\n" +
+            "{} Microscopes: {}\n".format(len(self.microscopeList), MicroNames) +
+            "{} Detectors: {}\n".format(len(self.detectorList), DetectorNames) +
+            "{} Sessions: {}\n".format(len(self.sessionList), SessionNames))
+        summaryF.close()
 
-        # self.sessionId = '20230323speedFXaazIWcNSJSoQeaY'
-        # self.sessionName = 'speed'
+        # self.sessionId = '20230216pruebaguenaQHCyjsBSSMq'
+        # self.sessionName = 'pruebaguena'
+        self.sessionId = '2023032440HSXHnbFzVca1hRANR3sP'
+        self.sessionName = '40HS'
 
     def screeningCollection(self):
         start = time.time()
@@ -125,6 +133,7 @@ class smartscopeConnection(Protocol):
                                                   self.acquisition)
         print('ScreeningTime: {}s'.format(round(time.time() - start, 1)))
 
+
         self.setOfGrids.write()
         self.setOfAtlas.write()
         self.setOfSquares.write()
@@ -136,7 +145,16 @@ class smartscopeConnection(Protocol):
         self._store(self.setOfHoles)
         self._store(self.setOfMovies)
 
-
+        # SUMMARY INFO
+        summaryF = self._getPath("summary.txt")
+        summaryF = open(summaryF, "a")
+        summaryF.write("\nSmartscope collecting\n\n" +
+            "{}\tGrids \n".format(len(self.setOfGrids)) +
+            "{}\tAtlas \n".format(len(self.setOfAtlas)) +
+            "{}\tSquares \n".format(len(self.setOfSquares)) +
+            "{}\tHoles \n".format(len(self.setOfHoles)) +
+            "{}\tMovies \n".format(len(self.setOfMovies)))
+        summaryF.close()
 
     def createOutputStep(self):
         self.outputsToDefine = {'Squares': self.setOfSquares,
@@ -150,10 +168,15 @@ class smartscopeConnection(Protocol):
 
     # --------------------------- INFO functions -----------------------------------
     def _summary(self):
-        """ Summarize what the protocol has done"""
         summary = []
 
-        if self.isFinished():
-            summary.append("This protocol has printed *%s* %i times." % (self.message, self.times))
-        return summary
+        summaryF = self._getPath("summary.txt")
+        if not os.path.exists(summaryF):
+            summary.append("No summary file yet.")
+        else:
+            summaryF = open(summaryF, "r")
+            for line in summaryF.readlines():
+                summary.append(line.rstrip())
+            summaryF.close()
 
+        return summary
