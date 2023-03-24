@@ -102,6 +102,10 @@ class smartscopeConnection(Protocol):
                                                  self.sessionList,
                                                  self.acquisition)
 
+
+        print('Microscopes: ', len(self.microscopeList))
+        print('Detectors: ', len(self.detectorList))
+        print('Sessions elements: ', len(self.sessionList))
         MicroNames = [x.getName() for x in self.microscopeList]
         DetectorNames = [x.getName() for x in self.detectorList]
         SessionNames = [x.getSession() for x in self.sessionList]
