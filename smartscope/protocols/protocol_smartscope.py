@@ -109,7 +109,7 @@ class smartscopeConnection(ProtImport, Protocol):
         self.setOfHoles = SetOfHoles.create(outputPath=self._getPath())
         self.startTime = time.time()
         self.reStartTime = time.time()
-        self.firstStep = True
+        self.inUse = False
 
 
     def _insertAllSteps(self):
@@ -141,9 +141,10 @@ class smartscopeConnection(ProtImport, Protocol):
     def _stepsCheck(self):
         delayInit = int(time.time() - self.startTime)
         delay = int(time.time() - self.reStartTime)
-
-        if self.refreshTime <= delay or self.firstStep == True:
-            self.firstStep = False
+        if self.refreshTime <= delay or self.inUse == False:
+            print('IN-------------------{} <= {}\ninUse: {}'.format(
+                self.refreshTime, delay, self.inUse))
+            self.inUse = True
             self.reStartTime = time.time()
             new_step_id = self._insertFunctionStep('streamingScreaningAndImport',
                                         prerequisites=[], wait=False)
@@ -181,12 +182,24 @@ class smartscopeConnection(ProtImport, Protocol):
     def streamingScreaningAndImport(self):
         self.screeningCollection()
         self.importMoviesSS()
+        self.inUse = False
+        print('endStep----------------')
     def screeningCollection(self):
         if self.Squares == None:
+            print('entra en if*********')
+
             SOG = SetOfGrids.create(outputPath=self._getPath())
             SOA = SetOfAtlas.create(outputPath=self._getPath())
             SOS = SetOfSquares.create(outputPath=self._getPath())
             SOH = SetOfHoles.create(outputPath=self._getPath())
+            SOG.setStreamState(SOG.STREAM_OPEN)
+            SOG.enableAppend()
+            SOA.setStreamState(SOA.STREAM_OPEN)
+            SOA.enableAppend()
+            SOS.setStreamState(SOS.STREAM_OPEN)
+            SOS.enableAppend()
+            SOH.setStreamState(SOH.STREAM_OPEN)
+            SOH.enableAppend()
             # DEFINE OUTPUTS
             self.outputsToDefine = {'Squares': SOS,
                                     'Atlas': SOA,
@@ -194,22 +207,25 @@ class smartscopeConnection(ProtImport, Protocol):
                                     'Holes': SOH}
             self._defineOutputs(**self.outputsToDefine)
         else:
+            print('entra en else*********')
             SOG = self.setOfGrids
             SOA = self.setOfAtlas
             SOS = self.setOfSquares
             SOH = self.setOfHoles
-        SOG.setStreamState(SOG.STREAM_OPEN)
-        SOG.enableAppend()
+            SOG.setStreamState(SOG.STREAM_OPEN)
+            SOG.enableAppend()
+            SOA.setStreamState(SOA.STREAM_OPEN)
+            SOA.enableAppend()
+            SOS.setStreamState(SOS.STREAM_OPEN)
+            SOS.enableAppend()
+            SOH.setStreamState(SOH.STREAM_OPEN)
+            SOH.enableAppend()
+
         self._store(SOG)
-        SOA.setStreamState(SOA.STREAM_OPEN)
-        SOA.enableAppend()
         self._store(SOA)
-        SOS.setStreamState(SOS.STREAM_OPEN)
-        SOS.enableAppend()
         self._store(SOS)
-        SOH.setStreamState(SOH.STREAM_OPEN)
-        SOH.enableAppend()
         self._store(SOH)
+
 
         self.connectionClient.screeningCollection(self.dataPath,
                                                   self.sessionId,
@@ -239,6 +255,9 @@ class smartscopeConnection(ProtImport, Protocol):
             "{}\tSquares \n".format(len(SOS)) +
             "{}\tHoles \n".format(len(SOH)))
         summaryF.close()
+
+
+
 
     def importMoviesSS(self):
         if self.MoviesSS == None:
@@ -298,9 +317,7 @@ class smartscopeConnection(ProtImport, Protocol):
         # STORE SQLITE
         print('Hello')
         SOMSS.setStreamState(SOMSS.STREAM_CLOSED)
-        print('Hello2')
         SOMSS.write()
-        print('Hello')
         self._store(SOMSS)
         print('Hello3')
         # SUMMARY INFO
