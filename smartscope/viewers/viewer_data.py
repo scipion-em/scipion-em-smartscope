@@ -45,6 +45,5 @@ class DataViewer_smartscope(DataViewer):
     _targets = [SetOfGrids, SetOfAtlas, SetOfSquares, SetOfHoles, SetOfMovies]
 
     def _visualize(self, obj, **kwargs):
-        print('Viewer filename: {}'.format(obj.getFileName()))
         self._views.append(DataView(obj.getFileName()))
         return self._views

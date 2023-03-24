@@ -91,7 +91,7 @@ class MainPyClient():
     def getDetailsFromParameter(self, route):
         response = []
         request = f'{self.getMainEndpoint()}{route}/?'
-        print(f'Requested url: {request}')
+        #print(f'Requested url: {request}')
         resp = requests.get(request, headers=self.getHeaders(), verify=False)
         resp_jason = resp.json()
         page_response = resp_jason['results']
@@ -108,6 +108,7 @@ class MainPyClient():
             except KeyError:
                 return []
         return response
+
     def getRouteFromID(self, route, from_id, id, detailed=False, selected=False, completed=False, dev=False):
         '''
         route: element you request for
@@ -154,7 +155,6 @@ class MainPyClient():
         except KeyError:
             return []
 
-
     def getRouteFromName(self, route, from_name, name, detailed=False, selected=False, completed=False, dev=False):
         '''
         route: element you request for
@@ -200,6 +200,7 @@ class MainPyClient():
         except KeyError:
             print('Empty response')
             return []
+
     def putParameterFromID(self, route, ID, data=''):
         #https://linuxhint.com/python-requests-put-method/
         #https://stackoverflow.com/questions/31089221/what-is-the-difference-between-put-post-and-patch
@@ -234,11 +235,17 @@ if __name__ == "__main__":
     #     metadataSession[key] = pyClient.getDetailsFromParameter(key)
     # print(metadataSession['sessions'])
 
-    #grid = pyClient.getRouteFromID('microscopes', 'microscope', 'h0PgRUjUq2K2Cr1CGZJq3q08il8i5n')
-    #hole = pyClient.getRouteFromID('highmag', 'hole', 'autoloader_square23_KKtfGVyhM6', dev=True)
+    #grid = pyClient.getRouteFromID('microscopes', 'microscope', 'h0PgRUjUq2K2Cr1CGZJq3q08il8i5n', dev=True)
+    #hole = pyClient.getRouteFromID('holes', 'square', 'autoloader_square23JZQjerrJVd9', dev=True)
     #hm = pyClient.getRouteFromID('highmag', 'highmag', 'aaa_square15_hole27_fflyClmoDr', dev=True)
+    #hole = pyClient.getRouteFromID('hole', 'hole', 'aaa_square15_hole0Fq2BoTroLv24', dev=True)
 
-    session = pyClient.getRouteFromID('sessions', 'session', '20230216pruebaguenaQHCyjsBSSMq')
+    #allHM = pyClient.getDetailsFromParameter('highmag')
+    allHM = pyClient.getRouteFromID('highmag', 'grid', '1autoloaderucI1Nd2F55R0OY5E18g', dev=True)
+
+    print(allHM)
+    print(len(allHM))
+    #session = pyClient.getRouteFromID('sessions', 'session', '20230216pruebaguenaQHCyjsBSSMq')
     # atlas = pyClient.getRouteFromID('atlas', 'grid', '1autoloaderucI1Nd2F55R0OY5E18g')
     #square = pyClient.getRouteFromID('squares', 'atlas', 'aaa_atlas3eITQ1lfEplhiFI73tEGz',detailed=True, selected=True)
     #hole = pyClient.getRouteFromID('holes', 'square', 'dd_square11tNPKtKoFhZIZkpFt7kf')#selected does not work for holes

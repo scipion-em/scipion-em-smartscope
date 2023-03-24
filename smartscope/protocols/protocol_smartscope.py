@@ -1,13 +1,14 @@
-# -*- coding: utf-8 -*-
 # **************************************************************************
 # *
-# * Authors:     you (you@yourinstitution.email)
+# * Authors: Daniel Marchan (da.marchan@cnb.csic.es)
+#            Alberto Garcia Mena   (alberto.garcia@cnb.csic.es)
 # *
-# * your institution
+# *
+# * Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -21,10 +22,9 @@
 # * 02111-1307  USA
 # *
 # *  All comments concerning this program package may be sent to the
-# *  e-mail address 'you@yourinstitution.email'
+# *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-
 
 """
 This protocol connect with smartscope in streaming. Recive all information
@@ -36,7 +36,7 @@ from pyworkflow.utils import Message
 from pyworkflow import BETA, UPDATED, NEW, PROD
 from ..objects.data import *
 from ..objects.dataCollection import *
-
+import time
 
 class smartscopeConnection(Protocol):
     """
@@ -109,7 +109,11 @@ class smartscopeConnection(Protocol):
         self.sessionId = '20230216pruebaguenaQHCyjsBSSMq'
         self.sessionName = 'pruebaguena'
 
+        # self.sessionId = '20230323speedFXaazIWcNSJSoQeaY'
+        # self.sessionName = 'speed'
+
     def screeningCollection(self):
+        start = time.time()
         self.connectionClient.screeningCollection(self.dataPath,
                                                   self.sessionId,
                                                   self.sessionName,
@@ -119,6 +123,7 @@ class smartscopeConnection(Protocol):
                                                   self.setOfHoles,
                                                   self.setOfMovies,
                                                   self.acquisition)
+        print('ScreeningTime: {}s'.format(round(time.time() - start, 1)))
 
         self.setOfGrids.write()
         self.setOfAtlas.write()
@@ -134,8 +139,6 @@ class smartscopeConnection(Protocol):
 
 
     def createOutputStep(self):
-        #self._defineOutputs(**self.outputsToDefine)
-        # Now count will be an accumulated value
         self.outputsToDefine = {'Squares': self.setOfSquares,
                                  'Atlas': self.setOfAtlas,
                                  'Grids': self.setOfGrids,
