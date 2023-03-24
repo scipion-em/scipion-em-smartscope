@@ -233,15 +233,15 @@ if __name__ == "__main__":
     # metadataSession = {'microscopes': None,'detectors': None, 'sessions': None}
     # for key, value in metadataSession.items():
     #     metadataSession[key] = pyClient.getDetailsFromParameter(key)
-    # print(metadataSession['sessions'])
+    # print(metadataSession['microscopes'])
 
     #grid = pyClient.getRouteFromID('microscopes', 'microscope', 'h0PgRUjUq2K2Cr1CGZJq3q08il8i5n', dev=True)
     #hole = pyClient.getRouteFromID('holes', 'square', 'autoloader_square23JZQjerrJVd9', dev=True)
     #hm = pyClient.getRouteFromID('highmag', 'highmag', 'aaa_square15_hole27_fflyClmoDr', dev=True)
     #hole = pyClient.getRouteFromID('hole', 'hole', 'aaa_square15_hole0Fq2BoTroLv24', dev=True)
 
-    #allHM = pyClient.getDetailsFromParameter('highmag')
-    allHM = pyClient.getRouteFromID('highmag', 'grid', '1autoloaderucI1Nd2F55R0OY5E18g', dev=True)
+    allHM = pyClient.getDetailsFromParameter('highmag')
+    #allHM = pyClient.getRouteFromID('highmag', 'grid', '1autoloaderucI1Nd2F55R0OY5E18g', dev=True)
 
     print(allHM)
     print(len(allHM))

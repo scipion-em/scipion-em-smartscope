@@ -50,6 +50,12 @@ class smartscopeConnection(ProtImport, Protocol):
     _devStatus = BETA
     def __init__(self, **args):
         ProtImport.__init__(self, **args)
+        self.newSteps = []
+        self.Squares = None
+        self.Atlas = None
+        self.Grids = None
+        self.Holes = None
+        self.MoviesSS = None
         self.stepsExecutionMode = STEPS_PARALLEL # Defining that the protocol contain parallel steps
 
     # -------------------------- DEFINE param functions ----------------------
@@ -88,9 +94,11 @@ class smartscopeConnection(ProtImport, Protocol):
 
     # --------------------------- STEPS functions ------------------------------
     def _initialize(self):
-        self.connectionClient = dataCollection(
-            Authorization=self.Authorization,
-            endpoint=self.endpoint)
+        #self.pyClient = MainPyClient(self.Authorization, self.endpoint)
+        self.pyClient = MainPyClient(
+            'Token 136737181feb270a1bc4120b19d5440b2f697c94',
+            'http://localhost:48000/api/')
+        self.connectionClient = dataCollection(self.pyClient)
         self.acquisition = Acquisition()
         self.microscopeList = [] #list of microscope Scipion object
         self.detectorList = [] #list of detector Scipion object
@@ -100,6 +108,8 @@ class smartscopeConnection(ProtImport, Protocol):
         self.setOfSquares = SetOfSquares.create(outputPath=self._getPath())
         self.setOfHoles = SetOfHoles.create(outputPath=self._getPath())
         self.startTime = time.time()
+        self.reStartTime = time.time()
+        self.firstStep = True
 
 
     def _insertAllSteps(self):
@@ -129,10 +139,11 @@ class smartscopeConnection(ProtImport, Protocol):
 
 
     def _stepsCheck(self):
-        delayInit = int(time.time() - self.StartTime)
+        delayInit = int(time.time() - self.startTime)
         delay = int(time.time() - self.reStartTime)
 
-        if self.refreshTime <= delay:
+        if self.refreshTime <= delay or self.firstStep == True:
+            self.firstStep = False
             self.reStartTime = time.time()
             new_step_id = self._insertFunctionStep('streamingScreaningAndImport',
                                         prerequisites=[], wait=False)
@@ -171,15 +182,15 @@ class smartscopeConnection(ProtImport, Protocol):
         self.screeningCollection()
         self.importMoviesSS()
     def screeningCollection(self):
-        if self.setOfGrids == None:
+        if self.Squares == None:
             SOG = SetOfGrids.create(outputPath=self._getPath())
             SOA = SetOfAtlas.create(outputPath=self._getPath())
             SOS = SetOfSquares.create(outputPath=self._getPath())
             SOH = SetOfHoles.create(outputPath=self._getPath())
             # DEFINE OUTPUTS
-            self.outputsToDefine = {'Squares': SOG,
+            self.outputsToDefine = {'Squares': SOS,
                                     'Atlas': SOA,
-                                    'Grids': SOS,
+                                    'Grids': SOG,
                                     'Holes': SOH}
             self._defineOutputs(**self.outputsToDefine)
         else:
@@ -230,7 +241,7 @@ class smartscopeConnection(ProtImport, Protocol):
         summaryF.close()
 
     def importMoviesSS(self):
-        if self.setOfMovies == None:
+        if self.MoviesSS == None:
             SOMSS = SetOfMoviesSS.create(outputPath=self._getPath())
             self.outputsToDefine = {'MoviesSS': SOMSS}
             self._defineOutputs(**self.outputsToDefine)
@@ -241,7 +252,7 @@ class smartscopeConnection(ProtImport, Protocol):
         self._store(SOMSS)
 
         pathMoviesRaw = '/home/agarcia/Documents/Facility_work/smartscope_Data/smartscope_testfiles/movies'
-        allHM = self.pyClient.getRouteFromID('highmag', '')
+        allHM = self.pyClient.getDetailsFromParameter('highmag')
 
         for hm in allHM:
             mSS = MovieSS()
@@ -285,14 +296,18 @@ class smartscopeConnection(ProtImport, Protocol):
             self._store(SOMSS)
 
         # STORE SQLITE
+        print('Hello')
         SOMSS.setStreamState(SOMSS.STREAM_CLOSED)
+        print('Hello2')
         SOMSS.write()
+        print('Hello')
         self._store(SOMSS)
+        print('Hello3')
         # SUMMARY INFO
         summaryF = self._getPath("summary.txt")
         summaryF = open(summaryF, "a")
-        summaryF.write("\nSmartscope collecting\n\n" +
-            "{}\tMovies Smartscope imported: \n".format(len(SOMSS)))
+        summaryF.write("\nSmartscope importing movies\n\n" +
+            "{}\tMovies Smartscope imported\n".format(len(SOMSS)))
         summaryF.close()
 
     # --------------------------- INFO functions -----------------------------------

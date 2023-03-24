@@ -42,7 +42,7 @@ class DataViewer_cnb(DataViewer):
 
 
 class DataViewer_smartscope(DataViewer):
-    _targets = [SetOfGrids, SetOfAtlas, SetOfSquares, SetOfHoles, SetOfMovies]
+    _targets = [SetOfGrids, SetOfAtlas, SetOfSquares, SetOfHoles, SetOfMoviesSS]
 
     def _visualize(self, obj, **kwargs):
         self._views.append(DataView(obj.getFileName()))

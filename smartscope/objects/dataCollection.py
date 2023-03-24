@@ -40,13 +40,8 @@ from pwem.objects.data import Acquisition
 import time
 
 class dataCollection():
-    def __init__(self, Authorization, endpoint):
-        self._authorization = Authorization #'Token 136737181feb270a1bc4120b19d5440b2f697c94'
-        self._main_endpoint = endpoint #'http://localhost:48000/api/'
-        self.pyClient = MainPyClient(
-            'Token 136737181feb270a1bc4120b19d5440b2f697c94',
-            'http://localhost:48000/api/')
-
+    def __init__(self, pyClient):
+        self.pyClient = pyClient
 
     def metadataCollection(self, microscopeList, detectorList, sessionList, acquisition):
         microscopes = self.pyClient.getDetailsFromParameter('microscopes')
