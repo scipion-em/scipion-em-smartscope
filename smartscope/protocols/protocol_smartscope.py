@@ -169,73 +169,39 @@ class smartscopeConnection(ProtImport, Protocol):
         summaryF = self._getPath("summary.txt")
         summaryF = open(summaryF, "a")
         summaryF.write("Smartscope Screening\n\n" +
-            "{} Microscopes: {}\n".format(len(self.microscopeList), MicroNames) +
-            "{} Detectors: {}\n".format(len(self.detectorList), DetectorNames) +
-            "{} Sessions: {}\n".format(len(self.sessionList), SessionNames))
+            "\t{} Microscopes: {}\n".format(len(self.microscopeList), MicroNames) +
+            "\t{} Detectors: {}\n".format(len(self.detectorList), DetectorNames) +
+            "\t{} Sessions: {}\n".format(len(self.sessionList), SessionNames))
         summaryF.close()
 
         # self.sessionId = '20230216pruebaguenaQHCyjsBSSMq'
         # self.sessionName = 'pruebaguena'
-        self.sessionId = '2023032440HSXHnbFzVca1hRANR3sP'
-        self.sessionName = '40HS'
+        self.sessionId = '20230327testStreaming9wi7Cp65M'
+        self.sessionName = 'testStreaming'
 
     def streamingScreaningAndImport(self):
         self.screeningCollection()
-        self.importMoviesSS()
+        #self.importMoviesSS()
         self.inUse = False
-        print('endStep----------------')
     def screeningCollection(self):
-        if self.Squares == None:
-            print('entra en if*********')
-
-            SOG = SetOfGrids.create(outputPath=self._getPath())
-            SOA = SetOfAtlas.create(outputPath=self._getPath())
-            SOS = SetOfSquares.create(outputPath=self._getPath())
-            SOH = SetOfHoles.create(outputPath=self._getPath())
-            SOG.setStreamState(SOG.STREAM_OPEN)
-            SOG.enableAppend()
-            SOA.setStreamState(SOA.STREAM_OPEN)
-            SOA.enableAppend()
-            SOS.setStreamState(SOS.STREAM_OPEN)
-            SOS.enableAppend()
-            SOH.setStreamState(SOH.STREAM_OPEN)
-            SOH.enableAppend()
-            # DEFINE OUTPUTS
-            self.outputsToDefine = {'Squares': SOS,
-                                    'Atlas': SOA,
-                                    'Grids': SOG,
-                                    'Holes': SOH}
-            self._defineOutputs(**self.outputsToDefine)
-        else:
-            print('entra en else*********')
-            SOG = self.setOfGrids
-            SOA = self.setOfAtlas
-            SOS = self.setOfSquares
-            SOH = self.setOfHoles
-            SOG.setStreamState(SOG.STREAM_OPEN)
-            SOG.enableAppend()
-            SOA.setStreamState(SOA.STREAM_OPEN)
-            SOA.enableAppend()
-            SOS.setStreamState(SOS.STREAM_OPEN)
-            SOS.enableAppend()
-            SOH.setStreamState(SOH.STREAM_OPEN)
-            SOH.enableAppend()
+        SOG = SetOfGrids.create(outputPath=self._getPath())
+        SOA = SetOfAtlas.create(outputPath=self._getPath())
+        SOS = SetOfSquares.create(outputPath=self._getPath())
+        SOH = SetOfHoles.create(outputPath=self._getPath())
+        self.outputsToDefine = {'Squares': SOS,
+                                'Atlas': SOA,
+                                'Grids': SOG,
+                                'Holes': SOH}
+        self._defineOutputs(**self.outputsToDefine)
 
         self._store(SOG)
         self._store(SOA)
         self._store(SOS)
         self._store(SOH)
-
-
         self.connectionClient.screeningCollection(self.dataPath,
                                                   self.sessionId,
                                                   self.sessionName,
                                                   SOG, SOA, SOS, SOH)
-        SOG.setStreamState(SOG.STREAM_CLOSED)
-        SOA.setStreamState(SOA.STREAM_CLOSED)
-        SOS.setStreamState(SOS.STREAM_CLOSED)
-        SOH.setStreamState(SOH.STREAM_CLOSED)
-
         # STORE SQLITE
         SOG.write()
         SOA.write()
@@ -247,14 +213,14 @@ class smartscopeConnection(ProtImport, Protocol):
         self._store(SOH)
 
         # SUMMARY INFO
-        summaryF = self._getPath("summary.txt")
-        summaryF = open(summaryF, "a")
-        summaryF.write("\nSmartscope collecting\n\n" +
-            "{}\tGrids \n".format(len(SOG)) +
-            "{}\tAtlas \n".format(len(SOA)) +
-            "{}\tSquares \n".format(len(SOS)) +
-            "{}\tHoles \n".format(len(SOH)))
-        summaryF.close()
+        summaryF2 = self._getPath("summary2.txt")
+        summaryF2 = open(summaryF2, "w")
+        summaryF2.write("\nSmartscope collecting\n\n" +
+            "\t{}\tGrids \n".format(len(SOG)) +
+            "\t{}\tAtlas \n".format(len(SOA)) +
+            "\t{}\tSquares \n".format(len(SOS)) +
+            "\t{}\tHoles \n".format(len(SOH)))
+        summaryF2.close()
 
 
 
@@ -265,7 +231,7 @@ class smartscopeConnection(ProtImport, Protocol):
             self.outputsToDefine = {'MoviesSS': SOMSS}
             self._defineOutputs(**self.outputsToDefine)
         else:
-            SOMSS = self.setOfMovies
+            SOMSS = self.MoviesSS
         SOMSS.setStreamState(SOMSS.STREAM_OPEN)
         SOMSS.enableAppend()
         self._store(SOMSS)
@@ -315,23 +281,24 @@ class smartscopeConnection(ProtImport, Protocol):
             self._store(SOMSS)
 
         # STORE SQLITE
-        print('Hello')
         SOMSS.setStreamState(SOMSS.STREAM_CLOSED)
         SOMSS.write()
         self._store(SOMSS)
-        print('Hello3')
         # SUMMARY INFO
-        summaryF = self._getPath("summary.txt")
-        summaryF = open(summaryF, "a")
-        summaryF.write("\nSmartscope importing movies\n\n" +
-            "{}\tMovies Smartscope imported\n".format(len(SOMSS)))
-        summaryF.close()
+        summaryF3 = self._getPath("summary3.txt")
+        summaryF3 = open(summaryF3, "w")
+        summaryF3.write("\nSmartscope importing movies\n\n" +
+            "\t{}\tMovies Smartscope imported\n".format(len(SOMSS)))
+        summaryF3.close()
 
     # --------------------------- INFO functions -----------------------------------
     def _summary(self):
         summary = []
 
         summaryF = self._getPath("summary.txt")
+        summaryF2 = self._getPath("summary2.txt")
+        summaryF3 = self._getPath("summary3.txt")
+
         if not os.path.exists(summaryF):
             summary.append("No summary file yet.")
         else:
@@ -339,5 +306,14 @@ class smartscopeConnection(ProtImport, Protocol):
             for line in summaryF.readlines():
                 summary.append(line.rstrip())
             summaryF.close()
-
+        if os.path.exists(summaryF2):
+            summaryF2 = open(summaryF2, "r")
+            for line in summaryF2.readlines():
+                summary.append(line.rstrip())
+            summaryF2.close()
+        if os.path.exists(summaryF3):
+            summaryF3 = open(summaryF3, "r")
+            for line in summaryF3.readlines():
+                summary.append(line.rstrip())
+            summaryF3.close()
         return summary

@@ -107,6 +107,7 @@ class dataCollection():
         numMovies = 0
         grid = self.pyClient.getRouteFromID('grids', 'session', sessionId)
         if grid != []:print('Number grid in the sesison: {}'.format(len(grid)))
+        objId = len(setOfGrids)
         for g in grid:
             gr = Grid()
             gr.setGridId(g['grid_id'])
@@ -126,7 +127,10 @@ class dataCollection():
             gr.setParamsId(g['params_id'])
             gr.setRawDir(dataPath, self.sessionWorkingDir(sessionName))
             gr.setPNGDir(dataPath, self.sessionWorkingDir(sessionName))
+            gr.setObjId(objId)
+            objId += 1
             setOfGrids.append(gr)
+
 
             startAtlas = time.time()
             atlas = self.pyClient.getRouteFromID('atlas', 'grid', gr.getGridId())
@@ -153,6 +157,8 @@ class dataCollection():
                                           str(at.getAtlasName() + '.png')))
                 print('Atlas filename: {}'.format(at.getFileName()))
                 setOfAtlas.append(at)
+                setOfAtlas.update(at)
+                setOfAtlas.write()
 
                 startSquares = time.time()
                 squares = self.pyClient.getRouteFromID('squares', 'atlas', at.getAtlasId())
@@ -180,7 +186,11 @@ class dataCollection():
                                                 str(sq.getName() + '.mrc')))
                     sq.setPngDir(os.path.join(str(gr.getPngDir()),
                                               str(sq.getName() + '.png')))
+
                     setOfSquares.append(sq)
+                    setOfSquares.update(sq)
+                    setOfSquares.write()
+
                     holes = self.pyClient.getRouteFromID('holes', 'square', sq.getSquareId())
                     if holes != []:
                         #print('square name: {}'.format(sq.getName()))
@@ -210,8 +220,8 @@ class dataCollection():
                         ho.setPngDir(os.path.join(str(gr.getPngDir()),
                                                   str(ho.getName() + '.png')))
                         setOfHoles.append(ho)
-
-
+                        setOfHoles.update(ho)
+                        setOfHoles.write()
 
     def windowsPath(self, sessionId):
         session = self.pyClient.getRouteFromID('sessions', 'session', sessionId)
