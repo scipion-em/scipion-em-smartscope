@@ -109,7 +109,6 @@ class smartscopeConnection(ProtImport, Protocol):
         self.setOfHoles = SetOfHoles.create(outputPath=self._getPath())
         self.startTime = time.time()
         self.reStartTime = time.time()
-        self.inUse = False
 
 
     def _insertAllSteps(self):
@@ -141,20 +140,19 @@ class smartscopeConnection(ProtImport, Protocol):
     def _stepsCheck(self):
         delayInit = int(time.time() - self.startTime)
         delay = int(time.time() - self.reStartTime)
-        if self.refreshTime <= delay or self.inUse == False:
-            print('IN-------------------{} <= {}\ninUse: {}'.format(
-                self.refreshTime, delay, self.inUse))
-            self.inUse = True
-            self.reStartTime = time.time()
+
+        if self.TotalTime <= delayInit: #End of the protocol
+            output_step = self._getFirstJoinStep()
+            if output_step and output_step.isWaiting():
+                output_step.setStatus(cons.STATUS_NEW)
+        else:
             new_step_id = self._insertFunctionStep('streamingScreaningAndImport',
                                         prerequisites=[], wait=False)
             self.newSteps.append(new_step_id)
             self.updateSteps()
 
-        elif self.TotalTime <= delayInit: #End of the protocol
-            output_step = self._getFirstJoinStep()
-            if output_step and output_step.isWaiting():
-                output_step.setStatus(cons.STATUS_NEW)
+
+
     def metadataCollection(self):
         self.connectionClient.metadataCollection(self.microscopeList,
                                                  self.detectorList,
@@ -176,13 +174,21 @@ class smartscopeConnection(ProtImport, Protocol):
 
         # self.sessionId = '20230216pruebaguenaQHCyjsBSSMq'
         # self.sessionName = 'pruebaguena'
-        self.sessionId = '20230327testStreaming9wi7Cp65M'
-        self.sessionName = 'testStreaming'
+        self.sessionId = '20230327streamingMoviestrIiUAG'
+        self.sessionName = 'streamingMovies'
 
     def streamingScreaningAndImport(self):
-        self.screeningCollection()
-        #self.importMoviesSS()
-        self.inUse = False
+        delayInit = int(time.time() - self.startTime)
+        while self.TotalTime > delayInit:
+            delayInit = int(time.time() - self.startTime)
+            delay = int(time.time() - self.reStartTime)
+            if self.refreshTime <= delay:
+                self.screeningCollection()
+                self.reStartTime = time.time()
+                print('\n----Lets import----\n')
+
+                self.importMoviesSS()
+
     def screeningCollection(self):
         SOG = SetOfGrids.create(outputPath=self._getPath())
         SOA = SetOfAtlas.create(outputPath=self._getPath())
@@ -194,6 +200,10 @@ class smartscopeConnection(ProtImport, Protocol):
                                 'Holes': SOH}
         self._defineOutputs(**self.outputsToDefine)
 
+        SOG.enableAppend()
+        SOA.enableAppend()
+        SOS.enableAppend()
+        SOH.enableAppend()
         self._store(SOG)
         self._store(SOA)
         self._store(SOS)
@@ -211,7 +221,6 @@ class smartscopeConnection(ProtImport, Protocol):
         self._store(SOA)
         self._store(SOS)
         self._store(SOH)
-
         # SUMMARY INFO
         summaryF2 = self._getPath("summary2.txt")
         summaryF2 = open(summaryF2, "w")
@@ -221,8 +230,6 @@ class smartscopeConnection(ProtImport, Protocol):
             "\t{}\tSquares \n".format(len(SOS)) +
             "\t{}\tHoles \n".format(len(SOH)))
         summaryF2.close()
-
-
 
 
     def importMoviesSS(self):
@@ -237,59 +244,65 @@ class smartscopeConnection(ProtImport, Protocol):
         self._store(SOMSS)
 
         pathMoviesRaw = '/home/agarcia/Documents/Facility_work/smartscope_Data/smartscope_testfiles/movies'
-        allHM = self.pyClient.getDetailsFromParameter('highmag')
+        allHM = self.pyClient.getDetailsFromParameter('highmag')#TODO para todas las sesiones! ACOTAR A LA SESION
+        print('\n----HOLA----\n')
+        print('len(allHM) {} != len(self.MoviesSS) {}'.format(
+            len(allHM), len(self.MoviesSS)))
+        if len(allHM) != len(self.MoviesSS):
+            for hm in allHM:
+                mSS = MovieSS()
+                mSS.setHmId(hm['hm_id'])
+                mSS.setName(hm['name'])
+                mSS.setNumber(hm['number'])
+                mSS.setPixelSize(hm['pixel_size'])
+                mSS.setShapeX(hm['shape_x'])
+                mSS.setShapeY(hm['shape_y'])
+                mSS.setSelected(hm['selected'])
+                mSS.setStatus(hm['status'])
+                mSS.setCompletionTime(hm['completion_time'])
+                mSS.setIsX(hm['is_x'])
+                mSS.setIsY(hm['is_y'])
+                mSS.setOffset(hm['offset'])
+                # mSS.setFrames(hm['frames'])
+                mSS.setDefocus(hm['defocus'])
+                mSS.setAstig(hm['astig'])
+                mSS.setAngast(hm['angast'])
+                mSS.setCtffit(hm['ctffit'])
+                mSS.setGridId(hm['grid_id'])
+                mSS.setHoleId(hm['hole_id'])
+                # mSS.setFrames(self.getFramesNumber(gr, mSS.getName()))
+                # fileName = self.getSubFramePath(gr, mSS.getName())
+                # st = time.time()
+                # if not os.path.isfile(str(fileName)):#parche para visualizar movies fake
+                # print(mSS.getName())
+                fileName = os.path.join(pathMoviesRaw,
+                                        str(mSS.getName() + '.mrcs'))
+                # print('time filename: {}s'.format(time.time() - st))
+                mSS.setFileName(fileName)
+                # acquisition.setMagnification(
+                #     self.getMagnification(gr, mSS.getName()))
+                # acquisition.setDosePerFrame(
+                #     self.getDoseRate(gr, mSS.getName()))
+                mSS.setAcquisition(self.acquisition)
+                # la movie no esta en el raw, sino en la carpeta donde sreialEM escribe
+                SOMSS.append(mSS)
 
-        for hm in allHM:
-            mSS = MovieSS()
-            mSS.setHmId(hm['hm_id'])
-            mSS.setName(hm['name'])
-            mSS.setNumber(hm['number'])
-            mSS.setPixelSize(hm['pixel_size'])
-            mSS.setShapeX(hm['shape_x'])
-            mSS.setShapeY(hm['shape_y'])
-            mSS.setSelected(hm['selected'])
-            mSS.setStatus(hm['status'])
-            mSS.setCompletionTime(hm['completion_time'])
-            mSS.setIsX(hm['is_x'])
-            mSS.setIsY(hm['is_y'])
-            mSS.setOffset(hm['offset'])
-            # mSS.setFrames(hm['frames'])
-            mSS.setDefocus(hm['defocus'])
-            mSS.setAstig(hm['astig'])
-            mSS.setAngast(hm['angast'])
-            mSS.setCtffit(hm['ctffit'])
-            mSS.setGridId(hm['grid_id'])
-            mSS.setHoleId(hm['hole_id'])
-            # mSS.setFrames(self.getFramesNumber(gr, mSS.getName()))
-            # fileName = self.getSubFramePath(gr, mSS.getName())
-            # st = time.time()
-            # if not os.path.isfile(str(fileName)):#parche para visualizar movies fake
-            # print(mSS.getName())
-            fileName = os.path.join(pathMoviesRaw,
-                                    str(mSS.getName() + '.mrcs'))
-            # print('time filename: {}s'.format(time.time() - st))
-            mSS.setFileName(fileName)
-            # acquisition.setMagnification(
-            #     self.getMagnification(gr, mSS.getName()))
-            # acquisition.setDosePerFrame(
-            #     self.getDoseRate(gr, mSS.getName()))
-            mSS.setAcquisition(self.acquisition)
-            # la movie no esta en el raw, sino en la carpeta donde sreialEM escribe
-            SOMSS.append(mSS)
+                SOMSS.write()
+                self._store(SOMSS)
 
+            # STORE SQLITE
+            SOMSS.setStreamState(SOMSS.STREAM_CLOSED)
             SOMSS.write()
             self._store(SOMSS)
 
-        # STORE SQLITE
-        SOMSS.setStreamState(SOMSS.STREAM_CLOSED)
-        SOMSS.write()
-        self._store(SOMSS)
-        # SUMMARY INFO
-        summaryF3 = self._getPath("summary3.txt")
-        summaryF3 = open(summaryF3, "w")
-        summaryF3.write("\nSmartscope importing movies\n\n" +
-            "\t{}\tMovies Smartscope imported\n".format(len(SOMSS)))
-        summaryF3.close()
+            # SUMMARY INFO
+            summaryF3 = self._getPath("summary3.txt")
+            summaryF3 = open(summaryF3, "w")
+            summaryF3.write("\nSmartscope importing movies\n\n" +
+                "\t{}\tMovies Smartscope\n".format(len(SOMSS)))
+            summaryF3.write("len(allHM) {} != len(self.MoviesSS) {}".format(
+            len(allHM), len(self.MoviesSS)))
+            summaryF3.close()
 
     # --------------------------- INFO functions -----------------------------------
     def _summary(self):
