@@ -240,11 +240,11 @@ if __name__ == "__main__":
     #hm = pyClient.getRouteFromID('highmag', 'highmag', 'aaa_square15_hole27_fflyClmoDr', dev=True)
     #hole = pyClient.getRouteFromID('hole', 'hole', 'aaa_square15_hole0Fq2BoTroLv24', dev=True)
 
-    allHM = pyClient.getDetailsFromParameter('highmag')
+    #allHM = pyClient.getDetailsFromParameter('highmag')
     #allHM = pyClient.getRouteFromID('highmag', 'grid', '1autoloaderucI1Nd2F55R0OY5E18g', dev=True)
 
-    print(allHM)
-    print(len(allHM))
+    # print(allHM)
+    # print(len(allHM))
     #session = pyClient.getRouteFromID('sessions', 'session', '20230216pruebaguenaQHCyjsBSSMq')
     # atlas = pyClient.getRouteFromID('atlas', 'grid', '1autoloaderucI1Nd2F55R0OY5E18g')
     #square = pyClient.getRouteFromID('squares', 'atlas', 'aaa_atlas3eITQ1lfEplhiFI73tEGz',detailed=True, selected=True)
@@ -255,6 +255,7 @@ if __name__ == "__main__":
     #pyClient.putSquareAPI(squareID='grid1_square35sxLmmo6CmPOTPkAB')
     #pyClient.putParameterFromID('squares', 'aaa_square436wzJ6ZzSH6oq5Nnr0o', data={"selected": 'true'})
     #pyClient.putParameterFromID('holes', 'aaa_square43_hole612z66b3yBcw9', data={"selected": 'true'})
+    allHM = pyClient.getRouteFromID('highmag','grid_id__session_id', '20230201IreneBSQl7vwE4YGYREBZW', dev=True)  # TODO para todas las sesiones! ACOTAR A LA SESION
 
     '''
     Sesion garciaa en servidor:

@@ -109,6 +109,7 @@ class smartscopeConnection(ProtImport, Protocol):
         self.setOfHoles = SetOfHoles.create(outputPath=self._getPath())
         self.startTime = time.time()
         self.reStartTime = time.time()
+        self.ListMoviesImported = []
 
 
     def _insertAllSteps(self):
@@ -244,11 +245,10 @@ class smartscopeConnection(ProtImport, Protocol):
         self._store(SOMSS)
 
         pathMoviesRaw = '/home/agarcia/Documents/Facility_work/smartscope_Data/smartscope_testfiles/movies'
-        allHM = self.pyClient.getDetailsFromParameter('highmag')#TODO para todas las sesiones! ACOTAR A LA SESION
-        print('\n----HOLA----\n')
+        allHM = self.pyClient.getRouteFromID('highmag', 'grid_id__session_id', self.sessionId)
         print('len(allHM) {} != len(self.MoviesSS) {}'.format(
             len(allHM), len(self.MoviesSS)))
-        if len(allHM) != len(self.MoviesSS):
+        if len(allHM) != len(self.MoviesSS):#the number of movies is known from the beginin
             for hm in allHM:
                 mSS = MovieSS()
                 mSS.setHmId(hm['hm_id'])
@@ -278,17 +278,19 @@ class smartscopeConnection(ProtImport, Protocol):
                 fileName = os.path.join(pathMoviesRaw,
                                         str(mSS.getName() + '.mrcs'))
                 # print('time filename: {}s'.format(time.time() - st))
-                mSS.setFileName(fileName)
-                # acquisition.setMagnification(
-                #     self.getMagnification(gr, mSS.getName()))
-                # acquisition.setDosePerFrame(
-                #     self.getDoseRate(gr, mSS.getName()))
-                mSS.setAcquisition(self.acquisition)
-                # la movie no esta en el raw, sino en la carpeta donde sreialEM escribe
-                SOMSS.append(mSS)
-
-                SOMSS.write()
-                self._store(SOMSS)
+                if os.path.isfile(fileName) and \
+                        mSS.getHmId() not in self.ListMoviesImported:
+                    self.ListMoviesImported.append(mSS.getHmId())
+                    mSS.setFileName(fileName)
+                    # acquisition.setMagnification(
+                    #     self.getMagnification(gr, mSS.getName()))
+                    # acquisition.setDosePerFrame(
+                    #     self.getDoseRate(gr, mSS.getName()))
+                    mSS.setAcquisition(self.acquisition)
+                    # la movie no esta en el raw, sino en la carpeta donde sreialEM escribe
+                    SOMSS.append(mSS)
+                    SOMSS.write()
+                    self._store(SOMSS)
 
             # STORE SQLITE
             SOMSS.setStreamState(SOMSS.STREAM_CLOSED)
@@ -299,7 +301,7 @@ class smartscopeConnection(ProtImport, Protocol):
             summaryF3 = self._getPath("summary3.txt")
             summaryF3 = open(summaryF3, "w")
             summaryF3.write("\nSmartscope importing movies\n\n" +
-                "\t{}\tMovies Smartscope\n".format(len(SOMSS)))
+                "\t{}\tMovies Smartscope\n\n".format(len(SOMSS)))
             summaryF3.write("len(allHM) {} != len(self.MoviesSS) {}".format(
             len(allHM), len(self.MoviesSS)))
             summaryF3.close()
