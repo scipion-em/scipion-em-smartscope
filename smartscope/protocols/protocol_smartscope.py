@@ -48,6 +48,10 @@ class smartscopeConnection(ProtImport, Protocol):
     """
     _label = 'smartscope connection'
     _devStatus = BETA
+    _possibleOutputs = {'Squares': SetOfSquares,
+                        'Atlas': SetOfAtlas,
+                        'Grids': SetOfGrids,
+                        'Holes': SetOfHoles}
     def __init__(self, **args):
         ProtImport.__init__(self, **args)
         self.newSteps = []
