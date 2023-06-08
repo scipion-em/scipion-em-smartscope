@@ -164,9 +164,9 @@ class smartscopeConnection(ProtImport, Protocol):
                                                  self.sessionList,
                                                  self.acquisition)
 
-        MicroNames = [x.getName() for x in self.microscopeList]
-        DetectorNames = [x.getName() for x in self.detectorList]
-        SessionNames = [x.getSession() for x in self.sessionList]
+        MicroNames = ',  '.join([x.getName() for x in self.microscopeList])
+        DetectorNames = ',  '.join([x.getName() for x in self.detectorList])
+        SessionNames = ',  '.join([x.getSession() for x in self.sessionList])
 
         # SUMMARY INFO
         summaryF = self._getPath("summary.txt")
@@ -179,8 +179,8 @@ class smartscopeConnection(ProtImport, Protocol):
 
         # self.sessionId = '20230216pruebaguenaQHCyjsBSSMq'
         # self.sessionName = 'pruebaguena'
-        self.sessionId = '20230327streamingMoviestrIiUAG'
-        self.sessionName = 'streamingMovies'
+        self.sessionId = '202306080_9_1-rc_3_new_2hC7Xjs'
+        self.sessionName = '0.9.1-rc.3_new_2'
 
     def streamingScreaningAndImport(self):
         delayInit = int(time.time() - self.startTime)
@@ -247,13 +247,15 @@ class smartscopeConnection(ProtImport, Protocol):
         SOMSS.setStreamState(SOMSS.STREAM_OPEN)
         SOMSS.enableAppend()
         self._store(SOMSS)
-
-        pathMoviesRaw = '/home/agarcia/Documents/Facility_work/smartscope_Data/smartscope_testfiles/movies'
-        allHM = self.pyClient.getRouteFromID('highmag', 'grid_id__session_id', self.sessionId)
-        print('len(allHM) {} != len(self.MoviesSS) {}'.format(
-            len(allHM), len(self.MoviesSS)))
-        if len(allHM) != len(self.MoviesSS):#the number of movies is known from the beginin
-            for hm in allHM:
+        for gr in self.Grids:
+            self.info('getRawDir: {}'.format(gr.getRawDir()))
+            for hm in self.pyClient.getRouteFromID('highmag', 'grid', gr.getGridId()):
+        # pathMoviesRaw = '/home/agarcia/Documents/Facility_work/smartscope_Data/smartscope_testfiles/highmagframes'
+        # allHM = self.pyClient.getRouteFromID('highmag', 'grid_id__session_id', self.sessionId, dev=True)
+        # print('len(allHM) {} != len(self.MoviesSS) {}'.format(
+        #     len(allHM), len(self.MoviesSS)))
+        # if len(allHM) != len(self.MoviesSS):#the number of movies is known from the beginin
+        #     for hm in allHM:
                 mSS = MovieSS()
                 mSS.setHmId(hm['hm_id'])
                 mSS.setName(hm['name'])
@@ -275,15 +277,16 @@ class smartscopeConnection(ProtImport, Protocol):
                 mSS.setGridId(hm['grid_id'])
                 mSS.setHoleId(hm['hole_id'])
                 # mSS.setFrames(self.getFramesNumber(gr, mSS.getName()))
-                # fileName = self.getSubFramePath(gr, mSS.getName())
+                fileName = self.connectionClient.getSubFramePath(gr, mSS.getHmId())
+                self.info('filename: {}'.format(fileName))
                 # st = time.time()
                 # if not os.path.isfile(str(fileName)):#parche para visualizar movies fake
                 # print(mSS.getName())
-                fileName = os.path.join(pathMoviesRaw,
-                                        str(mSS.getName() + '.mrcs'))
+                # fileName = os.path.join(pathMoviesRaw,
+                #                         str(mSS.getName() + '.mrcs'))
                 # print('time filename: {}s'.format(time.time() - st))
-                if os.path.isfile(fileName) and \
-                        mSS.getHmId() not in self.ListMoviesImported:
+                if fileName and mSS.getHmId() not in self.ListMoviesImported:
+
                     self.ListMoviesImported.append(mSS.getHmId())
                     mSS.setFileName(fileName)
                     # acquisition.setMagnification(
@@ -296,19 +299,19 @@ class smartscopeConnection(ProtImport, Protocol):
                     SOMSS.write()
                     self._store(SOMSS)
 
-            # STORE SQLITE
-            SOMSS.setStreamState(SOMSS.STREAM_CLOSED)
-            SOMSS.write()
-            self._store(SOMSS)
+        # STORE SQLITE
+        SOMSS.setStreamState(SOMSS.STREAM_CLOSED)
+        SOMSS.write()
+        self._store(SOMSS)
 
-            # SUMMARY INFO
-            summaryF3 = self._getPath("summary3.txt")
-            summaryF3 = open(summaryF3, "w")
-            summaryF3.write("\nSmartscope importing movies\n\n" +
-                "\t{}\tMovies Smartscope\n\n".format(len(SOMSS)))
-            summaryF3.write("len(allHM) {} != len(self.MoviesSS) {}".format(
-            len(allHM), len(self.MoviesSS)))
-            summaryF3.close()
+        # SUMMARY INFO
+        summaryF3 = self._getPath("summary3.txt")
+        summaryF3 = open(summaryF3, "w")
+        summaryF3.write("\nSmartscope importing movies\n\n" +
+            "\t{}\tMovies Smartscope\n\n".format(len(SOMSS)))
+        # summaryF3.write("len(allHM) {} != len(self.MoviesSS) {}".format(
+        # len(allHM), len(self.MoviesSS)))
+        summaryF3.close()
 
     # --------------------------- INFO functions -----------------------------------
     def _summary(self):

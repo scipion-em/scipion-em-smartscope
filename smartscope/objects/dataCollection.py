@@ -102,10 +102,8 @@ class dataCollection():
 
     def screeningCollection(self, dataPath, sessionId, sessionName, setOfGrids, setOfAtlas,
                             setOfSquares, setOfHoles):
-        pathMoviesRaw = '/home/agarcia/Documents/Facility_work/smartscope_Data/smartscope_testfiles/movies'
         print('sessionName: {}'.format(sessionName))
-        numMovies = 0
-        grid = self.pyClient.getRouteFromID('grids', 'session', sessionId)
+        grid = self.pyClient.getRouteFromID('grids', 'session', sessionId, dev=True)
         if grid != []:print('Number grid in the sesison: {}'.format(len(grid)))
         objId = len(setOfGrids)
         for g in grid:
@@ -149,11 +147,11 @@ class dataCollection():
                 at.setStatus(a['status'])
                 at.setCompletionTime(a['completion_time'])
                 at.setGridId(a['grid_id'])
-                # at.setFileName(os.path.join(gr.getRawDir(),
+                # at.setFileName(os.path.join(str(gr.getRawDir()),
                 #                             str(at.getAtlasName() + '.mrc')))
-                at.setPngDir(os.path.join(gr.getPngDir(),
+                at.setPngDir(os.path.join(str(gr.getPngDir()),
                                           str(at.getAtlasName() + '.png')))
-                at.setFileName(os.path.join(gr.getPngDir(),
+                at.setFileName(os.path.join(str(gr.getPngDir()),
                                           str(at.getAtlasName() + '.png')))
                 print('Atlas filename: {}'.format(at.getFileName()))
                 setOfAtlas.append(at)
@@ -182,7 +180,7 @@ class dataCollection():
                     sq.setArea(s['area'])
                     sq.setGridId(s['grid_id'])
                     sq.setAtlasId(s['atlas_id'])
-                    sq.setFileName(os.path.join(gr.getRawDir(),
+                    sq.setFileName(os.path.join(str(gr.getRawDir()),
                                                 str(sq.getName() + '.mrc')))
                     sq.setPngDir(os.path.join(str(gr.getPngDir()),
                                               str(sq.getName() + '.png')))
@@ -214,7 +212,7 @@ class dataCollection():
                         ho.setBisType(h['bis_type'])
                         ho.setGridId(h['grid_id'])
                         ho.setSquareId(h['square_id'])
-                        fileName = os.path.join(gr.getRawDir(),
+                        fileName = os.path.join(str(gr.getRawDir()),
                                                 str(ho.getName() + '.mrc'))
                         ho.setFileName(fileName)
                         ho.setPngDir(os.path.join(str(gr.getPngDir()),
@@ -235,12 +233,14 @@ class dataCollection():
         return session[0]['working_dir']
 
     def getMdocFile(self, grid, highMagID):
-        highMag = self.pyClient.getRouteFromID('highmag', 'highmag',highMagID)
-        mdocFile = os.path.join(grid.getRawDir(),
+        highMag = self.pyClient.getRouteFromID('highmag', 'hm', highMagID)
+        mdocFile = os.path.join(str(grid.getRawDir()),
                                 str(highMag[0]['name'] + '.mrc.mdoc'))
         if os.path.isfile(mdocFile):
             return MDoc(mdocFile)
-        else: return False
+        else:
+            print('HM {} not adquired'.format(mdocFile))
+            return False
 
     def getMagnification(self, grid, highMagID):
         mdoc = self.getMdocFile(grid, highMagID)
@@ -265,6 +265,8 @@ class dataCollection():
         if mdoc != False:
             hDict, valueList = mdoc.parseMdoc()
             return valueList[0]['SubFramePath']
+        else:
+            return False
 
 
 

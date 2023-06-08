@@ -255,8 +255,10 @@ if __name__ == "__main__":
     #pyClient.putSquareAPI(squareID='grid1_square35sxLmmo6CmPOTPkAB')
     #pyClient.putParameterFromID('squares', 'aaa_square436wzJ6ZzSH6oq5Nnr0o', data={"selected": 'true'})
     #pyClient.putParameterFromID('holes', 'aaa_square43_hole612z66b3yBcw9', data={"selected": 'true'})
-    allHM = pyClient.getRouteFromID('highmag','grid_id__session_id', '20230201IreneBSQl7vwE4YGYREBZW', dev=True)  # TODO para todas las sesiones! ACOTAR A LA SESION
+    #allHM = pyClient.getRouteFromID('highmag','grid', '1autoloader_08-06-230KCXOyxcQN', dev=True)  # TODO para todas las sesiones! ACOTAR A LA SESION
 
+    hm = pyClient.getRouteFromID('highmag', 'hm', 'autoloader_08-06-23_2bSFBdE1AC', dev=True)
+    print(hm[0]['name']+ '.mrc.mdoc')
     '''
     Sesion garciaa en servidor:
     
