@@ -103,7 +103,7 @@ class dataCollection():
     def screeningCollection(self, dataPath, sessionId, sessionName, setOfGrids, setOfAtlas,
                             setOfSquares, setOfHoles):
         print('sessionName: {}'.format(sessionName))
-        grid = self.pyClient.getRouteFromID('grids', 'session', sessionId, dev=True)
+        grid = self.pyClient.getRouteFromID('grids', 'session', sessionId, dev=False)
         if grid != []:print('Number grid in the sesison: {}'.format(len(grid)))
         objId = len(setOfGrids)
         for g in grid:

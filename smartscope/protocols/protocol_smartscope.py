@@ -38,6 +38,8 @@ from pwem.protocols.protocol_import.base import ProtImport
 from pwem.protocols import EMProtocol
 import pyworkflow.protocol.constants as cons
 from pyworkflow.protocol import ProtStreamingBase
+import pyworkflow.utils as pwutils
+
 from ..objects.data import *
 from pyworkflow.protocol import params, STEPS_PARALLEL
 from ..objects.dataCollection import *
@@ -53,7 +55,8 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
     _possibleOutputs = {'Squares': SetOfSquares,
                         'Atlas': SetOfAtlas,
                         'Grids': SetOfGrids,
-                        'Holes': SetOfHoles}
+                        'Holes': SetOfHoles,
+                        'MoviesSS': SetOfMoviesSS}
     def __init__(self, **args):
         ProtImport.__init__(self, **args)
         self.stepsExecutionMode = STEPS_PARALLEL
@@ -73,6 +76,25 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         """
         # You need a params to belong to a section:
         form.addSection(label=Message.LABEL_INPUT)
+
+
+        form.addParam('inputMovies', params.PointerParam, pointerClass='SetOfMovies',
+                      important=True,
+                      label=pwutils.Message.LABEL_INPUT_MOVS,
+                      help='Select a set of previously imported movies.')
+
+        form.addParam('dataPath', params.StringParam,
+                      default='',
+                      label='Smartscope data path', important=True,
+                      help='Path assigned to the data in the Smartscope installation')
+
+        #
+        # form.addParam('SerialEMDataPath', params.StringParam,
+        #               default='',
+        #               label='SerialEM data path', important=True,
+        #               help='Path to where Serialem will write files')
+
+        form.addSection('Smartscope')
         form.addParam('Authorization', params.StringParam,
                       default='Token ...',
                       label='Authorization token', important=True,
@@ -85,18 +107,8 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                       help='The url to connect to Smartscope.'
                            ' Check the port set up to smartscope in the installation.')
 
-        form.addParam('dataPath', params.StringParam,
-                      default='',
-                      label='Smartscope data path', important=True,
-                      help='Path assigned to the data in the Smartscope installation')
-
-        form.addParam('SerialEMDataPath', params.StringParam,
-                      default='',
-                      label='SerialEM data path', important=True,
-                      help='Path to where Serialem will write files')
-
         form.addSection('Streaming')
-        form.addParam('refreshTime', params.IntParam, default=60,
+        form.addParam('refreshTime', params.IntParam, default=120,
                       label="Time to refresh Smartscope data (secs)" )
         form.addParam('TotalTime', params.IntParam, default=86400,
                       label="Time to finish Smartscope (secs)",
@@ -119,17 +131,23 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             delayInit = int(time.time() - self.startTime)
             self.info('TotalTime: {} delayInit: {}'.format(self.TotalTime,
                                                            delayInit))
+            inputMovies = self.inputMovies.get()
+
             if self.TotalTime <= delayInit:  # End of the protocol
                 break
             else:
-                self.info('steps...')
                 metadataCollection = self._insertFunctionStep(self.metadataCollection,
-                                                              prerequisites=[])
+                                        prerequisites=[])
                 screeningCollection = self._insertFunctionStep(self.screeningCollection,
                                           prerequisites=[metadataCollection])
-                self._insertFunctionStep(self.streamingScreaningAndImport,
+                self._insertFunctionStep(self.importMoviesSS, inputMovies,
                                          prerequisites=[screeningCollection])
-            time.sleep(20)
+
+            if not inputMovies.isStreamOpen():
+                self.info('Not more movies are expected; input setOfMovies closed')
+                break
+
+            time.sleep(self.refreshTime)
 
 
     def _initialize(self):
@@ -203,9 +221,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
     #                                     prerequisites=[], wait=False)
     #         self.newSteps.append(new_step_id)
     #         self.updateSteps()
-
-
-
     def metadataCollection(self):
         self.connectionClient.metadataCollection(self.microscopeList,
                                                  self.detectorList,
@@ -229,18 +244,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         # self.sessionName = 'pruebaguena'
         self.sessionId = '2023060909-06-23_0qnYenlrA9mgn'
         self.sessionName = '09-06-23_0'
-
-    def streamingScreaningAndImport(self):
-        delayInit = int(time.time() - self.startTime)
-        while self.TotalTime > delayInit:
-            delayInit = int(time.time() - self.startTime)
-            delay = int(time.time() - self.reStartTime)
-            if self.refreshTime <= delay:
-                self.screeningCollection()
-                self.reStartTime = time.time()
-                print('\n----Lets import----\n')
-
-                self.importMoviesSS()
 
     def screeningCollection(self):
         self.outputsToDefine = {'Squares': self.SOS,
@@ -282,77 +285,92 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         summaryF2.close()
 
 
-    def importMoviesSS(self):
+    def importMoviesSS(self, inputMovies):
+        moviesToAdd = []
+        moviesAPI = []
+
+        # Match movies from the API and from the output of the protocol
         if self.MoviesSS == None:
             SOMSS = SetOfMoviesSS.create(outputPath=self._getPath())
             self.outputsToDefine = {'MoviesSS': SOMSS}
             self._defineOutputs(**self.outputsToDefine)
         else:
             SOMSS = self.MoviesSS
+
+        for gr in self.Grids:
+            self.info('GRID')
+            dictMAPI = self.pyClient.getRouteFromID('highmag', 'grid', gr.getGridId())
+            for m in dictMAPI:
+                moviesAPI.append(m)
+        if not SOMSS:
+            moviesToAdd = moviesAPI
+        else:
+            for mAPI in moviesAPI:
+                for mSS in SOMSS:
+                    if not mAPI['frames'] in mSS.getFrames():
+                        moviesToAdd.append(mAPI)
+
+        #Match movies to add and movies from importMovies protocol
+        self.info('\n\nmoviesAPI: {}\nmoviesToAdd: {}'.format(len(moviesAPI), len(moviesToAdd)))
+        if moviesToAdd:
+            if inputMovies is None:
+                self.info('Set of movies from import movies protocol empty')
+                return
+            else:
+                for mAPI in moviesToAdd:
+                    for mImport in inputMovies:
+                        if mAPI['frames'] == os.path.basename(mImport.getFileName()):
+                            self.info('movie: {} will be added'.format(mAPI['frames']))
+                            self.addMovieSS(SOMSS, mImport, mAPI)
+
+            # SUMMARY INFO
+            summaryF3 = self._getPath("summary3.txt")
+            summaryF3 = open(summaryF3, "w")
+            summaryF3.write("\nSmartscope importing movies\n\n" +
+                            "\t{}\tMovies Smartscope\n\n".format(len(SOMSS)))
+            summaryF3.close()
+        else:
+            self.info('All movies from the Smartscope Api were imported. '
+                      'See the output of the protocol')
+
+
+    def addMovieSS(self, SOMSS, movieImport, movieSS):
         SOMSS.setStreamState(SOMSS.STREAM_OPEN)
         SOMSS.enableAppend()
         self._store(SOMSS)
-        self.info('self.ListMoviesImported: {}'.format(self.ListMoviesImported))
-        for gr in self.Grids:
-            for hm in self.pyClient.getRouteFromID('highmag', 'grid', gr.getGridId()):
-                mSS = MovieSS()
-                mSS.setHmId(hm['hm_id'])
-                mSS.setName(hm['name'])
-                mSS.setNumber(hm['number'])
-                mSS.setPixelSize(hm['pixel_size'])
-                mSS.setShapeX(hm['shape_x'])
-                mSS.setShapeY(hm['shape_y'])
-                mSS.setSelected(hm['selected'])
-                mSS.setStatus(hm['status'])
-                mSS.setCompletionTime(hm['completion_time'])
-                mSS.setIsX(hm['is_x'])
-                mSS.setIsY(hm['is_y'])
-                mSS.setOffset(hm['offset'])
-                mSS.setFrames(hm['frames'])
-                mSS.setDefocus(hm['defocus'])
-                mSS.setAstig(hm['astig'])
-                mSS.setAngast(hm['angast'])
-                mSS.setCtffit(hm['ctffit'])
-                mSS.setGridId(hm['grid_id'])
-                mSS.setHoleId(hm['hole_id'])
-                # mSS.setFrames(self.getFramesNumber(gr, mSS.getName()))
-                #fileName = self.connectionClient.getSubFramePath(gr, mSS.getHmId())
-                moviePath = os.path.join(str(self.SerialEMDataPath), 'highmagframes', str(mSS.getFrames()))
-                self.info('moviePath: {}'.format(moviePath))
-                # st = time.time()
-                # if not os.path.isfile(str(fileName)):#parche para visualizar movies fake
-                # print(mSS.getName())
-                # fileName = os.path.join(pathMoviesRaw,
-                #                         str(mSS.getName() + '.mrcs'))
-                # print('time filename: {}s'.format(time.time() - st))
-                if os.path.isfile(moviePath) and mSS.getHmId() not in self.ListMoviesImported:
-                    self.info('appending movie: {}'.format(moviePath))
-                    self.ListMoviesImported.append(mSS.getHmId())
-                    mSS.setFileName(mSS.getFrames())
 
-                    # acquisition.setMagnification(
-                    #     self.getMagnification(gr, mSS.getName()))
-                    # acquisition.setDosePerFrame(
-                    #     self.getDoseRate(gr, mSS.getName()))
-                    mSS.setAcquisition(self.acquisition)
-                    # la movie no esta en el raw, sino en la carpeta donde sreialEM escribe
-                    SOMSS.append(mSS)
-                    SOMSS.write()
-                    self._store(SOMSS)
+        movie2Add = MovieSS()
+        movie2Add.copy(movieImport)
+
+        movie2Add.setHmId(movieSS['hm_id'])
+        movie2Add.setName(movieSS['name'])
+        movie2Add.setNumber(movieSS['number'])
+        movie2Add.setPixelSize(movieSS['pixel_size'])
+        movie2Add.setShapeX(movieSS['shape_x'])
+        movie2Add.setShapeY(movieSS['shape_y'])
+        movie2Add.setSelected(movieSS['selected'])
+        movie2Add.setStatus(movieSS['status'])
+        movie2Add.setCompletionTime(movieSS['completion_time'])
+        movie2Add.setIsX(movieSS['is_x'])
+        movie2Add.setIsY(movieSS['is_y'])
+        movie2Add.setOffset(movieSS['offset'])
+        movie2Add.setFrames(movieSS['frames'])
+        movie2Add.setDefocus(movieSS['defocus'])
+        movie2Add.setAstig(movieSS['astig'])
+        movie2Add.setAngast(movieSS['angast'])
+        movie2Add.setCtffit(movieSS['ctffit'])
+        movie2Add.setGridId(movieSS['grid_id'])
+        movie2Add.setHoleId(movieSS['hole_id'])
+
+        SOMSS.append(movie2Add)
+        SOMSS.write()
+        self._store(SOMSS)
 
         # STORE SQLITE
         SOMSS.setStreamState(SOMSS.STREAM_CLOSED)
         SOMSS.write()
         self._store(SOMSS)
 
-        # SUMMARY INFO
-        summaryF3 = self._getPath("summary3.txt")
-        summaryF3 = open(summaryF3, "w")
-        summaryF3.write("\nSmartscope importing movies\n\n" +
-            "\t{}\tMovies Smartscope\n\n".format(len(SOMSS)))
-        # summaryF3.write("len(allHM) {} != len(self.MoviesSS) {}".format(
-        # len(allHM), len(self.MoviesSS)))
-        summaryF3.close()
 
     # --------------------------- INFO functions -----------------------------------
     def _summary(self):
