@@ -35,13 +35,15 @@ from pyworkflow.protocol import Protocol, params, Integer
 from pyworkflow.utils import Message
 from pyworkflow import BETA, UPDATED, NEW, PROD
 from pwem.protocols.protocol_import.base import ProtImport
+from pwem.protocols import EMProtocol
 import pyworkflow.protocol.constants as cons
+from pyworkflow.protocol import ProtStreamingBase
 from ..objects.data import *
 from pyworkflow.protocol import params, STEPS_PARALLEL
 from ..objects.dataCollection import *
 import time
 
-class smartscopeConnection(ProtImport, Protocol):
+class smartscopeConnection(ProtImport, ProtStreamingBase):
     """
     This protocol will print hello world in the console
     IMPORTANT: Classes names should be unique, better prefix them
@@ -54,6 +56,7 @@ class smartscopeConnection(ProtImport, Protocol):
                         'Holes': SetOfHoles}
     def __init__(self, **args):
         ProtImport.__init__(self, **args)
+        self.stepsExecutionMode = STEPS_PARALLEL
         self.newSteps = []
         self.Squares = None
         self.Atlas = None
@@ -87,6 +90,11 @@ class smartscopeConnection(ProtImport, Protocol):
                       label='Smartscope data path', important=True,
                       help='Path assigned to the data in the Smartscope installation')
 
+        form.addParam('SerialEMDataPath', params.StringParam,
+                      default='',
+                      label='SerialEM data path', important=True,
+                      help='Path to where Serialem will write files')
+
         form.addSection('Streaming')
         form.addParam('refreshTime', params.IntParam, default=60,
                       label="Time to refresh Smartscope data (secs)" )
@@ -95,8 +103,35 @@ class smartscopeConnection(ProtImport, Protocol):
                       help='Time from the begining ot the protocol to '
                            'the end of the acquisicion. By default 1 day (86400 secs)')
 
+        form.addParallelSection(threads=3, mpi=1)
+
 
     # --------------------------- STEPS functions ------------------------------
+    def stepsGeneratorStep(self):
+        """
+        This step should be implemented by any streaming protocol.
+        It should check its input and when ready conditions are met
+        call the self._insertFunctionStep method.
+        """
+        self._initialize()
+
+        while True:
+            delayInit = int(time.time() - self.startTime)
+            self.info('TotalTime: {} delayInit: {}'.format(self.TotalTime,
+                                                           delayInit))
+            if self.TotalTime <= delayInit:  # End of the protocol
+                break
+            else:
+                self.info('steps...')
+                metadataCollection = self._insertFunctionStep(self.metadataCollection,
+                                                              prerequisites=[])
+                screeningCollection = self._insertFunctionStep(self.screeningCollection,
+                                          prerequisites=[metadataCollection])
+                self._insertFunctionStep(self.streamingScreaningAndImport,
+                                         prerequisites=[screeningCollection])
+            time.sleep(20)
+
+
     def _initialize(self):
         #self.pyClient = MainPyClient(self.Authorization, self.endpoint)
         self.pyClient = MainPyClient(
@@ -107,54 +142,67 @@ class smartscopeConnection(ProtImport, Protocol):
         self.microscopeList = [] #list of microscope Scipion object
         self.detectorList = [] #list of detector Scipion object
         self.sessionList = []#list of sessions Scipion object
-        self.setOfGrids = SetOfGrids.create(outputPath=self._getPath())
-        self.setOfAtlas = SetOfAtlas.create(outputPath=self._getPath())
-        self.setOfSquares = SetOfSquares.create(outputPath=self._getPath())
-        self.setOfHoles = SetOfHoles.create(outputPath=self._getPath())
+        if self.Grids is None:
+            self.SOG = SetOfGrids.create(outputPath=self._getPath())
+        else:
+            self.SOG = self.Grids
+        if self.Atlas is None:
+            self.SOA = SetOfAtlas.create(outputPath=self._getPath())
+        else:
+            self.SOA = self.Atlas
+        if self.Squares is None:
+            self.SOS = SetOfSquares.create(outputPath=self._getPath())
+        else:
+            self.SOA = self.Squares
+        if self.Holes is None:
+            self.SOH = SetOfHoles.create(outputPath=self._getPath())
+        else:
+            self.SOH = self.Holes
+
         self.startTime = time.time()
         self.reStartTime = time.time()
         self.ListMoviesImported = []
 
+    #
+    # def _insertAllSteps(self):
+    #     # Insert processing steps
+    #     self._insertFunctionStep(self._initialize)
+    #     self._insertFunctionStep(self.metadataCollection)
+    #     self.CloseStep_ID = self._insertFunctionStep('closeSet',
+    #                                                  prerequisites=[],
+    #                                                  wait=True)
+    #     self.newSteps.append(self.CloseStep_ID)
+    #
+    # def closeSet(self):
+    #     pass
+    #
+    # def _getFirstJoinStep(self):
+    #     for s in self._steps:
+    #         if s.funcName == self._getFirstJoinStepName():
+    #             return s
+    #     return None
+    #
+    # def _getFirstJoinStepName(self):
+    #     # This function will be used for streaming, to check which is
+    #     # the first function that need to wait for all micrographs
+    #     # to have completed, this can be overwritten in subclasses
+    #     # (eg in Xmipp 'sortPSDStep')
+    #     return 'closeSet'
+    #
 
-    def _insertAllSteps(self):
-        # Insert processing steps
-        self._insertFunctionStep(self._initialize)
-        self._insertFunctionStep(self.metadataCollection)
-        self.CloseStep_ID = self._insertFunctionStep('closeSet',
-                                                     prerequisites=[],
-                                                     wait=True)
-        self.newSteps.append(self.CloseStep_ID)
-
-    def closeSet(self):
-        pass
-
-    def _getFirstJoinStep(self):
-        for s in self._steps:
-            if s.funcName == self._getFirstJoinStepName():
-                return s
-        return None
-
-    def _getFirstJoinStepName(self):
-        # This function will be used for streaming, to check which is
-        # the first function that need to wait for all micrographs
-        # to have completed, this can be overwritten in subclasses
-        # (eg in Xmipp 'sortPSDStep')
-        return 'closeSet'
-
-
-    def _stepsCheck(self):
-        delayInit = int(time.time() - self.startTime)
-        delay = int(time.time() - self.reStartTime)
-
-        if self.TotalTime <= delayInit: #End of the protocol
-            output_step = self._getFirstJoinStep()
-            if output_step and output_step.isWaiting():
-                output_step.setStatus(cons.STATUS_NEW)
-        else:
-            new_step_id = self._insertFunctionStep('streamingScreaningAndImport',
-                                        prerequisites=[], wait=False)
-            self.newSteps.append(new_step_id)
-            self.updateSteps()
+    # def _stepsCheck(self):
+    #     delayInit = int(time.time() - self.startTime)
+    #     delay = int(time.time() - self.reStartTime)
+    #
+    #     if self.TotalTime <= delayInit: #End of the protocol
+    #         output_step = self._getFirstJoinStep()
+    #         if output_step and output_step.isWaiting():
+    #             output_step.setStatus(cons.STATUS_NEW)
+    #     else:
+    #         new_step_id = self._insertFunctionStep('streamingScreaningAndImport',
+    #                                     prerequisites=[], wait=False)
+    #         self.newSteps.append(new_step_id)
+    #         self.updateSteps()
 
 
 
@@ -179,8 +227,8 @@ class smartscopeConnection(ProtImport, Protocol):
 
         # self.sessionId = '20230216pruebaguenaQHCyjsBSSMq'
         # self.sessionName = 'pruebaguena'
-        self.sessionId = '202306080_9_1-rc_3_new_2hC7Xjs'
-        self.sessionName = '0.9.1-rc.3_new_2'
+        self.sessionId = '2023060909-06-23_0qnYenlrA9mgn'
+        self.sessionName = '09-06-23_0'
 
     def streamingScreaningAndImport(self):
         delayInit = int(time.time() - self.startTime)
@@ -195,45 +243,42 @@ class smartscopeConnection(ProtImport, Protocol):
                 self.importMoviesSS()
 
     def screeningCollection(self):
-        SOG = SetOfGrids.create(outputPath=self._getPath())
-        SOA = SetOfAtlas.create(outputPath=self._getPath())
-        SOS = SetOfSquares.create(outputPath=self._getPath())
-        SOH = SetOfHoles.create(outputPath=self._getPath())
-        self.outputsToDefine = {'Squares': SOS,
-                                'Atlas': SOA,
-                                'Grids': SOG,
-                                'Holes': SOH}
+        self.outputsToDefine = {'Squares': self.SOS,
+                                'Atlas': self.SOA,
+                                'Grids': self.SOG,
+                                'Holes': self.SOH}
         self._defineOutputs(**self.outputsToDefine)
 
-        SOG.enableAppend()
-        SOA.enableAppend()
-        SOS.enableAppend()
-        SOH.enableAppend()
-        self._store(SOG)
-        self._store(SOA)
-        self._store(SOS)
-        self._store(SOH)
+        self.SOG.enableAppend()
+        self.SOA.enableAppend()
+        self.SOS.enableAppend()
+        self.SOH.enableAppend()
+        self._store(self.SOG)
+        self._store(self.SOA)
+        self._store(self.SOS)
+        self._store(self.SOH)
         self.connectionClient.screeningCollection(self.dataPath,
                                                   self.sessionId,
                                                   self.sessionName,
-                                                  SOG, SOA, SOS, SOH)
+                                                  self.SOG, self.SOA,
+                                                  self.SOS, self.SOH)
         # STORE SQLITE
-        SOG.write()
-        SOA.write()
-        SOS.write()
-        SOH.write()
-        self._store(SOG)
-        self._store(SOA)
-        self._store(SOS)
-        self._store(SOH)
+        self.SOG.write()
+        self.SOA.write()
+        self.SOS.write()
+        self.SOH.write()
+        self._store(self.SOG)
+        self._store(self.SOA)
+        self._store(self.SOS)
+        self._store(self.SOH)
         # SUMMARY INFO
         summaryF2 = self._getPath("summary2.txt")
         summaryF2 = open(summaryF2, "w")
         summaryF2.write("\nSmartscope collecting\n\n" +
-            "\t{}\tGrids \n".format(len(SOG)) +
-            "\t{}\tAtlas \n".format(len(SOA)) +
-            "\t{}\tSquares \n".format(len(SOS)) +
-            "\t{}\tHoles \n".format(len(SOH)))
+            "\t{}\tGrids \n".format(len(self.SOG)) +
+            "\t{}\tAtlas \n".format(len(self.SOA)) +
+            "\t{}\tSquares \n".format(len(self.SOS)) +
+            "\t{}\tHoles \n".format(len(self.SOH)))
         summaryF2.close()
 
 
@@ -247,15 +292,9 @@ class smartscopeConnection(ProtImport, Protocol):
         SOMSS.setStreamState(SOMSS.STREAM_OPEN)
         SOMSS.enableAppend()
         self._store(SOMSS)
+        self.info('self.ListMoviesImported: {}'.format(self.ListMoviesImported))
         for gr in self.Grids:
-            self.info('getRawDir: {}'.format(gr.getRawDir()))
             for hm in self.pyClient.getRouteFromID('highmag', 'grid', gr.getGridId()):
-        # pathMoviesRaw = '/home/agarcia/Documents/Facility_work/smartscope_Data/smartscope_testfiles/highmagframes'
-        # allHM = self.pyClient.getRouteFromID('highmag', 'grid_id__session_id', self.sessionId, dev=True)
-        # print('len(allHM) {} != len(self.MoviesSS) {}'.format(
-        #     len(allHM), len(self.MoviesSS)))
-        # if len(allHM) != len(self.MoviesSS):#the number of movies is known from the beginin
-        #     for hm in allHM:
                 mSS = MovieSS()
                 mSS.setHmId(hm['hm_id'])
                 mSS.setName(hm['name'])
@@ -269,7 +308,7 @@ class smartscopeConnection(ProtImport, Protocol):
                 mSS.setIsX(hm['is_x'])
                 mSS.setIsY(hm['is_y'])
                 mSS.setOffset(hm['offset'])
-                # mSS.setFrames(hm['frames'])
+                mSS.setFrames(hm['frames'])
                 mSS.setDefocus(hm['defocus'])
                 mSS.setAstig(hm['astig'])
                 mSS.setAngast(hm['angast'])
@@ -277,18 +316,20 @@ class smartscopeConnection(ProtImport, Protocol):
                 mSS.setGridId(hm['grid_id'])
                 mSS.setHoleId(hm['hole_id'])
                 # mSS.setFrames(self.getFramesNumber(gr, mSS.getName()))
-                fileName = self.connectionClient.getSubFramePath(gr, mSS.getHmId())
-                self.info('filename: {}'.format(fileName))
+                #fileName = self.connectionClient.getSubFramePath(gr, mSS.getHmId())
+                moviePath = os.path.join(str(self.SerialEMDataPath), 'highmagframes', str(mSS.getFrames()))
+                self.info('moviePath: {}'.format(moviePath))
                 # st = time.time()
                 # if not os.path.isfile(str(fileName)):#parche para visualizar movies fake
                 # print(mSS.getName())
                 # fileName = os.path.join(pathMoviesRaw,
                 #                         str(mSS.getName() + '.mrcs'))
                 # print('time filename: {}s'.format(time.time() - st))
-                if fileName and mSS.getHmId() not in self.ListMoviesImported:
-
+                if os.path.isfile(moviePath) and mSS.getHmId() not in self.ListMoviesImported:
+                    self.info('appending movie: {}'.format(moviePath))
                     self.ListMoviesImported.append(mSS.getHmId())
-                    mSS.setFileName(fileName)
+                    mSS.setFileName(mSS.getFrames())
+
                     # acquisition.setMagnification(
                     #     self.getMagnification(gr, mSS.getName()))
                     # acquisition.setDosePerFrame(
@@ -339,3 +380,10 @@ class smartscopeConnection(ProtImport, Protocol):
                 summary.append(line.rstrip())
             summaryF3.close()
         return summary
+
+
+    def _validate(self):
+        errors = []
+        self._validateThreads(errors)
+
+        return errors

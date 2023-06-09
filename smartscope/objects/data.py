@@ -864,7 +864,7 @@ class MovieSS(Movie):
         self._is_x = Float()
         self._is_y = Float()
         self._offset = Float()
-        self._frames = Float()
+        self._frames = String()
         self._defocus = Float()
         self._astig = Float()
         self._angast = Float()
