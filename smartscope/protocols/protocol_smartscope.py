@@ -171,7 +171,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         if self.Squares is None:
             self.SOS = SetOfSquares.create(outputPath=self._getPath())
         else:
-            self.SOA = self.Squares
+            self.SOS = self.Squares
         if self.Holes is None:
             self.SOH = SetOfHoles.create(outputPath=self._getPath())
         else:
@@ -233,7 +233,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
         # SUMMARY INFO
         summaryF = self._getPath("summary.txt")
-        summaryF = open(summaryF, "a")
+        summaryF = open(summaryF, "w")
         summaryF.write("Smartscope Screening\n\n" +
             "\t{} Microscopes: {}\n".format(len(self.microscopeList), MicroNames) +
             "\t{} Detectors: {}\n".format(len(self.detectorList), DetectorNames) +
@@ -288,6 +288,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
     def importMoviesSS(self, inputMovies):
         moviesToAdd = []
         moviesAPI = []
+        moviesImported = []
 
         # Match movies from the API and from the output of the protocol
         if self.MoviesSS == None:
@@ -298,17 +299,16 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             SOMSS = self.MoviesSS
 
         for gr in self.Grids:
-            self.info('GRID')
             dictMAPI = self.pyClient.getRouteFromID('highmag', 'grid', gr.getGridId())
             for m in dictMAPI:
                 moviesAPI.append(m)
-        if not SOMSS:
-            moviesToAdd = moviesAPI
-        else:
-            for mAPI in moviesAPI:
-                for mSS in SOMSS:
-                    if not mAPI['frames'] in mSS.getFrames():
-                        moviesToAdd.append(mAPI)
+
+        ImportM = [m.getFrames() for m in SOMSS]
+        for mAPI in moviesAPI:
+            if mAPI['frames'] not in ImportM:
+                moviesToAdd.append(mAPI)
+                break
+
 
         #Match movies to add and movies from importMovies protocol
         self.info('\n\nmoviesAPI: {}\nmoviesToAdd: {}'.format(len(moviesAPI), len(moviesToAdd)))
@@ -317,11 +317,12 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                 self.info('Set of movies from import movies protocol empty')
                 return
             else:
-                for mAPI in moviesToAdd:
-                    for mImport in inputMovies:
+                for mImport in inputMovies:
+                    for mAPI in moviesToAdd:
                         if mAPI['frames'] == os.path.basename(mImport.getFileName()):
-                            self.info('movie: {} will be added'.format(mAPI['frames']))
+                            self.info('Movie to add: {}'.format(mAPI['frames']))
                             self.addMovieSS(SOMSS, mImport, mAPI)
+                            break
 
             # SUMMARY INFO
             summaryF3 = self._getPath("summary3.txt")
