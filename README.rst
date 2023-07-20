@@ -36,4 +36,4 @@ Once you edit the scipion.conf please save it and run *scipion config*
 
 Protocols
 ---------
-protocol_import_atlas
+smartscope connection
