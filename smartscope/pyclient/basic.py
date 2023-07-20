@@ -6,16 +6,11 @@ DETAILED = 'detailed'
 
 class MainPyClient():
 
-    def __init__(self,
-                 Authorization='Token 136737181feb270a1bc4120b19d5440b2f697c94',
-                 endpoint='http://localhost:48000/api/'):
+    def __init__(self, Authorization, endpoint):
         #self._headers = {'Authorization': 'Token 2aacc9f9fceb89117ae61b9dc0b5ad84901e28e3'}#Tocken de Servidor
-        self._headers = {'Authorization': Authorization}#Token @pavlov (alberto)
-        #self._main_endpoint = 'https://dev.smartscope.org/api/'
+        self._headers = {'Authorization': f'Token {Authorization}'}
         self._main_endpoint = endpoint
-        self._current_endpoint = self._main_endpoint # No se si me convence esto
-        # self._urlsDict = self._getAllEndpoints()
-        # self._keys = self._urlsDict.keys()
+        self._current_endpoint = self._main_endpoint
 
     def getHeaders(self):
         return self._headers
@@ -88,12 +83,15 @@ class MainPyClient():
 
 
 ##COMMUNICATION
-    def getDetailsFromParameter(self, route):
+    def getDetailsFromParameter(self, route, dev=False):
         response = []
         request = f'{self.getMainEndpoint()}{route}/?'
         #print(f'Requested url: {request}')
         resp = requests.get(request, headers=self.getHeaders(), verify=False)
+        if dev==True: print(f'Requested url: {request}')
         resp_jason = resp.json()
+        if dev==True: print(f'Response: {resp_jason}')
+
         page_response = resp_jason['results']
         response.extend(page_response)
 

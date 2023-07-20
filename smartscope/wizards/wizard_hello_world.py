@@ -5,23 +5,11 @@ from smartscope.protocols import smartscopeConnection
 
 class smartscopeWizard(Wizard):
     # Dictionary to target protocol parameters
-    _targets = [(smartscopeConnection, ['message'])]
+    _targets = [(smartscopeConnection, ['sessionId'])]
 
     def show(self, form, *params):
-
-        # This are the greetings:
-        greetings = [String("Hello world"), String("Hola mundo"),
-                     String("Bonjour le monde"), String("Hallo Welt"),
-                     String("Kon'nichiwa sekai"), String("Nǐ hǎo, shìjiè"),
-                     String("Ciao mondo"), String("Hallo Wereld"),
-                     String("Privet, mir")]
-
-        # Get a data provider from the greetings to be used in the tree (dialog)
-        provider = ListTreeProviderString(greetings)
-
-        # Show the dialog
-        dlg = dialog.ListDialog(form.root, "Greetings from the world", provider,
-                                "Select one of the greetings)")
+        protocol = form.protocol
+        sessionList = protocol.sessionListCollection() # COJO LO QUE QUIERO
 
         # Set the chosen value back to the form
-        form.setVar('message', dlg.values[0].get())
+        form.setVar('sessionId','') #elemento de la lista seleccionado)

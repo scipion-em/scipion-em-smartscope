@@ -43,6 +43,22 @@ class dataCollection():
     def __init__(self, pyClient):
         self.pyClient = pyClient
 
+    def sessionCollection(self):
+        sessionList = []
+        Sessions = self.pyClient.getDetailsFromParameter('sessions')
+        for s in Sessions:
+            ses = Session()
+            ses.setSessionId(s['session_id'])
+            ses.setSession(s['session'])
+            ses.setDate(s['date'])
+            ses.setVersion(s['version'])
+            ses.setWorkingDir(s['working_dir'])
+            ses.setGroup(s['group'])
+            ses.setMicroscopeId(s['microscope_id'])
+            ses.setDetectorId(s['detector_id'])
+            sessionList.append(ses)
+        return sessionList
+
     def metadataCollection(self, microscopeList, detectorList, sessionList, acquisition):
         microscopes = self.pyClient.getDetailsFromParameter('microscopes')
         for m in microscopes:
