@@ -39,11 +39,13 @@ from pwem.protocols import EMProtocol
 import pyworkflow.protocol.constants as cons
 from pyworkflow.protocol import ProtStreamingBase
 import pyworkflow.utils as pwutils
+from smartscope import Plugin
 
 from ..objects.data import *
 from pyworkflow.protocol import params, STEPS_PARALLEL
 from ..objects.dataCollection import *
 import time
+from ..constants import *
 
 class smartscopeConnection(ProtImport, ProtStreamingBase):
     """
@@ -83,29 +85,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                       label=pwutils.Message.LABEL_INPUT_MOVS,
                       help='Select a set of previously imported movies.')
 
-        form.addParam('dataPath', params.StringParam,
-                      default='',
-                      label='Smartscope data path', important=True,
-                      help='Path assigned to the data in the Smartscope installation')
-
-        #
-        # form.addParam('SerialEMDataPath', params.StringParam,
-        #               default='',
-        #               label='SerialEM data path', important=True,
-        #               help='Path to where Serialem will write files')
-
-        form.addSection('Smartscope')
-        form.addParam('Authorization', params.StringParam,
-                      default='Token ...',
-                      label='Authorization token', important=True,
-                      help='Provide the authorization token to communicate to Smartscope'
-                           'Token xxxxc9f9fceb89117ae61b9dc0b5adxxxxxxxxxxxx')
-
-        form.addParam('endpoint', params.StringParam,
-                      default='http://localhost:48000/api/',
-                      label='endpoint', important=True,
-                      help='The url to connect to Smartscope.'
-                           ' Check the port set up to smartscope in the installation.')
 
         form.addSection('Streaming')
         form.addParam('refreshTime', params.IntParam, default=120,
@@ -152,6 +131,10 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
     def _initialize(self):
         #self.pyClient = MainPyClient(self.Authorization, self.endpoint)
+        self.Authorization = Plugin.getVar(SMARTSCOPE_TOKEN)
+        self.endpoint = Plugin.getVar(SMARTSCOPE_LOCALHOST)
+        self.dataPath = Plugin.getVar(SMARTSCOPE_DATA_SESSION_PATH)
+
         self.pyClient = MainPyClient(
             'Token 136737181feb270a1bc4120b19d5440b2f697c94',
             'http://localhost:48000/api/')
@@ -342,6 +325,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
         movie2Add = MovieSS()
         movie2Add.copy(movieImport)
+
 
         movie2Add.setHmId(movieSS['hm_id'])
         movie2Add.setName(movieSS['name'])
