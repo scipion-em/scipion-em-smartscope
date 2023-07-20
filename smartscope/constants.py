@@ -26,24 +26,6 @@
 # *
 # **************************************************************************
 
-
-from pwem.viewers.viewers_data import DataViewer
-from ..objects.data_deprecated import *
-from ..objects.data import *
-from pwem.viewers import DataView, ObjectView
-from pwem.viewers.showj import ORDER, VISIBLE, MODE, RENDER, MODE_MD, ZOOM
-
-class DataViewer_cnb(DataViewer):
-    _targets = [SetOfLowMagImages]
-
-    def _visualize(self, obj, **kwargs):
-        self._views.append(DataView(obj.getFileName()))
-        return self._views
-
-
-class DataViewer_smartscope(DataViewer):
-    _targets = [SetOfGrids, SetOfAtlas, SetOfSquares, SetOfHoles, SetOfMoviesSS]
-
-    def _visualize(self, obj, **kwargs):
-        self._views.append(DataView(obj.getFileName()))
-        return self._views
+SMARTSCOPE_TOKEN = 'SMARTSCOPE_TOKEN'
+SMARTSCOPE_LOCALHOST = 'SMARTSCOPE_LOCALHOST'
+SMARTSCOPE_DATA_SESSION_PATH = 'SMARTSCOPE_DATA_SESSION_PATH'

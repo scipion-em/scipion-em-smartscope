@@ -233,7 +233,7 @@ if __name__ == "__main__":
     # metadataSession = {'microscopes': None,'detectors': None, 'sessions': None}
     # for key, value in metadataSession.items():
     #     metadataSession[key] = pyClient.getDetailsFromParameter(key)
-    # print(metadataSession['sessions'])
+    # print(metadataSession['microscopes'])
 
     #grid = pyClient.getRouteFromID('microscopes', 'microscope', 'h0PgRUjUq2K2Cr1CGZJq3q08il8i5n', dev=True)
     #hole = pyClient.getRouteFromID('holes', 'square', 'autoloader_square23JZQjerrJVd9', dev=True)
@@ -241,10 +241,10 @@ if __name__ == "__main__":
     #hole = pyClient.getRouteFromID('hole', 'hole', 'aaa_square15_hole0Fq2BoTroLv24', dev=True)
 
     #allHM = pyClient.getDetailsFromParameter('highmag')
-    allHM = pyClient.getRouteFromID('highmag', 'grid', '1autoloaderucI1Nd2F55R0OY5E18g', dev=True)
+    #allHM = pyClient.getRouteFromID('highmag', 'grid', '1autoloaderucI1Nd2F55R0OY5E18g', dev=True)
 
-    print(allHM)
-    print(len(allHM))
+    # print(allHM)
+    # print(len(allHM))
     #session = pyClient.getRouteFromID('sessions', 'session', '20230216pruebaguenaQHCyjsBSSMq')
     # atlas = pyClient.getRouteFromID('atlas', 'grid', '1autoloaderucI1Nd2F55R0OY5E18g')
     #square = pyClient.getRouteFromID('squares', 'atlas', 'aaa_atlas3eITQ1lfEplhiFI73tEGz',detailed=True, selected=True)
@@ -255,7 +255,10 @@ if __name__ == "__main__":
     #pyClient.putSquareAPI(squareID='grid1_square35sxLmmo6CmPOTPkAB')
     #pyClient.putParameterFromID('squares', 'aaa_square436wzJ6ZzSH6oq5Nnr0o', data={"selected": 'true'})
     #pyClient.putParameterFromID('holes', 'aaa_square43_hole612z66b3yBcw9', data={"selected": 'true'})
-
+    allHM = pyClient.getRouteFromID('highmag','grid', '1c1dTKTsLNNN2JfaUTUvttLX5DPRPM', dev=True)  # TODO para todas las sesiones! ACOTAR A LA SESION
+    print(allHM)
+    #hm = pyClient.getRouteFromID('highmag', 'hm', 'autoloader_08-06-23_2bSFBdE1AC', dev=True)
+    #print(hm[0]['name']+ '.mrc.mdoc')
     '''
     Sesion garciaa en servidor:
     

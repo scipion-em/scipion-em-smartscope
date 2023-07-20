@@ -40,13 +40,8 @@ from pwem.objects.data import Acquisition
 import time
 
 class dataCollection():
-    def __init__(self, Authorization, endpoint):
-        self._authorization = Authorization #'Token 136737181feb270a1bc4120b19d5440b2f697c94'
-        self._main_endpoint = endpoint #'http://localhost:48000/api/'
-        self.pyClient = MainPyClient(
-            'Token 136737181feb270a1bc4120b19d5440b2f697c94',
-            'http://localhost:48000/api/')
-
+    def __init__(self, pyClient):
+        self.pyClient = pyClient
 
     def metadataCollection(self, microscopeList, detectorList, sessionList, acquisition):
         microscopes = self.pyClient.getDetailsFromParameter('microscopes')
@@ -106,12 +101,11 @@ class dataCollection():
 
 
     def screeningCollection(self, dataPath, sessionId, sessionName, setOfGrids, setOfAtlas,
-                            setOfSquares, setOfHoles, setOfMoviesSS, acquisition):
-        pathMoviesRaw = '/home/agarcia/Documents/Facility_work/smartscope_Data/smartscope_testfiles/movies'
+                            setOfSquares, setOfHoles):
         print('sessionName: {}'.format(sessionName))
-        numMovies = 0
-        grid = self.pyClient.getRouteFromID('grids', 'session', sessionId)
+        grid = self.pyClient.getRouteFromID('grids', 'session', sessionId, dev=False)
         if grid != []:print('Number grid in the sesison: {}'.format(len(grid)))
+        objId = len(setOfGrids)
         for g in grid:
             gr = Grid()
             gr.setGridId(g['grid_id'])
@@ -131,17 +125,16 @@ class dataCollection():
             gr.setParamsId(g['params_id'])
             gr.setRawDir(dataPath, self.sessionWorkingDir(sessionName))
             gr.setPNGDir(dataPath, self.sessionWorkingDir(sessionName))
+            gr.setObjId(objId)
+            objId += 1
             setOfGrids.append(gr)
+
 
             startAtlas = time.time()
             atlas = self.pyClient.getRouteFromID('atlas', 'grid', gr.getGridId())
             print('request Atlas time: {}s'.format(time.time() - startAtlas))
-            allHM = self.pyClient.getRouteFromID('highmag', 'grid', gr.getGridId() )
-
-
             if atlas != []: print(
                 '\tNumber atlas in the grid{}: {}'.format(gr.getName(), len(atlas)))
-
             for a in atlas:
                 at = Atlas()
                 at.setAtlasId(a['atlas_id'])
@@ -154,14 +147,16 @@ class dataCollection():
                 at.setStatus(a['status'])
                 at.setCompletionTime(a['completion_time'])
                 at.setGridId(a['grid_id'])
-                # at.setFileName(os.path.join(gr.getRawDir(),
+                # at.setFileName(os.path.join(str(gr.getRawDir()),
                 #                             str(at.getAtlasName() + '.mrc')))
-                at.setPngDir(os.path.join(gr.getPngDir(),
+                at.setPngDir(os.path.join(str(gr.getPngDir()),
                                           str(at.getAtlasName() + '.png')))
-                at.setFileName(os.path.join(gr.getPngDir(),
+                at.setFileName(os.path.join(str(gr.getPngDir()),
                                           str(at.getAtlasName() + '.png')))
                 print('Atlas filename: {}'.format(at.getFileName()))
                 setOfAtlas.append(at)
+                setOfAtlas.update(at)
+                setOfAtlas.write()
 
                 startSquares = time.time()
                 squares = self.pyClient.getRouteFromID('squares', 'atlas', at.getAtlasId())
@@ -185,11 +180,15 @@ class dataCollection():
                     sq.setArea(s['area'])
                     sq.setGridId(s['grid_id'])
                     sq.setAtlasId(s['atlas_id'])
-                    sq.setFileName(os.path.join(gr.getRawDir(),
+                    sq.setFileName(os.path.join(str(gr.getRawDir()),
                                                 str(sq.getName() + '.mrc')))
                     sq.setPngDir(os.path.join(str(gr.getPngDir()),
                                               str(sq.getName() + '.png')))
+
                     setOfSquares.append(sq)
+                    setOfSquares.update(sq)
+                    setOfSquares.write()
+
                     holes = self.pyClient.getRouteFromID('holes', 'square', sq.getSquareId())
                     if holes != []:
                         #print('square name: {}'.format(sq.getName()))
@@ -213,63 +212,14 @@ class dataCollection():
                         ho.setBisType(h['bis_type'])
                         ho.setGridId(h['grid_id'])
                         ho.setSquareId(h['square_id'])
-                        fileName = os.path.join(gr.getRawDir(),
+                        fileName = os.path.join(str(gr.getRawDir()),
                                                 str(ho.getName() + '.mrc'))
                         ho.setFileName(fileName)
                         ho.setPngDir(os.path.join(str(gr.getPngDir()),
                                                   str(ho.getName() + '.png')))
                         setOfHoles.append(ho)
-                        # highMag = self.pyClient.getRouteFromID('highmag', 'hole', ho.getHoleId(), dev=False)
-                        # if highMag != []: print(
-                        #     '\t\t\t\tNumber movies in the hole {}: {}'.format(ho.getName(), len(highMag)))
-                        # else: print('Empty Hole: {}'.format(ho.getName()))
-            startMovie = time.time()
-            for hm in allHM:
-                mSS = MovieSS()
-                mSS.setHmId(hm['hm_id'])
-                mSS.setName(hm['name'])
-                mSS.setNumber(hm['number'])
-                mSS.setPixelSize(hm['pixel_size'])
-                mSS.setShapeX(hm['shape_x'])
-                mSS.setShapeY(hm['shape_y'])
-                mSS.setSelected(hm['selected'])
-                mSS.setStatus(hm['status'])
-                mSS.setCompletionTime(hm['completion_time'])
-                mSS.setIsX(hm['is_x'])
-                mSS.setIsY(hm['is_y'])
-                mSS.setOffset(hm['offset'])
-                #mSS.setFrames(hm['frames'])
-                mSS.setDefocus(hm['defocus'])
-                mSS.setAstig(hm['astig'])
-                mSS.setAngast(hm['angast'])
-                mSS.setCtffit(hm['ctffit'])
-                mSS.setGridId(hm['grid_id'])
-                mSS.setHoleId(hm['hole_id'])
-
-                #mSS.setFrames(self.getFramesNumber(gr, mSS.getName()))
-
-                #fileName = self.getSubFramePath(gr, mSS.getName())
-                st = time.time()
-                #if not os.path.isfile(str(fileName)):#parche para visualizar movies fake
-                    #print(mSS.getName())
-                fileName = os.path.join(pathMoviesRaw, str(mSS.getName() + '.mrcs'))
-                print('time filename: {}s'.format(time.time() - st))
-                mSS.setFileName(fileName)
-                # acquisition.setMagnification(
-                #     self.getMagnification(gr, mSS.getName()))
-                # acquisition.setDosePerFrame(
-                #     self.getDoseRate(gr, mSS.getName()))
-                mSS.setAcquisition(acquisition)
-                # la movie no esta en el raw, sino en la carpeta donde sreialEM escribe
-                setOfMoviesSS.append(mSS)
-                numMovies +=1
-                            # else:
-                            #     print('{} has no movie associated'.format(fileName))
-
-            print('Movie time: {}s'.format(time.time() - startMovie))
-        print('total movies collected: {}'.format(numMovies))
-
-
+                        setOfHoles.update(ho)
+                        setOfHoles.write()
 
     def windowsPath(self, sessionId):
         session = self.pyClient.getRouteFromID('sessions', 'session', sessionId)
@@ -283,12 +233,14 @@ class dataCollection():
         return session[0]['working_dir']
 
     def getMdocFile(self, grid, highMagID):
-        highMag = self.pyClient.getRouteFromID('highmag', 'highmag',highMagID)
-        mdocFile = os.path.join(grid.getRawDir(),
+        highMag = self.pyClient.getRouteFromID('highmag', 'hm', highMagID)
+        mdocFile = os.path.join(str(grid.getRawDir()),
                                 str(highMag[0]['name'] + '.mrc.mdoc'))
         if os.path.isfile(mdocFile):
             return MDoc(mdocFile)
-        else: return False
+        else:
+            print('HM {} not adquired'.format(mdocFile))
+            return False
 
     def getMagnification(self, grid, highMagID):
         mdoc = self.getMdocFile(grid, highMagID)
@@ -313,6 +265,8 @@ class dataCollection():
         if mdoc != False:
             hDict, valueList = mdoc.parseMdoc()
             return valueList[0]['SubFramePath']
+        else:
+            return False
 
 
 

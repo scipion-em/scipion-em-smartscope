@@ -288,16 +288,16 @@ class Grid(EMObject):
 
     def setRawDir(self, dataPath, sessionDir):
         gridRelativePath = str(self._position) + '_' + str(self._name)
-        self._rawDir = os.path.join(str(dataPath),
+        self._rawDir.set(os.path.join(str(dataPath),
                                     str(sessionDir),
                                     gridRelativePath,
-                                    'raw')
+                                    'raw'))
     def setPNGDir(self, dataPath, sessionDir):
         gridRelativePath = str(self._position) + '_' + str(self._name)
-        self._pngDir = os.path.join(str(dataPath),
+        self._pngDir.set(os.path.join(str(dataPath),
                                     str(sessionDir),
                                     gridRelativePath,
-                                    'pngs')
+                                    'pngs'))
 
     def getGridId(self):
         return self._grid_id.get()
@@ -864,7 +864,7 @@ class MovieSS(Movie):
         self._is_x = Float()
         self._is_y = Float()
         self._offset = Float()
-        self._frames = Float()
+        self._frames = String()
         self._defocus = Float()
         self._astig = Float()
         self._angast = Float()

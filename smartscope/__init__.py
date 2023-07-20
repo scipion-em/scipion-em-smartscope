@@ -25,18 +25,25 @@
 # **************************************************************************
 
 import pwem
+from .constants import *
 
 _logo = "icon.png"
-_references = ['you2019']
+_references = ['10.7554/eLife.80047']
 
 
 class Plugin(pwem.Plugin):
     pass
-
-
     @classmethod
     def getEnviron(cls, xmippFirst=True):
         pass
+
+    @classmethod
+    def _defineVariables(cls):
+        cls._defineVar(SMARTSCOPE_LOCALHOST, 'http://localhost:48000/')
+        cls._defineVar(SMARTSCOPE_TOKEN, 'Read Smartscope documentation to get the token...')
+        cls._defineVar(SMARTSCOPE_DATA_SESSION_PATH, 'Path assigned to the data in the Smartscope installation')
+
+        #https://docs.smartscope.org/getting_started/installation/docker/docker/#6-the-installation-is-done
 
     #conda create --name smartscopeenv python==3.9
 
