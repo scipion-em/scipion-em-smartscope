@@ -35,13 +35,10 @@ from pyworkflow.protocol import Protocol, params, Integer
 from pyworkflow.utils import Message
 from pyworkflow import BETA, UPDATED, NEW, PROD
 from pwem.protocols.protocol_import.base import ProtImport
-from pwem.protocols import EMProtocol
-import pyworkflow.protocol.constants as cons
 from pyworkflow.protocol import ProtStreamingBase
 import pyworkflow.utils as pwutils
 from smartscope import Plugin
 
-from ..objects.data import *
 from pyworkflow.protocol import params, STEPS_PARALLEL
 from ..objects.dataCollection import *
 import time
@@ -49,8 +46,9 @@ from ..constants import *
 
 class smartscopeConnection(ProtImport, ProtStreamingBase):
     """
-    This protocol will print hello world in the console
-    IMPORTANT: Classes names should be unique, better prefix them
+    This protocol will import all the metadata from the screenning managed by
+    Smartscope. As input require the movies from Import Movies protocol,
+    as output all the metadata as objects and the movies enrich with the metadatada
     """
     _label = 'smartscope connection'
     _devStatus = BETA
@@ -70,6 +68,12 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         self.MoviesSS = None
         self.stepsExecutionMode = STEPS_PARALLEL # Defining that the protocol contain parallel steps
 
+        self.token = Plugin.getVar(SMARTSCOPE_TOKEN)
+        self.endpoint = Plugin.getVar(SMARTSCOPE_LOCALHOST)
+        self.dataPath = Plugin.getVar(SMARTSCOPE_DATA_SESSION_PATH)
+        self.pyClient = MainPyClient(self.token, self.endpoint)
+        self.connectionClient = dataCollection(self.pyClient)
+
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
         """ Define the input parameters that will be used.
@@ -84,11 +88,15 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                       important=True,
                       label=pwutils.Message.LABEL_INPUT_MOVS,
                       help='Select a set of previously imported movies.')
-
+        form.addParam('sessionName', params.StringParam,
+                      default='08-06-23_2',
+                      important=True,
+                      label='Session name of Smartscope',
+                      help='Select a session to import the metadata. The wizard select the last one in time.')
 
         form.addSection('Streaming')
         form.addParam('refreshTime', params.IntParam, default=120,
-                      label="Time to refresh Smartscope data (secs)" )
+                      label="Time to refresh Smartscope data (secs)")
         form.addParam('TotalTime', params.IntParam, default=86400,
                       label="Time to finish Smartscope (secs)",
                       help='Time from the begining ot the protocol to '
@@ -130,15 +138,11 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
 
     def _initialize(self):
-        #self.pyClient = MainPyClient(self.Authorization, self.endpoint)
-        self.Authorization = Plugin.getVar(SMARTSCOPE_TOKEN)
-        self.endpoint = Plugin.getVar(SMARTSCOPE_LOCALHOST)
-        self.dataPath = Plugin.getVar(SMARTSCOPE_DATA_SESSION_PATH)
+        listS = self.connectionClient.sessionCollection()
+        for s in listS:
+            if s.getSession() == self.sessionName:
+                self.sessionId = s.getSessionId()
 
-        self.pyClient = MainPyClient(
-            'Token 136737181feb270a1bc4120b19d5440b2f697c94',
-            'http://localhost:48000/api/')
-        self.connectionClient = dataCollection(self.pyClient)
         self.acquisition = Acquisition()
         self.microscopeList = [] #list of microscope Scipion object
         self.detectorList = [] #list of detector Scipion object
@@ -204,6 +208,10 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
     #                                     prerequisites=[], wait=False)
     #         self.newSteps.append(new_step_id)
     #         self.updateSteps()
+
+    def sessionListCollection(self):
+        return self.connectionClient.sessionCollection()
+
     def metadataCollection(self):
         self.connectionClient.metadataCollection(self.microscopeList,
                                                  self.detectorList,
@@ -225,7 +233,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
         # self.sessionId = '20230216pruebaguenaQHCyjsBSSMq'
         # self.sessionName = 'pruebaguena'
-        self.sessionId = '2023060909-06-23_0qnYenlrA9mgn'
         self.sessionName = '09-06-23_0'
 
     def screeningCollection(self):
@@ -288,9 +295,9 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
         ImportM = [m.getFrames() for m in SOMSS]
         for mAPI in moviesAPI:
+            self.info('Movies reading: {}'.format(mAPI['frames']))
             if mAPI['frames'] not in ImportM:
                 moviesToAdd.append(mAPI)
-                break
 
 
         #Match movies to add and movies from importMovies protocol
@@ -326,6 +333,14 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         movie2Add = MovieSS()
         movie2Add.copy(movieImport)
 
+
+        #DoseInitial = movieImport.getAcquisition().getDoseInitial()
+        #movie2Add.getAcquisition().setDoseInitial(movieImport.getAcquisition().getDoseInitial())
+#
+        #dosePerFrame = movieImport.getAcquisition().getDosePerFrame()
+        #movie2Add.getAcquisition().setDosePerFrame(movieImport.getAcquisition().getDosePerFrame())
+        #self.info('DoseInitial: {}, dosePerFrame: {}'.format(DoseInitial, dosePerFrame))
+#
 
         movie2Add.setHmId(movieSS['hm_id'])
         movie2Add.setName(movieSS['name'])
