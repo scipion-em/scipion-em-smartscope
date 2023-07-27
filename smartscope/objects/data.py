@@ -1019,83 +1019,26 @@ class SetOfAtlas(EMSet):
     ITEM_TYPE = Atlas
     def __init__(self,  **kwargs):
         EMSet.__init__(self,  **kwargs)
-        self._pixel_size = Float()
         self._filename = String()
 
-        # MAYBE we need it-------
-        # self._magnification = Float()
-        # self._voltage = Float()
-
-    # def setMagnification(self, _magnification):
-    #     self._magnification = float(_magnification)
-    #
-    # def setVoltage(self, _voltage):
-    #     self._voltage = float(_voltage)
-
-    def setPixelSize(self, pixelSize):
-        self._pixel_size = Float(pixelSize)
-
-    # def getVoltage(self):
-    #     return self._voltage.get()
-    #
-    # def getMagnification(self):
-    #     return self._magnification
-
-    def getPixelSize(self):
-        return self._pixel_size.get()
 
 class SetOfSquares(EMSet):
     ITEM_TYPE = Square
 
     def __init__(self,  **kwargs):
         EMSet.__init__(self,  **kwargs)
-        self._pixel_size = Float()
-        # MAYBE we need it-------
-        # self._magnification = Float()
-        # self._voltage = Float()
 
-    # def setMagnification(self, _magnification):
-    #     self._magnification = float(_magnification)
-    #
-    # def setVoltage(self, _voltage):
-    #     self._voltage = float(_voltage)
-
-    def setPixelSize(self, pixelSize):
-        self._pixel_size = Float(pixelSize)
-
-    # def getVoltage(self):
-    #     return self._voltage.get()
-    #
-    # def getMagnification(self):
-    #     return self._magnification
-
-    def getPixelSize(self):
-        return self._pixel_size.get()
 
 class SetOfHoles(EMSet):
     ITEM_TYPE = Hole
 
     def __init__(self,  **kwargs):
         EMSet.__init__(self,  **kwargs)
-        self._pixel_size = Float()
 
-
-    def setPixelSize(self, pixelSize):
-        self._pixel_size = Float(pixelSize)
-
-    def getPixelSize(self):
-        return self._pixel_size.get()
 
 class SetOfMoviesSS(SetOfMovies):
     ITEM_TYPE = MovieSS
 
     def __init__(self,  **kwargs):
         SetOfMovies.__init__(self,  **kwargs)
-        self._pixel_size = Float()
 
-
-    def setPixelSize(self, pixelSize):
-        self._pixel_size = Float(pixelSize)
-
-    def getPixelSize(self):
-        return self._pixel_size.get()

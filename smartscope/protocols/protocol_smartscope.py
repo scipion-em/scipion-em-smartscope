@@ -330,7 +330,12 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         movie2Add.setHmId(movieSS['hm_id'])
         movie2Add.setName(movieSS['name'])
         movie2Add.setNumber(movieSS['number'])
-        movie2Add.setPixelSize(movieSS['pixel_size'])
+        if movieSS['pixel_size'] == None or movieSS['pixel_size'] == 'null':
+            self.info('getSamplingRate: {}'.format(movieImport.getSamplingRate()))
+            movie2Add.setPixelSize(movieImport.getSamplingRate())
+        else:
+            movie2Add.setPixelSize(movieSS['pixel_size'])
+
         movie2Add.setShapeX(movieSS['shape_x'])
         movie2Add.setShapeY(movieSS['shape_y'])
         movie2Add.setSelected(movieSS['selected'])
