@@ -27,17 +27,17 @@
 # **************************************************************************
 
 """
-This protocol connect with smartscope in streaming. Recive all information
+This protocol connect with smartscope in streaming. Recives all information
 from the API, collect it in Scipion objects and will be able to communicate
 to Smartscope to take decission about the acquisition
 """
-from pyworkflow.protocol import Protocol, params, Integer
 from pyworkflow.utils import Message
 from pyworkflow import BETA, UPDATED, NEW, PROD
 from pwem.protocols.protocol_import.base import ProtImport
 from pyworkflow.protocol import ProtStreamingBase
 import pyworkflow.utils as pwutils
 from smartscope import Plugin
+from pyworkflow.object import Set
 
 from pyworkflow.protocol import params, STEPS_PARALLEL
 from ..objects.dataCollection import *
@@ -231,8 +231,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             "\t{} Sessions: {}\n".format(len(self.sessionList), SessionNames))
         summaryF.close()
 
-        # self.sessionId = '20230216pruebaguenaQHCyjsBSSMq'
-        # self.sessionName = 'pruebaguena'
         self.sessionName = '09-06-23_0'
 
     def screeningCollection(self):
@@ -278,7 +276,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
     def importMoviesSS(self, inputMovies):
         moviesToAdd = []
         moviesAPI = []
-        moviesImported = []
 
         # Match movies from the API and from the output of the protocol
         if self.MoviesSS == None:
@@ -295,7 +292,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
         ImportM = [m.getFrames() for m in SOMSS]
         for mAPI in moviesAPI:
-            self.info('Movies reading: {}'.format(mAPI['frames']))
             if mAPI['frames'] not in ImportM:
                 moviesToAdd.append(mAPI)
 
@@ -311,7 +307,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                     for mAPI in moviesToAdd:
                         if mAPI['frames'] == os.path.basename(mImport.getFileName()):
                             self.info('Movie to add: {}'.format(mAPI['frames']))
-                            self.addMovieSS(SOMSS, mImport, mAPI)
+                            self.addMovieSS(SOMSS, mImport, mAPI, inputMovies)
                             break
 
             # SUMMARY INFO
@@ -325,22 +321,11 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                       'See the output of the protocol')
 
 
-    def addMovieSS(self, SOMSS, movieImport, movieSS):
+    def addMovieSS(self, SOMSS, movieImport, movieSS, inputMovies):
         SOMSS.setStreamState(SOMSS.STREAM_OPEN)
-        SOMSS.enableAppend()
-        self._store(SOMSS)
-
+        SOMSS.copyInfo(inputMovies)
         movie2Add = MovieSS()
         movie2Add.copy(movieImport)
-
-
-        #DoseInitial = movieImport.getAcquisition().getDoseInitial()
-        #movie2Add.getAcquisition().setDoseInitial(movieImport.getAcquisition().getDoseInitial())
-#
-        #dosePerFrame = movieImport.getAcquisition().getDosePerFrame()
-        #movie2Add.getAcquisition().setDosePerFrame(movieImport.getAcquisition().getDosePerFrame())
-        #self.info('DoseInitial: {}, dosePerFrame: {}'.format(DoseInitial, dosePerFrame))
-#
 
         movie2Add.setHmId(movieSS['hm_id'])
         movie2Add.setName(movieSS['name'])
@@ -363,12 +348,15 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         movie2Add.setHoleId(movieSS['hole_id'])
 
         SOMSS.append(movie2Add)
-        SOMSS.write()
-        self._store(SOMSS)
+
+        if self.hasAttribute('MoviesSS'):
+            SOMSS.write()
+            outputAttr = getattr(self, 'MoviesSS')
+            outputAttr.copy(SOMSS, copyId=False)
+            self._store(outputAttr)
 
         # STORE SQLITE
         SOMSS.setStreamState(SOMSS.STREAM_CLOSED)
-        SOMSS.write()
         self._store(SOMSS)
 
 
