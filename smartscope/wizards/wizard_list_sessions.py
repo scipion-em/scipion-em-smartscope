@@ -15,10 +15,11 @@ class smartscopeWizard(Wizard):
 
         for s in sessionList:
             date = datetime.datetime.strptime(s.getDate(),'%Y%M%d')
-            sList.append('Name: {}\tDate: {}-{}-{}'.format(s.getSession(),
+            sList.append(['{}\tDate: {}-{}-{}'.format(s.getSession(),
                                             date.strftime("%Y"),
-                                            date.strftime("%m"),
-                                            date.strftime("%d")))
+                                            date.strftime("%M"),
+                                            date.strftime("%d")),
+                         s.getSession()])
         #     dateList.append(s.getDate())
         # sorted_lst = sorted(dateList, key=lambda x:
         #                         datetime.datetime.strptime(x, '%Y%M%d'))
@@ -30,8 +31,11 @@ class smartscopeWizard(Wizard):
 
         finalList = []
         for i in sList:
-            finalList.append(String(i))
+            finalList.append(String(i[0]))
         provider = ListTreeProviderString(finalList)
         dlg = dialog.ListDialog(form.root, "Sessions available", provider,
         "Select the session")
-        form.setVar('sessionName', dlg.values[0].get())
+        name = dlg.values[0].get()[:dlg.values[0].get().find('\t')]
+        for s in sList:
+            if name in s[1]:
+                form.setVar('sessionName', name)
