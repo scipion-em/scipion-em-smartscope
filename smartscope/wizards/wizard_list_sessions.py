@@ -13,7 +13,7 @@ class smartscopeWizard(Wizard):
         sList = []
         dateList = []
 
-        for s in sessionList:
+        for s in reversed(sessionList):
             date = datetime.datetime.strptime(s.getDate(),'%Y%M%d')
             sList.append(['{}\tDate: {}-{}-{}'.format(s.getSession(),
                                             date.strftime("%Y"),
