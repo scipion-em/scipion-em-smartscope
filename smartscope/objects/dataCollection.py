@@ -59,6 +59,11 @@ class dataCollection():
             sessionList.append(ses)
         return sessionList
 
+    def sessionOpen(self):
+        grid = self.pyClient.getDetailsFromParameter('grids', status='started', sortByLast=True)
+        for g in grid:
+            if g['status'] == 'started':
+                return g['session_id']
     def metadataCollection(self, microscopeList, detectorList, sessionList, acquisition):
         microscopes = self.pyClient.getDetailsFromParameter('microscopes')
         for m in microscopes:

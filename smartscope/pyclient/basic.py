@@ -83,9 +83,14 @@ class MainPyClient():
 
 
 ##COMMUNICATION
-    def getDetailsFromParameter(self, route, dev=False):
+    def getDetailsFromParameter(self, route, status='', sortByLast = False, dev=False):
         response = []
-        request = f'{self.getMainEndpoint()}{route}/?'
+        status = 'status=' + status
+        if sortByLast:
+            sortByLast='sort=last_update'
+        else:
+            sortByLast=''
+        request = f'{self.getMainEndpoint()}{route}/?&{status}&{sortByLast}'
         #print(f'Requested url: {request}')
         resp = requests.get(request, headers=self.getHeaders(), verify=False)
         if dev==True: print(f'Requested url: {request}')
@@ -225,7 +230,7 @@ def correctEndpointFormat(url):
 
 
 if __name__ == "__main__":
-    pyClient = MainPyClient()
+    pyClient = MainPyClient('136737181feb270a1bc4120b19d5440b2f697c94',    ' http://localhost:48000/',)
     #print(pyClient.getUrlsDict())
 
     # metadataSession = {'microscopes': None,'detectors': None, 'sessions': None}
@@ -238,7 +243,7 @@ if __name__ == "__main__":
     #hm = pyClient.getRouteFromID('highmag', 'highmag', 'aaa_square15_hole27_fflyClmoDr', dev=True)
     #hole = pyClient.getRouteFromID('hole', 'hole', 'aaa_square15_hole0Fq2BoTroLv24', dev=True)
 
-    #allHM = pyClient.getDetailsFromParameter('highmag')
+    allHM = pyClient.getDetailsFromParameter('grids')
     #allHM = pyClient.getRouteFromID('highmag', 'grid', '1autoloaderucI1Nd2F55R0OY5E18g', dev=True)
 
     # print(allHM)
@@ -253,7 +258,7 @@ if __name__ == "__main__":
     #pyClient.putSquareAPI(squareID='grid1_square35sxLmmo6CmPOTPkAB')
     #pyClient.putParameterFromID('squares', 'aaa_square436wzJ6ZzSH6oq5Nnr0o', data={"selected": 'true'})
     #pyClient.putParameterFromID('holes', 'aaa_square43_hole612z66b3yBcw9', data={"selected": 'true'})
-    allHM = pyClient.getRouteFromID('highmag','grid', '1c1dTKTsLNNN2JfaUTUvttLX5DPRPM', dev=True)  # TODO para todas las sesiones! ACOTAR A LA SESION
+    #allHM = pyClient.getRouteFromID('grids', 'grid', dev=True)  # TODO para todas las sesiones! ACOTAR A LA SESION
     print(allHM)
     #hm = pyClient.getRouteFromID('highmag', 'hm', 'autoloader_08-06-23_2bSFBdE1AC', dev=True)
     #print(hm[0]['name']+ '.mrc.mdoc')
