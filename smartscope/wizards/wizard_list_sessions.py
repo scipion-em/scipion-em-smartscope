@@ -10,24 +10,23 @@ class smartscopeWizard(Wizard):
     def show(self, form, *params):
         protocol = form.protocol
         sessionList = protocol.sessionListCollection()
+        sessionOpen = protocol.sessionOpen()
         sList = []
-        dateList = []
+        live = ''
+        lastFound = False
 
         for s in reversed(sessionList):
+            if sessionOpen:
+                if sessionOpen == s.getSessionId() and lastFound == False:
+                    live = '*last session started*'
+                    lastFound = True
             date = datetime.datetime.strptime(s.getDate(),'%Y%M%d')
-            sList.append(['{}\tDate: {}-{}-{}'.format(s.getSession(),
+            sList.append(['{}  \tDate: {}-{}-{}\t{}'.format(s.getSession(),
                                             date.strftime("%Y"),
                                             date.strftime("%M"),
-                                            date.strftime("%d")),
+                                            date.strftime("%d"), live),
                          s.getSession()])
-        #     dateList.append(s.getDate())
-        # sorted_lst = sorted(dateList, key=lambda x:
-        #                         datetime.datetime.strptime(x, '%Y%M%d'))
-        # for s in sList:
-        #     if s[0] == sorted_lst[-1]:
-        #         form.setVar('sessionName', s[2])
-
-
+            live = ''
 
         finalList = []
         for i in sList:
