@@ -36,5 +36,5 @@ class smartscopeWizard(Wizard):
         "Select the session")
         name = dlg.values[0].get()[:dlg.values[0].get().find('\t')]
         for s in sList:
-            if name in s[1]:
+            if name in s[0]:
                 form.setVar('sessionName', name)
