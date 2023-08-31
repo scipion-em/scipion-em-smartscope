@@ -34,7 +34,7 @@ class smartscopeWizard(Wizard):
         provider = ListTreeProviderString(finalList)
         dlg = dialog.ListDialog(form.root, "Sessions available", provider,
         "Select the session")
-        name = dlg.values[0].get()[:dlg.values[0].get().find('\t')]
+        name = dlg.values[0].get()[:dlg.values[0].get().find('  \t')]
         for s in sList:
             if name in s[0]:
                 form.setVar('sessionName', name)

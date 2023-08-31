@@ -89,10 +89,10 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                       label=pwutils.Message.LABEL_INPUT_MOVS,
                       help='Select a set of previously imported movies.')
         form.addParam('sessionName', params.StringParam,
-                      default='08-06-23_2',
                       important=True,
                       label='Session name of Smartscope',
-                      help='Select a session to import the metadata. The wizard select the last one in time.')
+                      help='Select a session to import the metadata. '
+                           'The wizard provide a list of all sessions sorted by date.')
 
         form.addSection('Streaming')
         form.addParam('refreshTime', params.IntParam, default=120,
@@ -140,7 +140,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
     def _initialize(self):
         listS = self.connectionClient.sessionCollection()
         for s in listS:
-            if s.getSession() == self.sessionName:
+            if s.getSession() == self.sessionName.get():
                 self.sessionId = s.getSessionId()
 
         self.acquisition = Acquisition()
@@ -234,7 +234,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             "\t{} Sessions: {}\n".format(len(self.sessionList), SessionNames))
         summaryF.close()
 
-        self.sessionName = '09-06-23_0'
 
     def screeningCollection(self):
         self.outputsToDefine = {'Squares': self.SOS,
