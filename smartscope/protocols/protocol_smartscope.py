@@ -26,11 +26,6 @@
 # *
 # **************************************************************************
 
-"""
-This protocol connect with smartscope in streaming. Recives all information
-from the API, collect it in Scipion objects and will be able to communicate
-to Smartscope to take decission about the acquisition
-"""
 from pyworkflow.utils import Message
 from pyworkflow import BETA, UPDATED, NEW, PROD
 from pwem.protocols.protocol_import.base import ProtImport

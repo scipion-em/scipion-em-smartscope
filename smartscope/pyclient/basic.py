@@ -204,7 +204,7 @@ class MainPyClient():
             print('Empty response')
             return []
 
-    def putParameterFromID(self, route, ID, data=''):
+    def postParameterFromID(self, route, ID, data=''):
         #https://linuxhint.com/python-requests-put-method/
         #https://stackoverflow.com/questions/31089221/what-is-the-difference-between-put-post-and-patch
         url = f'{self.getMainEndpoint()}{route}/{ID}/'
@@ -230,7 +230,7 @@ def correctEndpointFormat(url):
 
 
 if __name__ == "__main__":
-    pyClient = MainPyClient('136737181feb270a1bc4120b19d5440b2f697c94',    ' http://localhost:48000/',)
+    pyClient = MainPyClient('136737181feb270a1bc4120b19d5440b2f697c94',    ' http://localhost:48000/api/',)
     #print(pyClient.getUrlsDict())
 
     # metadataSession = {'microscopes': None,'detectors': None, 'sessions': None}
@@ -243,7 +243,7 @@ if __name__ == "__main__":
     #hm = pyClient.getRouteFromID('highmag', 'highmag', 'aaa_square15_hole27_fflyClmoDr', dev=True)
     #hole = pyClient.getRouteFromID('hole', 'hole', 'aaa_square15_hole0Fq2BoTroLv24', dev=True)
 
-    allHM = pyClient.getDetailsFromParameter('grids')
+    #allHM = pyClient.getDetailsFromParameter('grids')
     #allHM = pyClient.getRouteFromID('highmag', 'grid', '1autoloaderucI1Nd2F55R0OY5E18g', dev=True)
 
     # print(allHM)
@@ -254,12 +254,15 @@ if __name__ == "__main__":
     #hole = pyClient.getRouteFromID('holes', 'square', 'dd_square11tNPKtKoFhZIZkpFt7kf')#selected does not work for holes
     #highmag = pyClient.getRouteFromID('highmag', 'hole', 'aaa_square43_hole612z66b3yBcw9',detailed=True)#selected does not work for holes
 
-    #pyClient.putHoleAPI(holeID='autoloader_square52_hVo2oU8n7A')
-    #pyClient.putSquareAPI(squareID='grid1_square35sxLmmo6CmPOTPkAB')
-    #pyClient.putParameterFromID('squares', 'aaa_square436wzJ6ZzSH6oq5Nnr0o', data={"selected": 'true'})
-    #pyClient.putParameterFromID('holes', 'aaa_square43_hole612z66b3yBcw9', data={"selected": 'true'})
+    #pyClient.postHoleAPI(holeID='autoloader_square52_hVo2oU8n7A')
+    #pyClient.postSquareAPI(squareID='grid1_square35sxLmmo6CmPOTPkAB')
+    #pyClient.postParameterFromID('squares', 'aaa_square436wzJ6ZzSH6oq5Nnr0o', data={"selected": 'true'})
+    pyClient.postParameterFromID('highmag', 'long_square15_hole10eRoomMJvKy', data={"astig": '100.00'})
+    #pyClient.postParameterFromID('highmag', 'long_square15_hole10eRoomMJvKy', data={"status": 'started'})
+
+    #pyClient.postParameterFromID('holes', 'long_square15_hole0EePj5pbnzNQ', data={"selected": 'true'})
     #allHM = pyClient.getRouteFromID('grids', 'grid', dev=True)  # TODO para todas las sesiones! ACOTAR A LA SESION
-    print(allHM)
+    #print(allHM)
     #hm = pyClient.getRouteFromID('highmag', 'hm', 'autoloader_08-06-23_2bSFBdE1AC', dev=True)
     #print(hm[0]['name']+ '.mrc.mdoc')
     '''

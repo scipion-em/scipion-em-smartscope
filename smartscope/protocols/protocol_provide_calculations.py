@@ -26,11 +26,6 @@
 # *
 # **************************************************************************
 
-"""
-This protocol connect with smartscope in streaming. Recives all information
-from the API, collect it in Scipion objects and will be able to communicate
-to Smartscope to take decission about the acquisition
-"""
 from pyworkflow.utils import Message
 from pyworkflow import BETA, UPDATED, NEW, PROD
 from pwem.protocols.protocol_import.base import ProtImport
@@ -46,11 +41,9 @@ from ..constants import *
 
 class smartscopeFeedback(ProtImport, ProtStreamingBase):
     """
-    This protocol will calculate which are the best holes of the session based
-     on the good particles of each hole. After knowing the good holes, will
-     sort the queue of hole acquisition that Smartscope uses.
+    This protocol provide the CTF and or the alignment to Smartscope
     """
-    _label = 'smartscope feedback'
+    _label = 'provide smartscope calculations'
     _devStatus = BETA
 
     def __init__(self, **args):
@@ -73,27 +66,17 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         # You need a params to belong to a section:
         form.addSection(label=Message.LABEL_INPUT)
 
-        form.addParam('inputHoles', params.PointerParam, pointerClass='SetOfHoles',
-                      important=True,
-                      label='Input holes from Smartscope',
-                      help='Select a set of holes from Smartscope connection protocol.')
-
-
-        form.addParam('inputMovies', params.PointerParam, pointerClass='SetOfMoviesSS',
-                      important=True,
-                      label='Input movies from Smartscope',
-                      help='Select a set of movies from Smartscope connection protocol.')
 
         #sesion de Smartscope -> para cada hole pregunto de que sesion viene su grid
         form.addParam('goodClasses2D', params.PointerParam,
-                       pointerClass='SetOfClasses2D',
-                       label="Good Classes2D",
-                       help='Set of good Classes2D calculated by a ranker')
+                       pointerClass='SetOfCtf',
+                       label="CTF",
+                       help='Set of CTFs')
 
         form.addParam('badClasses2D', params.PointerParam,
-                       pointerClass='SetOfClasses2D',
-                       label="Bad Classes2D",
-                       help='Set of bad Classes2D calculated by a ranker')
+                       pointerClass='SetOfMicrographs',
+                       label='Set of micrographs',
+                       help='Set of micrographs aligned')
 
         form.addSection('Streaming')
         form.addParam('refreshTime', params.IntParam, default=120,
@@ -111,30 +94,29 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
             pass
 
 
-    def readClasses(self):
-        pass
-
-    def writeOnHoles(self):
+    def readCTF(self):
         '''
-        Write the number of good particles, bad particles, total particles,
-         GrayScaleCluster, CTFResolution, status,
+        Get the movie of the CTF, and get the highmag id (hm_id)
+        Run postCTF with the parameters to post
         :return:
         '''
         pass
 
-    def holesStatistis(self):
-        '''
-        Determine good and bad holes and sort the holes for the acquisition
-        :return:
-        '''
+    def readMicrograph(self):
         pass
 
-    def sortSmartscopeQueue(self):
-        '''
-        connect to the Smartscope API and provide the sorted queue
-        :return:
-        '''
+    def postCTF(self):
+        pyClient.postParameterFromID('highmag', 'long_square15_hole10eRoomMJvKy',
+                                     data={"astig": '100.00'})
+        pyClient.postParameterFromID('highmag', 'long_square15_hole10eRoomMJvKy',
+                                 data={"ctffit": '100.00'})
+        pyClient.postParameterFromID('highmag', 'long_square15_hole10eRoomMJvKy',
+                                 data={"defocus": '100.00'})
+        pyClient.postParameterFromID('highmag', 'long_square15_hole10eRoomMJvKy',
+                                 data={"offset": '100.00'})
+    def postMicrograph(self):
         pass
+
 
 
 
