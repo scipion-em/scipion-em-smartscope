@@ -136,7 +136,9 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         '''
         pass
 
-
+    def checkSmartscopeConnection(self):
+        response = self.pyClient.getDetailsFromParameter('users')
+        return response
 
     def _summary(self):
         summary = []
@@ -148,5 +150,14 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
     def _validate(self):
         errors = []
         self._validateThreads(errors)
+
+        response = self.checkSmartscopeConnection()
+        try:
+            response[0]['username']
+        except Exception as e:
+            try:
+                errors.append('Error Smartscope connection:\n{}'.format(response['detail']))
+            except Exception:
+                errors.append('Error Smartscope connection. Maybe launch Smartscope container...\n\n{}'.format(response))
 
         return errors
