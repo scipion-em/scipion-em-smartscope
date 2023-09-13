@@ -6,3 +6,4 @@
 from .protocol_importAtlas import ProtImportAtlas
 from . protocol_smartscope import *
 from .protocol_feedback import *
+from .protocol_provide_calculations import *

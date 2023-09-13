@@ -204,14 +204,15 @@ class MainPyClient():
             print('Empty response')
             return []
 
-    def postParameterFromID(self, route, ID, data=''):
+    def postParameterFromID(self, route, ID, data='', devel=False):
         #https://linuxhint.com/python-requests-put-method/
         #https://stackoverflow.com/questions/31089221/what-is-the-difference-between-put-post-and-patch
         url = f'{self.getMainEndpoint()}{route}/{ID}/'
-        print(url)
+        if devel:
+            print(url)
         r = requests.patch(url, verify=False, headers=self.getHeaders(), data=data)
-        if r.status_code == 200:
-            print('element status updated')
+        if r.status_code == 200 and devel:
+            print('Element status updated')
         else:
             print('Error code: {}'.format(r.status_code))
 
