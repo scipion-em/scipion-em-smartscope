@@ -31,7 +31,7 @@ from pyworkflow import BETA, UPDATED, NEW, PROD
 from pwem.protocols.protocol_import.base import ProtImport
 from pyworkflow.protocol import ProtStreamingBase
 from smartscope import Plugin
-from pwem.objects import SetOfCTF, SetOfMicrographs
+from pwem.objects import SetOfCTF, SetOfMicrographs, CTFModel
 from pwem.emlib.image import ImageHandler
 import pyworkflow.utils as pwutils
 from pwem.utils import runProgram
@@ -50,7 +50,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
     _label = 'provide smartscope calculations'
     _devStatus = BETA
     _possibleOutputs = {'Micrographs': SetOfMicrographs,
-                        'CTF': SetOfCTF}
+                        'SetOfCTF': SetOfCTF}
 
     def __init__(self, **args):
         ProtImport.__init__(self, **args)
@@ -62,7 +62,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
 
         self.pyClient = MainPyClient(self.token, self.endpoint)
         self.connectionClient = dataCollection(self.pyClient)
-        self.CTF = None
+        self.SetOfCTF = None
         self.Micrographs = None
         self.is_micro = False
         self.is_CTF = False
@@ -84,12 +84,12 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
 
         form.addParam('CTFCalculated', params.PointerParam, allowsNull=True,
                        pointerClass='SetOfCTF',
-                       label='Set of CTFs',
+                       label=pwutils.Message.LABEL_CTF_ESTI,
                        help='Set of CTFs calculated by any protocol')
 
         form.addParam('alignmentCalculated', params.PointerParam, allowsNull=True,
                        pointerClass='SetOfMicrographs',
-                       label='Set of micrographs',
+                       label=pwutils.Message.LABEL_INPUT_MIC,
                        help='Set of micrographs aligned by any protocol')
 
         form.addParallelSection(threads=3, mpi=1)
@@ -108,12 +108,12 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
             else:
                 SOMic = self.Micrographs
 
-            if self.CTF == None:
+            if self.SetOfCTF == None:
                 SOCTF = SetOfCTF.create(outputPath=self._getPath())
                 self.outputsToDefine = {'SetOfCTF': SOCTF}
                 self._defineOutputs(**self.outputsToDefine)
             else:
-                SOCTF = self.CTF
+                SOCTF = self.SetOfCTF
 
             moviesSS = self.movieSmartscope.get()
             Microset = self.alignmentCalculated.get()
@@ -133,19 +133,25 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                 self.info('No Micrographs to read.')
 
             CTFset = self.CTFCalculated.get()
+            SetOfCTFLocal = self.SetOfCTF
+            CTFtoRead = []
             if CTFset:
                 self.is_CTF = True
                 self.CTF_stream = CTFset.isStreamOpen()
-                if self.CTF:
-                    self.CTFtoRead = [x for x in CTFset if x not in self.CTF]#TODO comprobar que se rellena a medias si es el caso
+                if SetOfCTFLocal:
+                    CTFLocalList = [os.path.basename(c.getPsdFile()) for c in SetOfCTFLocal]
+                    for c in CTFset:
+                        if os.path.basename(c.getPsdFile()) not in CTFLocalList:
+                            print(os.path.basename(c.getPsdFile()))
+                            CTFtoRead.append(c)
                 else:
-                    self.CTFtoRead = CTFset
+                    CTFtoRead = CTFset
 
-                if self.CTFtoRead == []:
+                if CTFtoRead == []:
                     self.info('No more CTFs to read.')
                 else:
-                    self.info('Reading CTFs...')
-                    self.readCTF(SOCTF, moviesSS)
+                    self.info('CTFtoRead: {}'.format(CTFtoRead))
+                    self.readCTF(SOCTF, moviesSS, CTFset, CTFtoRead)
             else:
                 self.info('No CTF to read.')
 
@@ -153,17 +159,19 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
             if (self.is_CTF and not self.CTF_stream and self.is_micro and not self.Mic_stream) or \
                 (self.is_CTF and not self.CTF_stream and not self.is_micro) or \
                 (not self.is_CTF and self.is_micro and not self.Mic_stream) or \
-                (not self.is_CTF and not self.is_Micro):
+                (not self.is_CTF and not self.is_micro):
                 print('Exiting protocol')
                 break
 
-    def readCTF(self, SOCTF, moviesSS):
+            time.sleep(10)
+
+    def readCTF(self, SOCTF, moviesSS, CTFset, CTFtoRead):
         '''
         Get the movie of the CTF, and get the highmag id (hm_id)
         Run postCTF with the parameters to post, run setMoviesValues and uptade output
         :return:
         '''
-        for CTF in self.CTFtoRead:
+        for CTF in CTFtoRead:
             CTF.getResolution()
             CTF.getPsdFile()
             CTF.getDefocusRatio()
@@ -173,7 +181,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
             MicName = CTF.getMicrograph().getMicName()
             for movie in moviesSS:
                 if movie.getFrames() == MicName:
-                    self.info('CTF to update: {}'.format(MicName))
+                    self.info('CTF to postCTF: {}'.format(MicName))
                     thumbnail = self.createThumbnail(CTF.getPsdFile())
                     self.postCTF(movie.getHmId(),
                                  astig,
@@ -187,7 +195,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                                  defocus,
                                  '1.111111',
                                  CTF.getDefocusAngle())
-                    self.updateOutputCTF(SOCTF, CTF)
+                    self.updateOutputCTF(SOCTF, CTF, CTFset)
                     break
 
     def postCTF(self, hmID, astig, ctffit, defocus, offset, angast):
@@ -215,10 +223,13 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         #movie.setOffset(offset)
         movie.setAngast(angast)
 
-    def updateOutputCTF(self, SOCTF, CTF2Add):
+    def updateOutputCTF(self, SOCTF, CTF2Add, CTFset):
         SOCTF.setStreamState(SOCTF.STREAM_OPEN)
+        SOCTF.copyInfo(CTFset)
+        CTF2Add_copy = CTFModel()
+        CTF2Add_copy.copy(CTF2Add)
+        SOCTF.append(CTF2Add_copy)
 
-        SOCTF.append(CTF2Add)
         if self.hasAttribute('SetOfCTF'):
             SOCTF.write()
             outputAttr = getattr(self, 'SetOfCTF')
