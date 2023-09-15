@@ -31,7 +31,7 @@ from pyworkflow import BETA, UPDATED, NEW, PROD
 from pwem.protocols.protocol_import.base import ProtImport
 from pyworkflow.protocol import ProtStreamingBase
 from smartscope import Plugin
-from pwem.objects import SetOfCTF, SetOfMicrographs, CTFModel
+from pwem.objects import SetOfCTF, SetOfMicrographs, CTFModel, Micrograph
 from pwem.emlib.image import ImageHandler
 import pyworkflow.utils as pwutils
 from pwem.utils import runProgram
@@ -49,7 +49,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
     """
     _label = 'provide smartscope calculations'
     _devStatus = BETA
-    _possibleOutputs = {'Micrographs': SetOfMicrographs,
+    _possibleOutputs = {'SetOfMicrographs': SetOfMicrographs,
                         'SetOfCTF': SetOfCTF}
 
     def __init__(self, **args):
@@ -63,7 +63,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         self.pyClient = MainPyClient(self.token, self.endpoint)
         self.connectionClient = dataCollection(self.pyClient)
         self.SetOfCTF = None
-        self.Micrographs = None
+        self.SetOfMicrographs = None
         self.is_micro = False
         self.is_CTF = False
         self.CTF_stream = False
@@ -101,12 +101,12 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         call the self._insertFunctionStep method.
         """
         while True:
-            if self.Micrographs == None:
+            if self.SetOfMicrographs == None:
                 SOMic = SetOfMicrographs.create(outputPath=self._getPath())
                 self.outputsToDefine = {'SetOfMicrographs': SOMic}
                 self._defineOutputs(**self.outputsToDefine)
             else:
-                SOMic = self.Micrographs
+                SOMic = self.SetOfMicrographs
 
             if self.SetOfCTF == None:
                 SOCTF = SetOfCTF.create(outputPath=self._getPath())
@@ -117,18 +117,24 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
 
             moviesSS = self.movieSmartscope.get()
             Microset = self.alignmentCalculated.get()
+            Micrographs_local = self.SetOfMicrographs
+            MictoRead = []
             if Microset:
                 self.is_micro = True
                 self.Mic_stream = Microset.isStreamOpen()
-                if self.Micrographs:
-                    self.MictoRead = [x for x in Microset if x not in self.Micrographs]
+                if Micrographs_local:
+                    MicroLocalList = [os.path.basename(m.getFileName()) for m in Micrographs_local]
+                    for m in Microset:
+                        if os.path.basename(
+                                m.getFileName()) not in MicroLocalList:
+                            MictoRead.append(m)
                 else:
-                    self.MictoRead = Microset
-                if self.MictoRead == []:
+                    MictoRead = Microset
+                if MictoRead == []:
                     self.info('No more Micrographs to read.')
                 else:
                     self.info('Reading Micrographs...')
-                    self.readMicrograph(SOMic, moviesSS)
+                    self.readMicrograph(SOMic, moviesSS, Microset, MictoRead)
             else:
                 self.info('No Micrographs to read.')
 
@@ -182,7 +188,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
             for movie in moviesSS:
                 if movie.getFrames() == MicName:
                     self.info('CTF to postCTF: {}'.format(MicName))
-                    thumbnail = self.createThumbnail(CTF.getPsdFile())
+                    #thumbnail = self.createThumbnail(CTF.getPsdFile()) #not necesary 1MB
                     self.postCTF(movie.getHmId(),
                                  astig,
                                  CTF.getFitQuality(),
@@ -230,6 +236,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         CTF2Add_copy.copy(CTF2Add)
         SOCTF.append(CTF2Add_copy)
 
+
         if self.hasAttribute('SetOfCTF'):
             SOCTF.write()
             outputAttr = getattr(self, 'SetOfCTF')
@@ -240,21 +247,21 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         self._store(SOCTF)
 
 
-    def readMicrograph(self, SOMic, moviesSS):
+    def readMicrograph(self, SOMic, moviesSS, Microset, MictoRead):
         '''
         Get the movie of the CTF, and get the highmag id (hm_id)
         Run postCTF with the parameters to post, run setMoviesValues and uptade output
         :return:
         '''
-        for m in self.MictoRead:
+        for m in MictoRead:
             MicName = m.getMicName()
             for movie in moviesSS:
                 if movie.getFrames() == MicName:
                     self.info('Micrograph to update: {}'.format(MicName))
-                    thumbnail = self.createThumbnail(m.getFileName())
+                    #thumbnail = self.createThumbnail(m.getFileName())
                     # self.postMicrograph(movie.getHmId(), m.getFileName(), thumbnail)
                     # self.setMicrographValues(m,  m.getFileName(), thumbnail)
-                    # self.updateOutputCTF(SOMic, m)
+                    self.updateOutputMic(SOMic, m, Microset)
 
 
     def postMicrograph(self, hmID, MicPath, MicThum):
@@ -264,8 +271,21 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
     def setMicrographValues(self, m, MicPath, MicThum):
         m.setPath(MicPath)
 
-    def updateOutputMic(self):
-        pass
+    def updateOutputMic(self, SOMic, m, Microset):
+        SOMic.setStreamState(SOMic.STREAM_OPEN)
+        SOMic.copyInfo(Microset)
+        Mic2Add_copy = Micrograph()
+        Mic2Add_copy.copy(m)
+        SOMic.append(Mic2Add_copy)
+
+        if self.hasAttribute('SetOfMicrographs'):
+            SOMic.write()
+            outputAttr = getattr(self, 'SetOfMicrographs')
+            outputAttr.copy(SOMic, copyId=False)
+            self._store(outputAttr)
+        # STORE SQLITE
+        SOMic.setStreamState(SOMic.STREAM_CLOSED)
+        self._store(SOMic)
 
     # UTILS
     def createThumbnail(self, pathOriginal):
@@ -289,8 +309,6 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
 
     def _summary(self):
         summary = []
-
-
         return summary
 
 
