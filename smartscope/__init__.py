@@ -28,7 +28,7 @@ import pwem
 from .constants import *
 
 _logo = "icon.png"
-_references = ['10.7554/eLife.80047']
+_references = ['Bouvette2022']
 
 
 class Plugin(pwem.Plugin):

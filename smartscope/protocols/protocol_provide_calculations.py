@@ -43,11 +43,11 @@ from ..constants import *
 import math
 
 THUMBNAIL_FACTOR = 0.1
-class smartscopeFeedback(ProtImport, ProtStreamingBase):
+class provideCalculations(ProtImport, ProtStreamingBase):
     """
     This protocol provide the CTF and or the alignment to Smartscope
     """
-    _label = 'provide smartscope calculations'
+    _label = 'Provide calculations'
     _devStatus = BETA
     _possibleOutputs = {'SetOfMicrographs': SetOfMicrographs,
                         'SetOfCTF': SetOfCTF}

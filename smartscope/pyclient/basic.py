@@ -264,13 +264,15 @@ if __name__ == "__main__":
     #pyClient.postHoleAPI(holeID='autoloader_square52_hVo2oU8n7A')
     #pyClient.postSquareAPI(squareID='grid1_square35sxLmmo6CmPOTPkAB')
     #pyClient.postParameterFromID('squares', 'aaa_square436wzJ6ZzSH6oq5Nnr0o', data={"selected": 'true'})
-    pyClient.postParameterFromID('highmag', 'long_square15_hole10eRoomMJvKy', data={"astig": '100.00'})
+    #pyClient.postParameterFromID('highmag', 'long_square15_hole10eRoomMJvKy', data={"astig": '100.00'})
     #pyClient.postParameterFromID('highmag', 'long_square15_hole10eRoomMJvKy', data={"status": 'started'})
 
     #pyClient.postParameterFromID('holes', 'long_square15_hole0EePj5pbnzNQ', data={"selected": 'true'})
     #allHM = pyClient.getRouteFromID('grids', 'grid', dev=True)  # TODO para todas las sesiones! ACOTAR A LA SESION
     #print(allHM)
     #hm = pyClient.getRouteFromID('highmag', 'hm', 'autoloader_08-06-23_2bSFBdE1AC', dev=True)
+    hD = pyClient.getRouteFromID('holes', 'hole', 'aa_square11_hole0yyBPfzlv8uHig', detailed=True, dev=True)
+    print(hD)
     #print(hm[0]['name']+ '.mrc.mdoc')
     '''
     Sesion garciaa en servidor:

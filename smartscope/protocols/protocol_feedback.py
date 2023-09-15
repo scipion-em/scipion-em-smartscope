@@ -50,7 +50,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
      on the good particles of each hole. After knowing the good holes, will
      sort the queue of hole acquisition that Smartscope uses.
     """
-    _label = 'smartscope feedback'
+    _label = 'Smartscope feedback'
     _devStatus = BETA
 
     def __init__(self, **args):
@@ -74,23 +74,19 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         form.addSection(label=Message.LABEL_INPUT)
 
         form.addParam('inputHoles', params.PointerParam, pointerClass='SetOfHoles',
-                      important=True,
+                      important=True, allowsNull=False,
                       label='Input holes from Smartscope',
                       help='Select a set of holes from Smartscope connection protocol.')
-
-
         form.addParam('inputMovies', params.PointerParam, pointerClass='SetOfMoviesSS',
-                      important=True,
+                      important=True, allowsNull=False,
                       label='Input movies from Smartscope',
                       help='Select a set of movies from Smartscope connection protocol.')
-
         #sesion de Smartscope -> para cada hole pregunto de que sesion viene su grid
-        form.addParam('goodClasses2D', params.PointerParam,
+        form.addParam('goodClasses2D', params.PointerParam, allowsNull=False,
                        pointerClass='SetOfClasses2D',
                        label="Good Classes2D",
                        help='Set of good Classes2D calculated by a ranker')
-
-        form.addParam('badClasses2D', params.PointerParam,
+        form.addParam('badClasses2D', params.PointerParam, allowsNull=False,
                        pointerClass='SetOfClasses2D',
                        label="Bad Classes2D",
                        help='Set of bad Classes2D calculated by a ranker')
