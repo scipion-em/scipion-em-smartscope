@@ -90,27 +90,33 @@ class MainPyClient():
             sortByLast='sort=last_update'
         else:
             sortByLast=''
-        request = f'{self.getMainEndpoint()}{route}/?&{status}&{sortByLast}'
+        request = f'{self.getMainEndpoint()}{route}?&{status}&{sortByLast}'
         #print(f'Requested url: {request}')
-        resp = requests.get(request, headers=self.getHeaders(), verify=False)
+        try:
+            resp = requests.get(request, headers=self.getHeaders(), verify=False)
+        except Exception as e:
+            return e
         if dev==True: print(f'Requested url: {request}')
         resp_jason = resp.json()
-        if dev==True: print(f'Response: {resp_jason}')
+        if dev==True: print(f'Response: {resp}\nResponse: {resp_jason}')
 
-        page_response = resp_jason['results']
-        response.extend(page_response)
+        try:
+            page_response = resp_jason['results']
+            response.extend(page_response)
 
-        while resp_jason['next'] != None:
-            corrected_endpoint = correctEndpointFormat(resp_jason['next'])
-            r = requests.get(corrected_endpoint, headers=self.getHeaders(), verify=False)
-            resp_jason = r.json()
-            try:
-                page_response = resp_jason['results']
-                #print(page_response)
-                response.extend(page_response)
-            except KeyError:
-                return []
-        return response
+            while resp_jason['next'] != None:
+                corrected_endpoint = correctEndpointFormat(resp_jason['next'])
+                r = requests.get(corrected_endpoint, headers=self.getHeaders(), verify=False)
+                resp_jason = r.json()
+                try:
+                    page_response = resp_jason['results']
+                    #print(page_response)
+                    response.extend(page_response)
+                except KeyError:
+                    return []
+            return response
+        except KeyError:
+            return resp_jason
 
     def getRouteFromID(self, route, from_id, id, detailed=False, selected=False, completed=False, dev=False):
         '''
@@ -213,7 +219,7 @@ class MainPyClient():
         r = requests.patch(url, verify=False, headers=self.getHeaders(), data=data)
         if r.status_code == 200 and devel:
             print('Element status updated')
-        else:
+        elif r.status_code != 200:
             print('Error code: {}'.format(r.status_code))
 
 

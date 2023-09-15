@@ -233,7 +233,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         SOCTF.setStreamState(SOCTF.STREAM_OPEN)
         SOCTF.copyInfo(CTFset)
         CTF2Add_copy = CTFModel()
-        CTF2Add_copy.copy(CTF2Add)
+        CTF2Add_copy.copy(CTF2Add, copyId=False)
         SOCTF.append(CTF2Add_copy)
 
 
@@ -275,7 +275,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         SOMic.setStreamState(SOMic.STREAM_OPEN)
         SOMic.copyInfo(Microset)
         Mic2Add_copy = Micrograph()
-        Mic2Add_copy.copy(m)
+        Mic2Add_copy.copy(m, copyId=False)
         SOMic.append(Mic2Add_copy)
 
         if self.hasAttribute('SetOfMicrographs'):
@@ -304,7 +304,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
 
 
     def checkSmartscopeConnection(self):
-        response = self.pyClient.getDetailsFromParameter('users')
+        response = self.pyClient.getDetailsFromParameter('users', dev=False)
         return response
 
     def _summary(self):
