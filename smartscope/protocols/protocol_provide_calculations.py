@@ -131,10 +131,12 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                 else:
                     MictoRead = Microset
                 if MictoRead == []:
-                    self.info('No more Micrographs to read.')
+                    self.debug('No more Micrographs to read.')
                 else:
                     self.info('Reading Micrographs...')
                     self.readMicrograph(SOMic, moviesSS, Microset, MictoRead)
+                    self.info('Micrographs read')
+
             else:
                 self.info('No Micrographs to read.')
 
@@ -154,10 +156,12 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                     CTFtoRead = CTFset
 
                 if CTFtoRead == []:
-                    self.info('No more CTFs to read.')
+                    self.debug('No more CTFs to read.')
                 else:
-                    self.info('CTFtoRead: {}'.format(CTFtoRead))
+                    self.info('Reading CTFs...')
                     self.readCTF(SOCTF, moviesSS, CTFset, CTFtoRead)
+                    self.info('CTFs read')
+
             else:
                 self.info('No CTF to read.')
 
@@ -166,7 +170,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                 (self.is_CTF and not self.CTF_stream and not self.is_micro) or \
                 (not self.is_CTF and self.is_micro and not self.Mic_stream) or \
                 (not self.is_CTF and not self.is_micro):
-                print('Exiting protocol')
+                self.info('Exiting protocol')
                 break
 
             time.sleep(10)
@@ -187,7 +191,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
             MicName = CTF.getMicrograph().getMicName()
             for movie in moviesSS:
                 if movie.getFrames() == MicName:
-                    self.info('CTF to postCTF: {}'.format(MicName))
+                    self.debug('CTF to update: {}'.format(MicName))
                     #thumbnail = self.createThumbnail(CTF.getPsdFile()) #not necesary 1MB
                     self.postCTF(movie.getHmId(),
                                  astig,
@@ -257,7 +261,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
             MicName = m.getMicName()
             for movie in moviesSS:
                 if movie.getFrames() == MicName:
-                    self.info('Micrograph to update: {}'.format(MicName))
+                    self.debug('Micrograph to update: {}'.format(MicName))
                     #thumbnail = self.createThumbnail(m.getFileName())
                     # self.postMicrograph(movie.getHmId(), m.getFileName(), thumbnail)
                     # self.setMicrographValues(m,  m.getFileName(), thumbnail)
