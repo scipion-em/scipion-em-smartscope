@@ -38,6 +38,7 @@ from pyworkflow.protocol import ProtStreamingBase
 import pyworkflow.utils as pwutils
 from smartscope import Plugin
 from pyworkflow.object import Set
+from ..objects.data import Hole
 
 from pyworkflow.protocol import params, STEPS_PARALLEL
 from ..objects.dataCollection import *
@@ -52,10 +53,11 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
     """
     _label = 'Smartscope feedback'
     _devStatus = BETA
+    _possibleOutputs = {'SetOfHoles': SetOfHoles}
 
     def __init__(self, **args):
         ProtImport.__init__(self, **args)
-        self.stepsExecutionMode = STEPS_PARALLEL
+        #self.stepsExecutionMode = STEPS_PARALLEL
 
         self.token = Plugin.getVar(SMARTSCOPE_TOKEN)
         self.endpoint = Plugin.getVar(SMARTSCOPE_LOCALHOST)
@@ -91,32 +93,49 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                        label="Bad Classes2D",
                        help='Set of bad Classes2D calculated by a ranker')
 
-        form.addSection('Streaming')
-        form.addParam('refreshTime', params.IntParam, default=120,
-                      label="Time to refresh Smartscope synchronization (secs)")
+        # form.addSection('Streaming')
+        # form.addParam('refreshTime', params.IntParam, default=120,
+        #               label="Time to refresh Smartscope synchronization (secs)")
 
 
-    def stepsGeneratorStep(self):
-        """
-        This step should be implemented by any streaming protocol.
-        It should check its input and when ready conditions are met
-        call the self._insertFunctionStep method.
-        """
 
-        while True:
-            pass
+    def _insertAllSteps(self):
+        goodP = self.goodClasses2D.get()
+        badP = self.badClasses2D.get()
+        movies = self.inputMovies.get()
+        holes = self.inputHoles.get()
+        self._insertFunctionStep('readClasses', goodP, badP, movies, holes)
 
 
-    def readClasses(self):
-        pass
+    def readClasses(self, goodP, badP, movies, holes):
+        '''Increase 1 to the hole.goodparticle (badParticle) based on the class ranker'''
+        self.info('Reading inputs...')
 
-    def writeOnHoles(self):
-        '''
-        Write the number of good particles, bad particles, total particles,
-         GrayScaleCluster, CTFResolution, status,
-        :return:
-        '''
-        pass
+        SOH = SetOfHoles.create(outputPath=self._getPath())
+        self.outputsToDefine = {'SetOfHoles': SOH}
+        self._defineOutputs(**self.outputsToDefine)
+
+
+        self.info('Assigning good/bad particles to holes')
+        classesToiterate = {'goodP': goodP, 'badP': badP}
+        for key, value in classesToiterate.items():
+            for classItem in value:
+                for p in classItem:
+                    #TODO no hay que registrar cada hole en cada iteracion pork para cada particula en una movie va a crear un hole...
+                    for m in movies:
+                        if (os.path.basename(m.getMicName()) ==
+                                os.path.basename(p.getCoordinate().getMicName())):
+                            for h in holes:
+                                if m.getHoleId() == h.getHoleId():
+                                    if key == 'goodP':
+                                        self.info('Good particle added to hole: {}'.format(m.getHoleId()))
+                                        h.setGoodParticles(int(h.getGoodParticles()) + 1)
+                                    else:
+                                        self.info('Bad particle added to hole: {}'.format(m.getHoleId()))
+                                        h.setBadParticles(int(h.getBadParticles()) + 1)
+
+                                    self.createOutputStep(SOH, h, holes)
+                                    break
 
     def holesStatistis(self):
         '''
@@ -132,6 +151,20 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         '''
         pass
 
+    def createOutputStep(self, SOH, hole, holes):
+        SOH.copyInfo(holes)
+        hole2Add_copy = Hole()
+        hole2Add_copy.copy(hole, copyId=False)
+        SOH.append(hole2Add_copy)
+
+        if self.hasAttribute('SetOfHoles'):
+            SOH.write()
+            outputAttr = getattr(self, 'SetOfHoles')
+            outputAttr.copy(SOH, copyId=False)
+            self._store(outputAttr)
+        # STORE SQLITE
+        self._store(SOH)
+
     def checkSmartscopeConnection(self):
         response = self.pyClient.getDetailsFromParameter('users')
         return response
@@ -145,7 +178,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
 
     def _validate(self):
         errors = []
-        self._validateThreads(errors)
+        #self._validateThreads(errors)
 
         response = self.checkSmartscopeConnection()
         try:

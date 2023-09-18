@@ -677,6 +677,9 @@ class Hole(Image):
         self._selector_label = String()
         self._classifier_name = String()
         self._classifier_label = String()
+        #QUALITY
+        self._goodParticles = Integer(0)
+        self._badParticles = Integer(0)
 
     # Setters
 
@@ -762,6 +765,11 @@ class Hole(Image):
     def setClassifierLabel(self, label):
         self._classifier_label.set(label)
 
+    def setGoodParticles(self, value):
+        self._goodParticles.set(value)
+
+    def setBadParticles(self, value):
+        self._badParticles.set(value)
     # Getters
 
     def getHoleId(self):
@@ -845,6 +853,12 @@ class Hole(Image):
 
     def getClassifierLabel(self):
         return self._classifier_label.get()
+
+    def getBadParticles(self):
+        return self._badParticles
+
+    def getGoodParticles(self):
+        return self._goodParticles
 
 class MovieSS(Movie):
     """ Represents an EM Movie object """

@@ -129,7 +129,10 @@ class MainPyClient():
         return: the response, json format
         '''
         response = []
-        roude_id = '{}_id='.format(from_id)
+        if from_id != '':
+            roude_id = '{}_id='.format(from_id)
+        else:
+            roude_id = ''
         if selected == True:
             selected = 'selected=true'
         else:
@@ -163,6 +166,29 @@ class MainPyClient():
             return response
         except KeyError:
             return []
+
+
+    def getDetailFromItem(self, route, ID, detailed=True, dev=False):
+        '''
+        route: element you request for
+        id: identification of the requested element
+        detailed: True if ou want a detailed response
+
+        return: the response, json format
+        '''
+        response = []
+        route = '{}'.format(route)
+        if detailed == True:
+            detailed = '/detailed'
+        else:
+            detailed = ''
+        request = f'{self.getMainEndpoint()}{route}/{ID}{detailed}'
+        if dev==True: print(f'Requested url: {request}')
+        resp = requests.get(request, headers=self.getHeaders(), verify=False)
+        resp_jason = resp.json()
+        return resp_jason
+
+
 
     def getRouteFromName(self, route, from_name, name, detailed=False, selected=False, completed=False, dev=False):
         '''
@@ -255,7 +281,7 @@ if __name__ == "__main__":
 
     # print(allHM)
     # print(len(allHM))
-    #session = pyClient.getRouteFromID('sessions', 'session', '20230216pruebaguenaQHCyjsBSSMq')
+    #session = pyClient.getRouteFromID('sessions', 'session', '20230216pruebaguenaQHCyjsBSSMq', dev=True)
     # atlas = pyClient.getRouteFromID('atlas', 'grid', '1autoloaderucI1Nd2F55R0OY5E18g')
     #square = pyClient.getRouteFromID('squares', 'atlas', 'aaa_atlas3eITQ1lfEplhiFI73tEGz',detailed=True, selected=True)
     #hole = pyClient.getRouteFromID('holes', 'square', 'dd_square11tNPKtKoFhZIZkpFt7kf')#selected does not work for holes
@@ -271,8 +297,14 @@ if __name__ == "__main__":
     #allHM = pyClient.getRouteFromID('grids', 'grid', dev=True)  # TODO para todas las sesiones! ACOTAR A LA SESION
     #print(allHM)
     #hm = pyClient.getRouteFromID('highmag', 'hm', 'autoloader_08-06-23_2bSFBdE1AC', dev=True)
-    hD = pyClient.getRouteFromID('holes', 'hole', 'aa_square11_hole0yyBPfzlv8uHig', detailed=True, dev=True)
-    print(hD)
+    #pyClient.getRouteFromID('grids', 'session', '20230906testProvideCTFhs4yj7wy', dev=True)
+    hm = pyClient.getRouteFromID('highmag', 'hole', 'CTF_square37_hole136LqrcTrAbre', detailed=False, dev=True)
+    #hole = pyClient.getDetailFromItem('holes', 'CTF_square29_hole0Qj1E07XrZfvd', dev=True)
+    #hD = pyClient.getRouteFromID('holes', '', 'aaa_square43_hole612z66b3yBcw9', detailed=True, dev=True)
+    #selectors = hole[1].json()
+    print(hm)
+
+
     #print(hm[0]['name']+ '.mrc.mdoc')
     '''
     Sesion garciaa en servidor:

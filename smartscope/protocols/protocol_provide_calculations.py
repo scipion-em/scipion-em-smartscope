@@ -142,6 +142,7 @@ class provideCalculations(ProtImport, ProtStreamingBase):
 
             CTFset = self.CTFCalculated.get()
             SetOfCTFLocal = self.SetOfCTF
+
             CTFtoRead = []
             if CTFset:
                 self.is_CTF = True
@@ -189,8 +190,10 @@ class provideCalculations(ProtImport, ProtStreamingBase):
             defocus = (CTF.getDefocusU() + CTF.getDefocusV()) / 2
             astig = abs(CTF.getDefocusU() - CTF.getDefocusV())
             MicName = CTF.getMicrograph().getMicName()
+            movieLinked = False
             for movie in moviesSS:
                 if movie.getFrames() == MicName:
+                    movieLinked = True
                     self.debug('CTF to update: {}'.format(MicName))
                     #thumbnail = self.createThumbnail(CTF.getPsdFile()) #not necesary 1MB
                     self.postCTF(movie.getHmId(),
@@ -207,6 +210,9 @@ class provideCalculations(ProtImport, ProtStreamingBase):
                                  CTF.getDefocusAngle())
                     self.updateOutputCTF(SOCTF, CTF, CTFset)
                     break
+            if movieLinked == False:
+                self.error('{} has not a movie associated. CTF not provided to Smartscope'.format(MicName))
+                self.updateOutputCTF(SOCTF, CTF, CTFset)
 
     def postCTF(self, hmID, astig, ctffit, defocus, offset, angast):
         self.pyClient.postParameterFromID('highmag', hmID, data={"astig": astig})

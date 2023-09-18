@@ -210,7 +210,7 @@ class dataCollection():
                     setOfSquares.update(sq)
                     setOfSquares.write()
 
-                    holes = self.pyClient.getRouteFromID('holes', 'square', sq.getSquareId())
+                    holes = self.pyClient.getRouteFromID('holes', 'square', sq.getSquareId(), detailed=False)
                     if holes != []:
                         #print('square name: {}'.format(sq.getName()))
                         print('\t\t\tNumber holes in the square{}: {}'.format(
@@ -238,6 +238,15 @@ class dataCollection():
                         ho.setFileName(fileName)
                         ho.setPngDir(os.path.join(str(gr.getPngDir()),
                                                   str(ho.getName() + '.png')))
+                        holeDetail = self.pyClient.getDetailFromItem('holes', h['hole_id'])
+                        finder = holeDetail['finders'][0]
+                        ho.setFinderName(finder['method_name'])
+                        selectors = holeDetail['selectors'][0]
+                        ho.setSelectorName(selectors['method_name'])
+                        ho.setSelectorLabel(selectors['label'])
+
+                        #hm = self.pyClient.getRouteFromID('highmag', 'hole', h['hole_id'], detailed=False)
+
                         setOfHoles.append(ho)
                         setOfHoles.update(ho)
                         setOfHoles.write()
