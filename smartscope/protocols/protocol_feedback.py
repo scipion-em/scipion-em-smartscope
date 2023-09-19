@@ -115,27 +115,63 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         self.outputsToDefine = {'SetOfHoles': SOH}
         self._defineOutputs(**self.outputsToDefine)
 
+        self.info('Assigning good/bad particles to holes...')
+        classesToiterate = {'goodParticles': goodP, 'badParticles': badP}
+        dictHoles2Add = {}
+        pCount = 0
+        pAdded = 0
 
-        self.info('Assigning good/bad particles to holes')
-        classesToiterate = {'goodP': goodP, 'badP': badP}
         for key, value in classesToiterate.items():
+            self.info('\n\n{}'.format(key))
             for classItem in value:
+                self.info('\t----->{}'.format(classItem))
                 for p in classItem:
-                    #TODO no hay que registrar cada hole en cada iteracion pork para cada particula en una movie va a crear un hole...
+                    pCount += 1
                     for m in movies:
-                        if (os.path.basename(m.getMicName()) ==
-                                os.path.basename(p.getCoordinate().getMicName())):
+                        if (os.path.basename(m.getMicName()) == os.path.basename(p.getCoordinate().getMicName())):
                             for h in holes:
-                                if m.getHoleId() == h.getHoleId():
-                                    if key == 'goodP':
-                                        self.info('Good particle added to hole: {}'.format(m.getHoleId()))
-                                        h.setGoodParticles(int(h.getGoodParticles()) + 1)
-                                    else:
-                                        self.info('Bad particle added to hole: {}'.format(m.getHoleId()))
-                                        h.setBadParticles(int(h.getBadParticles()) + 1)
+                                H_ID = h.getHoleId()
+                                if m.getHoleId() == H_ID:
+                                    keyList = [key2 for key2 in dictHoles2Add.keys()]
+                                    pAdded += 1
+                                    if key == 'goodParticles':
+                                        if H_ID not in keyList:
+                                            dictHoles2Add[H_ID] = [1, 0]
+                                            self.info('hole: {} - movie: {}'.format(H_ID, os.path.basename(m.getMicName())))
+                                        else:
+                                            dictHoles2Add[H_ID] = [dictHoles2Add[H_ID][0] + 1, dictHoles2Add[H_ID][1]]
+                                        break
+                                    elif key == 'badParticles':
+                                        if H_ID not in keyList:
+                                            dictHoles2Add[H_ID] = [0, 1]
+                                        else:
+                                            dictHoles2Add[H_ID] = [dictHoles2Add[H_ID][0], dictHoles2Add[H_ID][1] + 1]
+                                        break
 
-                                    self.createOutputStep(SOH, h, holes)
-                                    break
+        self.info('\n\nParticles to add: {}'.format(pCount))
+        self.info('Particles added: {}'.format(pAdded))
+        self.info('Holes to update: {}'.format(len(dictHoles2Add.items())))
+        #self.info('dictBadHoles2Add: {}\n'.format(len(dictBadHoles2Add.items())))
+
+        for key, value in dictHoles2Add.items():
+            self.info(key)
+            self.info(value)
+            for h in holes:
+                if h.getHoleId() == key:
+                    h.setGoodParticles(int(h.getGoodParticles()) + value[0])
+                    h.setBadParticles(int(h.getBadParticles()) + value[1])
+                    break
+            self.createOutputStep(SOH, h, holes)
+        # for key, value in dictBadHoles2Add.items():
+        #     self.info(key)
+        #     self.info(value)
+        #     for h in holes:
+        #         if h.getHoleId() == key:
+        #             h.setBadParticles(int(h.getBadParticles()) + value)
+        #             break
+        #     self.createOutputStep(SOH, h, holes)
+
+
 
     def holesStatistis(self):
         '''
