@@ -118,7 +118,7 @@ class MainPyClient():
         except KeyError:
             return resp_jason
 
-    def getRouteFromID(self, route, from_id, id, detailed=False, selected=False, completed=False, dev=False):
+    def getRouteFromID(self, route, from_id, id, endpoint=False, selected=False, completed=False, dev=False):
         '''
         route: element you request for
         from_id: father of the requested element (square is the father of hole)
@@ -137,15 +137,15 @@ class MainPyClient():
             selected = 'selected=true'
         else:
             selected = ''
-        if detailed == True:
-            detailed = '/detailed'
+        if endpoint == False:
+            endpoint = ''
         else:
-            detailed = ''
+            endpoint = '/{}'.format(endpoint)
         if completed == True:
             completed = 'status=completed'
         else:
             completed = ''
-        request = f'{self.getMainEndpoint()}{route}{detailed}/?{roude_id}{id}&{selected}&{completed}'
+        request = f'{self.getMainEndpoint()}{route}{endpoint}/?{roude_id}{id}&{selected}&{completed}'
         if dev==True: print(f'Requested url: {request}')
         resp = requests.get(request, headers=self.getHeaders(), verify=False)
         if route=='highmags':print(request)
@@ -298,7 +298,7 @@ if __name__ == "__main__":
     #print(allHM)
     #hm = pyClient.getRouteFromID('highmag', 'hm', 'autoloader_08-06-23_2bSFBdE1AC', dev=True)
     #pyClient.getRouteFromID('grids', 'session', '20230906testProvideCTFhs4yj7wy', dev=True)
-    hm = pyClient.getRouteFromID('highmag', 'hole', 'CTF_square37_hole136LqrcTrAbre', detailed=False, dev=True)
+    hm = pyClient.getRouteFromID('highmag', 'hole', 'CTF_square37_hole136LqrcTrAbre', dev=True)
     #hole = pyClient.getDetailFromItem('holes', 'CTF_square29_hole0Qj1E07XrZfvd', dev=True)
     #hD = pyClient.getRouteFromID('holes', '', 'aaa_square43_hole612z66b3yBcw9', detailed=True, dev=True)
     #selectors = hole[1].json()

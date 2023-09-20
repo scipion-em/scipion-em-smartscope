@@ -675,6 +675,7 @@ class Hole(Image):
         self._content_type = Integer()
         self._selector_name = String()
         self._selector_label = String()
+        self._selector_value = Float()
         self._classifier_name = String()
         self._classifier_label = String()
         #QUALITY
@@ -759,6 +760,9 @@ class Hole(Image):
     def setSelectorLabel(self, label):
         self._selector_label.set(label)
 
+    def setSelectorValue(self, value):
+        self._selector_value.set(value)
+
     def setClassifierName(self, name):
         self._classifier_name.set(name)
 
@@ -770,6 +774,9 @@ class Hole(Image):
 
     def setBadParticles(self, value):
         self._badParticles.set(value)
+
+
+
     # Getters
 
     def getHoleId(self):
@@ -847,6 +854,9 @@ class Hole(Image):
 
     def getSelectorLabel(self):
         return self._selector_label.get()
+
+    def getSelectorValue(self):
+        return self._selector_value.get()
 
     def getClassifierName(self):
         return self._classifier_name.get()

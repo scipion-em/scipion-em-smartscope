@@ -295,26 +295,33 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
         #Match movies to add and movies from importMovies protocol
         self.info('\n\nmoviesAPI: {}\nmoviesToAdd: {}'.format(len(moviesAPI), len(moviesToAdd)))
+        notImportedMovies = []
         if moviesToAdd:
             if inputMovies is None:
                 self.info('Set of movies from import movies protocol empty')
                 return
             else:
                 for mImport in inputMovies:
+                    imported = False
                     for mAPI in moviesToAdd:
                         if mAPI['frames'] == os.path.basename(mImport.getFileName()):
+                            imported = True
                             self.info('Movie to add: {}'.format(mAPI['frames']))
                             self.addMovieSS(SOMSS, mImport, mAPI, inputMovies)
                             break
+                    if imported == False:
+                        notImportedMovies.append(mImport)
+                        self.info('Movie not imported: {}'.format(os.path.basename(mImport.getFileName())))
 
             # SUMMARY INFO
             summaryF3 = self._getPath("summary3.txt")
             summaryF3 = open(summaryF3, "w")
             summaryF3.write("\nSmartscope importing movies\n\n" +
-                            "\t{}\tMovies Smartscope\n\n".format(len(SOMSS)))
+                            "\t{}\tMovies Smartscope\n".format(len(SOMSS)))
+            summaryF3.write("\t{}\tMovies not imported\n".format(len(notImportedMovies)))
             summaryF3.close()
         else:
-            self.info('All movies from the Smartscope Api were imported. '
+            self.info('All movies from the Smartscope API were imported. '
                       'See the output of the protocol')
 
 

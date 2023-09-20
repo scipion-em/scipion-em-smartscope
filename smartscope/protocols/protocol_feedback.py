@@ -137,13 +137,14 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                                     if key == 'goodParticles':
                                         if H_ID not in keyList:
                                             dictHoles2Add[H_ID] = [1, 0]
-                                            self.info('hole: {} - movie: {}'.format(H_ID, os.path.basename(m.getMicName())))
+                                            self.info('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(m.getMicName())))
                                         else:
                                             dictHoles2Add[H_ID] = [dictHoles2Add[H_ID][0] + 1, dictHoles2Add[H_ID][1]]
                                         break
                                     elif key == 'badParticles':
                                         if H_ID not in keyList:
                                             dictHoles2Add[H_ID] = [0, 1]
+                                            self.info('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(m.getMicName())))
                                         else:
                                             dictHoles2Add[H_ID] = [dictHoles2Add[H_ID][0], dictHoles2Add[H_ID][1] + 1]
                                         break
@@ -151,7 +152,6 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         self.info('\n\nParticles to add: {}'.format(pCount))
         self.info('Particles added: {}'.format(pAdded))
         self.info('Holes to update: {}'.format(len(dictHoles2Add.items())))
-        #self.info('dictBadHoles2Add: {}\n'.format(len(dictBadHoles2Add.items())))
 
         for key, value in dictHoles2Add.items():
             self.info(key)
@@ -162,15 +162,6 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                     h.setBadParticles(int(h.getBadParticles()) + value[1])
                     break
             self.createOutputStep(SOH, h, holes)
-        # for key, value in dictBadHoles2Add.items():
-        #     self.info(key)
-        #     self.info(value)
-        #     for h in holes:
-        #         if h.getHoleId() == key:
-        #             h.setBadParticles(int(h.getBadParticles()) + value)
-        #             break
-        #     self.createOutputStep(SOH, h, holes)
-
 
 
     def holesStatistis(self):
