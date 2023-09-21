@@ -84,14 +84,15 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                       label='Input movies from Smartscope',
                       help='Select a set of movies from Smartscope connection protocol.')
         #sesion de Smartscope -> para cada hole pregunto de que sesion viene su grid
+        form.addParam('totalClasses2D', params.PointerParam, allowsNull=False,
+                       pointerClass='SetOfClasses2D',
+                       label="Classes2D",
+                       help='Set of Classes2D calculated by a classifier')
         form.addParam('goodClasses2D', params.PointerParam, allowsNull=False,
                        pointerClass='SetOfClasses2D',
                        label="Good Classes2D",
                        help='Set of good Classes2D calculated by a ranker')
-        form.addParam('badClasses2D', params.PointerParam, allowsNull=False,
-                       pointerClass='SetOfClasses2D',
-                       label="Bad Classes2D",
-                       help='Set of bad Classes2D calculated by a ranker')
+
 
         # form.addSection('Streaming')
         # form.addParam('refreshTime', params.IntParam, default=120,
@@ -100,11 +101,23 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
 
 
     def _insertAllSteps(self):
-        goodP = self.goodClasses2D.get()
-        badP = self.badClasses2D.get()
-        movies = self.inputMovies.get()
-        holes = self.inputHoles.get()
-        self._insertFunctionStep('readClasses', goodP, badP, movies, holes)
+        totalC = self.totalClasses2D.get()
+        goodC = self.goodClasses2D.get()
+        badC = []
+
+        for t in totalC:
+            flag = False
+            for g in goodC:
+                if t.getObjId() == g.getObjId():
+                    flag = True
+                    break
+            if flag == False:
+                badC.append(t)
+
+        self.info('Total classe: {} Good Classe: {} Bad: {}\n'.format(
+            len(totalC),len(goodC), len(badC)))
+        self._insertFunctionStep('readClasses',goodC, badC,
+                                 self.inputMovies.get(),  self.inputHoles.get())
 
 
     def readClasses(self, goodP, badP, movies, holes):
@@ -154,8 +167,8 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         self.info('Holes to update: {}'.format(len(dictHoles2Add.items())))
 
         for key, value in dictHoles2Add.items():
-            self.info(key)
-            self.info(value)
+            self.debug(key)
+            self.debug(value)
             for h in holes:
                 if h.getHoleId() == key:
                     h.setGoodParticles(int(h.getGoodParticles()) + value[0])
