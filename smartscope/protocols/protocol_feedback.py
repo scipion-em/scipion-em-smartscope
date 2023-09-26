@@ -48,8 +48,8 @@ from ..constants import *
 class smartscopeFeedback(ProtImport, ProtStreamingBase):
     """
     This protocol will calculate which are the best holes of the session based
-     on the good particles of each hole. After knowing the good holes, will
-     sort the queue of hole acquisition that Smartscope uses.
+    on the good particles of each hole. After knowing the good holes, will
+    sort the queue of hole acquisition that Smartscope uses.
     """
     _label = 'Smartscope feedback'
     _devStatus = BETA
@@ -150,7 +150,8 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                                     if key == 'goodParticles':
                                         if H_ID not in keyList:
                                             dictHoles2Add[H_ID] = [1, 0]
-                                            self.info('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(m.getMicName())))
+                                            self.debug('H_ID: {}  resolution: {}'.format(H_ID, p.getCTF().getResolution()))
+                                            #self.debug('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(m.getMicName())))
                                         else:
                                             dictHoles2Add[H_ID] = [dictHoles2Add[H_ID][0] + 1, dictHoles2Add[H_ID][1]]
                                         break

@@ -231,9 +231,9 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
 
     def screeningCollection(self):
-        self.outputsToDefine = {'Squares': self.SOS,
+        self.outputsToDefine = {'Grids': self.SOG,
                                 'Atlas': self.SOA,
-                                'Grids': self.SOG,
+                                'Squares': self.SOS,
                                 'Holes': self.SOH}
         self._defineOutputs(**self.outputsToDefine)
 

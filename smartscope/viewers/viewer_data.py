@@ -28,22 +28,63 @@
 
 
 from pwem.viewers.viewers_data import DataViewer
-from ..objects.data_deprecated import *
+#from ..objects.data_deprecated import *
 from ..objects.data import *
 from pwem.viewers import DataView, ObjectView
 from pwem.viewers.showj import ORDER, VISIBLE, MODE, RENDER, MODE_MD, ZOOM
+from pwem.viewers.showj import *
 
-class DataViewer_cnb(DataViewer):
-    _targets = [SetOfLowMagImages]
-
-    def _visualize(self, obj, **kwargs):
-        self._views.append(DataView(obj.getFileName()))
-        return self._views
-
+# class DataViewer_cnb(DataViewer):
+#     _targets = [SetOfLowMagImages]
+#
+#     def _visualize(self, obj, **kwargs):
+#         self._views.append(DataView(obj.getFileName()))
+#         return self._views
+#
 
 class DataViewer_smartscope(DataViewer):
     _targets = [SetOfGrids, SetOfAtlas, SetOfSquares, SetOfHoles, SetOfMoviesSS]
 
     def _visualize(self, obj, **kwargs):
-        self._views.append(DataView(obj.getFileName()))
+        if isinstance(obj, SetOfSquares):
+            labels = ('_pngDir _square_id _atlas_id _status _selected _completion_time _area _shape_x _shape_y _sampligRate')
+            self._views.append(ObjectView(self._project,
+                                           obj.strId(),
+                                           obj.getFileName(),
+                               viewParams={VISIBLE: labels,
+                                           RENDER: '_pngDir',
+                                           SORT_BY: labels}))
+        elif isinstance(obj, SetOfAtlas):
+            labels = ('_pngDir _grid_id _atlas_id _binning_factor _status _completion_time _shape_x _shape_y _sampligRate')
+            self._views.append(ObjectView(self._project,
+                                           obj.strId(),
+                                           obj.getFileName(),
+                               viewParams={VISIBLE: labels,
+                                           RENDER: '_pngDir',
+                                           SORT_BY: labels}))
+        elif isinstance(obj, SetOfGrids):
+            labels = ('_grid_id _status _position _hole_angle _mesh_angle _quality _status _start_time _last_update _mesh_size mesh_material _hole_type')
+            self._views.append(ObjectView(self._project,
+                                           obj.strId(),
+                                           obj.getFileName(),
+                               viewParams={VISIBLE: labels,
+                                           SORT_BY: labels}))
+        elif isinstance(obj, SetOfHoles):
+            labels = ('_pngDir _hole_id _grid_id _status _selected _completion_time _shape_x _shape_y _sampligRate _number _area')
+            self._views.append(ObjectView(self._project,
+                                           obj.strId(),
+                                           obj.getFileName(),
+                               viewParams={VISIBLE: labels,
+                                           RENDER: '_pngDir',
+                                           SORT_BY: labels}))
+        elif isinstance(obj, SetOfMoviesSS):
+            labels = ('_pngDir _hm_id _hole_id _status _selected _completion_time _number _sampligRate')
+            self._views.append(ObjectView(self._project,
+                                           obj.strId(),
+                                           obj.getFileName(),
+                               viewParams={VISIBLE: labels,
+                                           RENDER: '_pngDir',
+                                           SORT_BY: labels}))
+        else:
+            self._views.append(DataView(obj.getFileName()))
         return self._views
