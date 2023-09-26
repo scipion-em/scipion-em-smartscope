@@ -221,7 +221,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         SessionNames = ',  '.join([x.getSession() for x in self.sessionList])
 
         # SUMMARY INFO
-        summaryF = self._getPath("summary.txt")
+        summaryF = self._getExtraPath("summary.txt")
         summaryF = open(summaryF, "w")
         summaryF.write("Smartscope Screening\n\n" +
             "\t{} Microscopes: {}\n".format(len(self.microscopeList), MicroNames) +
@@ -260,7 +260,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         self._store(self.SOS)
         self._store(self.SOH)
         # SUMMARY INFO
-        summaryF2 = self._getPath("summary2.txt")
+        summaryF2 = self._getExtraPath("summary2.txt")
         summaryF2 = open(summaryF2, "w")
         summaryF2.write("\nSmartscope collecting\n\n" +
             "\t{}\tGrids \n".format(len(self.SOG)) +
@@ -314,7 +314,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                         self.info('Movie not imported: {}'.format(os.path.basename(mImport.getFileName())))
 
             # SUMMARY INFO
-            summaryF3 = self._getPath("summary3.txt")
+            summaryF3 = self._getExtraPath("summary3.txt")
             summaryF3 = open(summaryF3, "w")
             summaryF3.write("\nSmartscope importing movies\n\n" +
                             "\t{}\tMovies Smartscope\n".format(len(SOMSS)))
@@ -336,9 +336,9 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         movie2Add.setNumber(movieSS['number'])
         if movieSS['pixel_size'] == None or movieSS['pixel_size'] == 'null':
             self.info('getSamplingRate: {}'.format(movieImport.getSamplingRate()))
-            movie2Add.setPixelSize(movieImport.getSamplingRate())
+            movie2Add.setSamplingRate(movieImport.getSamplingRate())
         else:
-            movie2Add.setPixelSize(movieSS['pixel_size'])
+            movie2Add.setSamplingRate(movieSS['pixel_size'])
 
         movie2Add.setShapeX(movieSS['shape_x'])
         movie2Add.setShapeY(movieSS['shape_y'])
@@ -376,9 +376,9 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
     def _summary(self):
         summary = []
 
-        summaryF = self._getPath("summary.txt")
-        summaryF2 = self._getPath("summary2.txt")
-        summaryF3 = self._getPath("summary3.txt")
+        summaryF = self._getExtraPath("summary.txt")
+        summaryF2 = self._getExtraPath("summary2.txt")
+        summaryF3 = self._getExtraPath("summary3.txt")
 
         if not os.path.exists(summaryF):
             summary.append("No summary file yet.")
