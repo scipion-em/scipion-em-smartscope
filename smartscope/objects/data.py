@@ -344,7 +344,6 @@ class Atlas(Image):
         self._atlas_name = String()
         self._filename = String()
         self._pngDir = String()
-        self._pixel_size = Float()
         self._binning_factor = Integer()
         self._shape_x = Integer()
         self._shape_y = Integer()
@@ -369,9 +368,6 @@ class Atlas(Image):
 
     def setPngDir(self, pngDir):
         self._pngDir.set(pngDir)
-
-    def setPixelSize(self, pixelSpacing):
-        self._pixel_size.set(pixelSpacing)
 
     def setBinningFactor(self, factor):
         self._binning_factor.set(factor)
@@ -412,11 +408,9 @@ class Atlas(Image):
 
     def getFileName(self):
         return self._filename.get()
+
     def getPngDir(self):
         return self._pngDir.get()
-
-    def getPixelSize(self):
-        return self._pixel_size.get()
 
     def getBinningFactor(self):
         return self._binning_factor.get()
@@ -462,7 +456,6 @@ class Square(Image):
         self._filename = String()
         self._pngDir = String()
 
-        self._pixel_size = Float()
         self._shape_x = Integer()
         self._shape_y = Integer()
         self._selected = Boolean()
@@ -508,8 +501,6 @@ class Square(Image):
     def setPngDir(self, pngDir):
         self._pngDir.set(pngDir)
 
-    def setPixelSize(self, pixelSpacing):
-        self._pixel_size.set(pixelSpacing)
 
     def setShapeX(self, xDim):
         self._shape_x.set(xDim)
@@ -589,8 +580,6 @@ class Square(Image):
     def getNumber(self):
         return self._number.get()
 
-    def getPixelSize(self):
-        return self._pixel_size.get()
 
     def getShapeX(self):
         return self._shape_x.get()
@@ -653,7 +642,6 @@ class Hole(Image):
         self._name = String()
         self._number = Integer()
         self._pngDir = String()
-        self._pixel_size = Float()
         self._shape_x = Integer()
         self._shape_y = Integer()
         self._selected = Boolean()
@@ -696,8 +684,6 @@ class Hole(Image):
     def setPngDir(self, pngDir):
         self._pngDir.set(pngDir)
 
-    def setPixelSize(self, pixelSpacing):
-        self._pixel_size.set(pixelSpacing)
 
     def setShapeX(self, xDim):
         self._shape_x.set(xDim)
@@ -791,8 +777,6 @@ class Hole(Image):
     def getNumber(self):
         return self._number.get()
 
-    def getPixelSize(self):
-        return self._pixel_size.get()
 
     def getShapeX(self):
         return self._shape_x.get()
@@ -880,7 +864,6 @@ class MovieSS(Movie):
         self._ctf_img = String()
         self._name = String()
         self._number = Integer()
-        self._pixel_size = Float()
         self._shape_x = Integer()
         self._shape_y = Integer()
         self._selected = String()
@@ -917,8 +900,6 @@ class MovieSS(Movie):
     def setNumber(self, number):
         self._number.set(number)
 
-    def setPixelSize(self, pixelSpacing):
-        self._pixel_size.set(pixelSpacing)
 
     def setShapeX(self, xDim):
         self._shape_x.set(xDim)
@@ -984,9 +965,6 @@ class MovieSS(Movie):
 
     def getNumber(self):
         return self._number.get()
-
-    def getPixelSize(self):
-        return self._pixel_size.get()
 
     def getShapeX(self):
         return self._shape_x.get()

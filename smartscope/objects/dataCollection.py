@@ -60,7 +60,7 @@ class dataCollection():
         return sessionList
 
     def sessionOpen(self):
-        grid = self.pyClient.getDetailsFromParameter('grids', status='started', sortByLast=True)
+        grid = self.pyClient.getDetailsFromParameter('grids', status='started', sortByLast=True, dev=True)
         for g in grid:
             if g['status'] == 'started':
                 return g['session_id']
@@ -160,8 +160,11 @@ class dataCollection():
                 at = Atlas()
                 at.setAtlasId(a['atlas_id'])
                 at.setAtlasName(a['name'])
-                at.setPixelSize(a['pixel_size'])
-                at.setBinningFactor(a['binning_factor'])
+                at.setSamplingRate(a['pixel_size'])
+                if a['binning_factor'] == None:
+                    at.setBinningFactor(1)
+                else:
+                    at.setBinningFactor(a['binning_factor'])
                 at.setShapeX(a['shape_x'])
                 at.setShapeY(a['shape_y'])
                 at.setShapeZ(a['stage_z'])
@@ -192,7 +195,7 @@ class dataCollection():
                     sq.setSquareId(s['square_id'])
                     sq.setName(s['name'])
                     sq.setNumber(s['number'])
-                    sq.setPixelSize(s['pixel_size'])
+                    sq.setSamplingRate(s['pixel_size'])
                     sq.setShapeX(s['shape_x'])
                     sq.setShapeY(s['shape_y'])
                     sq.setSelected(s['selected'])
@@ -221,7 +224,7 @@ class dataCollection():
                         ho.setHoleId(h['hole_id'])
                         ho.setName(h['name'])
                         ho.setNumber(h['number'])
-                        ho.setPixelSize(h['pixel_size'])
+                        ho.setSamplingRate(h['pixel_size'])
                         ho.setShapeX(h['shape_x'])
                         ho.setShapeY(h['shape_y'])
                         ho.setSelected(h['selected'])

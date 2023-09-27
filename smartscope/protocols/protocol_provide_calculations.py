@@ -41,6 +41,8 @@ from ..objects.dataCollection import *
 import time
 from ..constants import *
 import math
+import base64
+import json
 
 THUMBNAIL_FACTOR = 0.1
 class provideCalculations(ProtImport, ProtStreamingBase):
@@ -49,8 +51,6 @@ class provideCalculations(ProtImport, ProtStreamingBase):
     """
     _label = 'Provide calculations'
     _devStatus = BETA
-    _possibleOutputs = {'SetOfMicrographs': SetOfMicrographs,
-                        'SetOfCTF': SetOfCTF}
 
     def __init__(self, **args):
         ProtImport.__init__(self, **args)
@@ -62,12 +62,11 @@ class provideCalculations(ProtImport, ProtStreamingBase):
 
         self.pyClient = MainPyClient(self.token, self.endpoint)
         self.connectionClient = dataCollection(self.pyClient)
-        self.SetOfCTF = None
-        self.SetOfMicrographs = None
         self.is_micro = False
         self.is_CTF = False
         self.CTF_stream = False
         self.Mic_stream = False
+
 
     def _defineParams(self, form):
         """ Define the input parameters that will be used.
@@ -101,23 +100,11 @@ class provideCalculations(ProtImport, ProtStreamingBase):
         call the self._insertFunctionStep method.
         """
         while True:
-            if self.SetOfMicrographs == None:
-                SOMic = SetOfMicrographs.create(outputPath=self._getPath())
-                self.outputsToDefine = {'SetOfMicrographs': SOMic}
-                self._defineOutputs(**self.outputsToDefine)
-            else:
-                SOMic = self.SetOfMicrographs
-
-            if self.SetOfCTF == None:
-                SOCTF = SetOfCTF.create(outputPath=self._getPath())
-                self.outputsToDefine = {'SetOfCTF': SOCTF}
-                self._defineOutputs(**self.outputsToDefine)
-            else:
-                SOCTF = self.SetOfCTF
+            #---MICROGRAPH----------
 
             moviesSS = self.movieSmartscope.get()
             Microset = self.alignmentCalculated.get()
-            Micrographs_local = self.SetOfMicrographs
+            Micrographs_local = self.readCTFAsList('Micro')
             MictoRead = []
             if Microset:
                 self.is_micro = True
@@ -134,15 +121,17 @@ class provideCalculations(ProtImport, ProtStreamingBase):
                     self.debug('No more Micrographs to read.')
                 else:
                     self.info('Reading Micrographs...')
-                    self.readMicrograph(SOMic, moviesSS, Microset, MictoRead)
+                    self.readMicrograph(moviesSS, MictoRead)
                     self.info('Micrographs read')
+
 
             else:
                 self.info('No Micrographs to read.')
 
-            CTFset = self.CTFCalculated.get()
-            SetOfCTFLocal = self.SetOfCTF
 
+            #---CTF----------
+            CTFset = self.CTFCalculated.get()
+            SetOfCTFLocal = self.readCTFAsList('CTF')
             CTFtoRead = []
             if CTFset:
                 self.is_CTF = True
@@ -160,11 +149,17 @@ class provideCalculations(ProtImport, ProtStreamingBase):
                     self.debug('No more CTFs to read.')
                 else:
                     self.info('Reading CTFs...')
-                    self.readCTF(SOCTF, moviesSS, CTFset, CTFtoRead)
+                    self.readCTF(moviesSS, CTFtoRead)
                     self.info('CTFs read')
 
             else:
                 self.info('No CTF to read.')
+
+            # SUMMARY INFO
+            summary = self._getExtraPath("summary.txt")
+            summary = open(summary, "w")
+            summary.write('{} CTFs provided to Smartscope\n{} Micrographs provided to Smartscope'.format(
+                len(self.readCTFAsList('CTF')), len(self.readCTFAsList('Micro'))))
 
 
             if (self.is_CTF and not self.CTF_stream and self.is_micro and not self.Mic_stream) or \
@@ -176,7 +171,7 @@ class provideCalculations(ProtImport, ProtStreamingBase):
 
             time.sleep(10)
 
-    def readCTF(self, SOCTF, moviesSS, CTFset, CTFtoRead):
+    def readCTF(self, moviesSS, CTFtoRead):
         '''
         Get the movie of the CTF, and get the highmag id (hm_id)
         Run postCTF with the parameters to post, run setMoviesValues and uptade output
@@ -202,17 +197,17 @@ class provideCalculations(ProtImport, ProtStreamingBase):
                                  defocus,
                                  '1.111111',
                                  CTF.getDefocusAngle())
-                    self.setMoviesValues(movie,
-                                 astig,
-                                 CTF.getFitQuality(),
-                                 defocus,
-                                 '1.111111',
-                                 CTF.getDefocusAngle())
-                    self.updateOutputCTF(SOCTF, CTF, CTFset)
+                    # image2Post = '/home/agarcia/Documents/XMIPP/bannerXmipp/banner-July.png'
+                    # payload = self.createJsonPath(image2Post)
+                    # payload = self.createJsonPath(self.createThumbnail(
+                    #         os.path.abspath(CTF.getPsdFile()), 1, ext='png'))
+                    # self.pyClient.postParameterFromID('highmag', movie.getHmId(),
+                    #                                   data={"ctf_img": payload})
+                    self.saveCTFItemRead(CTF.getPsdFile(), 'CTF')
+
                     break
             if movieLinked == False:
                 self.error('{} has not a movie associated. CTF not provided to Smartscope'.format(MicName))
-                self.updateOutputCTF(SOCTF, CTF, CTFset)
 
     def postCTF(self, hmID, astig, ctffit, defocus, offset, angast):
         self.pyClient.postParameterFromID('highmag', hmID, data={"astig": astig})
@@ -224,40 +219,10 @@ class provideCalculations(ProtImport, ProtStreamingBase):
 
         # pyClient.postParameterFromID('highmag', 'long_square15_hole10eRoomMJvKy',
         #                              data={"astig": '100.00'})
-        # pyClient.postParameterFromID('highmag', 'long_square15_hole10eRoomMJvKy',
-        #                          data={"ctffit": '100.00'})
-        # pyClient.postParameterFromID('highmag', 'long_square15_hole10eRoomMJvKy',
-        #                          data={"defocus": '100.00'})
-        # pyClient.postParameterFromID('highmag', 'long_square15_hole10eRoomMJvKy',
-        #                          data={"offset": '100.00'})
         #set on the movieSS objects
 
-    def setMoviesValues(self, movie,  astig, ctffit, defocus, offset, angast):
-        movie.setAstig(astig)
-        movie.setCtffit(ctffit)
-        movie.setDefocus(defocus)
-        #movie.setOffset(offset)
-        movie.setAngast(angast)
 
-    def updateOutputCTF(self, SOCTF, CTF2Add, CTFset):
-        SOCTF.setStreamState(SOCTF.STREAM_OPEN)
-        SOCTF.copyInfo(CTFset)
-        CTF2Add_copy = CTFModel()
-        CTF2Add_copy.copy(CTF2Add, copyId=False)
-        SOCTF.append(CTF2Add_copy)
-
-
-        if self.hasAttribute('SetOfCTF'):
-            SOCTF.write()
-            outputAttr = getattr(self, 'SetOfCTF')
-            outputAttr.copy(SOCTF, copyId=False)
-            self._store(outputAttr)
-        # STORE SQLITE
-        SOCTF.setStreamState(SOCTF.STREAM_CLOSED)
-        self._store(SOCTF)
-
-
-    def readMicrograph(self, SOMic, moviesSS, Microset, MictoRead):
+    def readMicrograph(self, moviesSS, MictoRead):
         '''
         Get the movie of the CTF, and get the highmag id (hm_id)
         Run postCTF with the parameters to post, run setMoviesValues and uptade output
@@ -271,56 +236,76 @@ class provideCalculations(ProtImport, ProtStreamingBase):
                     #thumbnail = self.createThumbnail(m.getFileName())
                     # self.postMicrograph(movie.getHmId(), m.getFileName(), thumbnail)
                     # self.setMicrographValues(m,  m.getFileName(), thumbnail)
-                    self.updateOutputMic(SOMic, m, Microset)
-
+                    self.saveCTFItemRead(MicName, 'Micro')
 
     def postMicrograph(self, hmID, MicPath, MicThum):
         self.pyClient.postParameterFromID('highmag', hmID, data={"MicPath": MicPath})
         self.pyClient.postParameterFromID('highmag', hmID, data={"MicThumbnail": MicThum})
 
-    def setMicrographValues(self, m, MicPath, MicThum):
-        m.setPath(MicPath)
-
-    def updateOutputMic(self, SOMic, m, Microset):
-        SOMic.setStreamState(SOMic.STREAM_OPEN)
-        SOMic.copyInfo(Microset)
-        Mic2Add_copy = Micrograph()
-        Mic2Add_copy.copy(m, copyId=False)
-        SOMic.append(Mic2Add_copy)
-
-        if self.hasAttribute('SetOfMicrographs'):
-            SOMic.write()
-            outputAttr = getattr(self, 'SetOfMicrographs')
-            outputAttr.copy(SOMic, copyId=False)
-            self._store(outputAttr)
-        # STORE SQLITE
-        SOMic.setStreamState(SOMic.STREAM_CLOSED)
-        self._store(SOMic)
 
     # UTILS
-    def createThumbnail(self, pathOriginal):
+    def createThumbnail(self, pathOriginal, FACTOR=THUMBNAIL_FACTOR, ext='jpg'):
         currentDir = os.getcwd()
         relativePath = os.path.join(currentDir, pathOriginal)
-        path = os.path.splitext(os.path.basename(pathOriginal))[0] +  "_THUMB.jpg"
+        path = os.path.splitext(os.path.basename(pathOriginal))[0] +  "_THUMB." + ext
         outPath = os.path.join(self._getExtraPath(), path)
         outPath = os.path.join(currentDir, outPath)
 
         args = '-i "%s" ' % self._getExtraPath(relativePath)
         args += '-o "%s" ' % outPath
-        args += '--factor {} '.format(THUMBNAIL_FACTOR)
+        args += '--factor {} '.format(FACTOR)
         args += '-v 0 '
 
         runProgram('xmipp_image_resize', args)
+        return outPath
 
+    def createJsonPath(self, path):
+        with open(path, "rb") as f:
+            image = f.read_bytes()
+            encoded_image = base64.b64encode(image).decode(encoding='ascii')
+            payload = json.dumps({'png': encoded_image})
+            return payload
 
     def checkSmartscopeConnection(self):
         response = self.pyClient.getDetailsFromParameter('users', dev=False)
         return response
 
+    def saveCTFItemRead(self, item2Write, item):
+        if item == 'CTF':
+            file = self._getExtraPath("CTfsRead.txt")
+        else:
+            file = self._getExtraPath("MicrosRead.txt")
+        summaryF = open(file, "a")
+        summaryF.write(item2Write + '\n')
+        summaryF.close()
+
+    def readCTFAsList(self, item):
+        list = []
+        if item == 'CTF':
+            file = self._getExtraPath("CTfsRead.txt")
+        else:
+            file = self._getExtraPath("MicrosRead.txt")
+        try:
+            file = open(file, "r")
+        except FileNotFoundError: #First iteration
+            return list
+        for line in file.readlines():
+            line = line.replace('\n', '')
+            list.append(line.rstrip())
+        file.close()
+        return list
+
     def _summary(self):
         summary = []
+        summaryF = self._getExtraPath("summary.txt")
+        if not os.path.exists(summaryF):
+            summary.append("No summary file yet.")
+        else:
+            summaryF = open(summaryF, "r")
+            for line in summaryF.readlines():
+                summary.append(line.rstrip())
+            summaryF.close()
         return summary
-
 
     def _validate(self):
         errors = []
