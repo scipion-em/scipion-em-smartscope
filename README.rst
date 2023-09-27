@@ -37,3 +37,5 @@ Once you edit the scipion.conf please save it and run *scipion config*
 Protocols
 ---------
 smartscope connection
+Provide calculations
+Smartscope feedback
