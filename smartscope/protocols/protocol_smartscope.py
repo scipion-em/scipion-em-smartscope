@@ -163,46 +163,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         self.reStartTime = time.time()
         self.ListMoviesImported = []
 
-    #
-    # def _insertAllSteps(self):
-    #     # Insert processing steps
-    #     self._insertFunctionStep(self._initialize)
-    #     self._insertFunctionStep(self.metadataCollection)
-    #     self.CloseStep_ID = self._insertFunctionStep('closeSet',
-    #                                                  prerequisites=[],
-    #                                                  wait=True)
-    #     self.newSteps.append(self.CloseStep_ID)
-    #
-    # def closeSet(self):
-    #     pass
-    #
-    # def _getFirstJoinStep(self):
-    #     for s in self._steps:
-    #         if s.funcName == self._getFirstJoinStepName():
-    #             return s
-    #     return None
-    #
-    # def _getFirstJoinStepName(self):
-    #     # This function will be used for streaming, to check which is
-    #     # the first function that need to wait for all micrographs
-    #     # to have completed, this can be overwritten in subclasses
-    #     # (eg in Xmipp 'sortPSDStep')
-    #     return 'closeSet'
-    #
-
-    # def _stepsCheck(self):
-    #     delayInit = int(time.time() - self.startTime)
-    #     delay = int(time.time() - self.reStartTime)
-    #
-    #     if self.TotalTime <= delayInit: #End of the protocol
-    #         output_step = self._getFirstJoinStep()
-    #         if output_step and output_step.isWaiting():
-    #             output_step.setStatus(cons.STATUS_NEW)
-    #     else:
-    #         new_step_id = self._insertFunctionStep('streamingScreaningAndImport',
-    #                                     prerequisites=[], wait=False)
-    #         self.newSteps.append(new_step_id)
-    #         self.updateSteps()
 
     def sessionListCollection(self):
         return self.connectionClient.sessionCollection()
@@ -339,6 +299,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             movie2Add.setSamplingRate(movieImport.getSamplingRate())
         else:
             movie2Add.setSamplingRate(movieSS['pixel_size'])
+            self.info('getSampligRate: {}'.format(movie2Add.getSamplingRate()))
 
         movie2Add.setShapeX(movieSS['shape_x'])
         movie2Add.setShapeY(movieSS['shape_y'])
@@ -372,6 +333,8 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
     def checkSmartscopeConnection(self):
         response = self.pyClient.getDetailsFromParameter('users')
         return response
+
+
     # --------------------------- INFO functions -----------------------------------
     def _summary(self):
         summary = []
@@ -398,7 +361,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                 summary.append(line.rstrip())
             summaryF3.close()
         return summary
-
 
     def _validate(self):
         errors = []

@@ -78,12 +78,12 @@ class DataViewer_smartscope(DataViewer):
                                            RENDER: '_pngDir',
                                            SORT_BY: labels}))
         elif isinstance(obj, SetOfMoviesSS):
-            labels = ('_pngDir _hm_id _hole_id _status _selected _completion_time _number _sampligRate')
+            labels = ('_micName _hm_id _hole_id _status _completion_time _samplingRate _shape_x _shape_y')
             self._views.append(ObjectView(self._project,
                                            obj.strId(),
                                            obj.getFileName(),
                                viewParams={VISIBLE: labels,
-                                           RENDER: '_pngDir',
+                                           MODE: MODE_MD,
                                            SORT_BY: labels}))
         else:
             self._views.append(DataView(obj.getFileName()))

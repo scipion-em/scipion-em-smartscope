@@ -35,7 +35,7 @@ class smartscopeWizard(Wizard):
             finalList.append(String(i[0]))
         provider = ListTreeProviderString(finalList)
         dlg = dialog.ListDialog(form.root, "Sessions available", provider,
-        "Select the session")
+        "Select the session (sorted by date)")
         try:
             OutStr = dlg.values[0].get()
             OutStr = OutStr.replace('  *last session started*', '')
