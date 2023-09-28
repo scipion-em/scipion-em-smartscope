@@ -2,7 +2,7 @@
 Scipion-em-smarscope
 =======================
 
-Plugin to manage the interaction with the SmartScope program.
+Plugin to manage the interaction with the SmartScope framework.
 
 Installation
 ------------
@@ -36,8 +36,6 @@ Once you edit the scipion.conf please save it and run *scipion config*
 
 Protocols
 ---------
-smartscope connection
-
-Provide calculations
-
-Smartscope feedback
+* smartscope connection
+* Provide calculations
+* Smartscope feedback
