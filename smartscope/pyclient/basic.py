@@ -236,6 +236,19 @@ class MainPyClient():
             print('Empty response')
             return []
 
+    def postImages(self, ID, payload, devel=False):
+        highmag = 'highmag'
+        upload = 'upload_images'
+        url = f'{self.getMainEndpoint()}{highmag}/{ID}/{upload}/'
+        if devel:
+            print(url)
+        r = requests.patch(url, verify=False, headers=self.getHeaders(), data=payload)
+        if r.status_code == 200 and devel:
+            print('Image updated')
+        elif r.status_code != 200:
+            print('Error code: {}'.format(r.status_code))
+            print('Error: {}'.format(r.reason))
+
     def postParameterFromID(self, route, ID, data='', devel=False):
         #https://linuxhint.com/python-requests-put-method/
         #https://stackoverflow.com/questions/31089221/what-is-the-difference-between-put-post-and-patch

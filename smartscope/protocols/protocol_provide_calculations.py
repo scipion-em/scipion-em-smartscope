@@ -44,7 +44,7 @@ import math
 import base64
 import json
 
-THUMBNAIL_FACTOR = 0.1
+THUMBNAIL_FACTOR = 0.5
 class provideCalculations(ProtImport, ProtStreamingBase):
     """
     This protocol provide the CTF and or the alignment to Smartscope
@@ -101,7 +101,6 @@ class provideCalculations(ProtImport, ProtStreamingBase):
         """
         while True:
             #---MICROGRAPH----------
-
             moviesSS = self.movieSmartscope.get()
             Microset = self.alignmentCalculated.get()
             Micrographs_local = self.readCTFAsList('Micro')
@@ -123,11 +122,8 @@ class provideCalculations(ProtImport, ProtStreamingBase):
                     self.info('Reading Micrographs...')
                     self.readMicrograph(moviesSS, MictoRead)
                     self.info('Micrographs read')
-
-
             else:
                 self.info('No Micrographs to read.')
-
 
             #---CTF----------
             CTFset = self.CTFCalculated.get()
@@ -151,16 +147,15 @@ class provideCalculations(ProtImport, ProtStreamingBase):
                     self.info('Reading CTFs...')
                     self.readCTF(moviesSS, CTFtoRead)
                     self.info('CTFs read')
-
             else:
                 self.info('No CTF to read.')
+
 
             # SUMMARY INFO
             summary = self._getExtraPath("summary.txt")
             summary = open(summary, "w")
             summary.write('{} CTFs provided to Smartscope\n{} Micrographs provided to Smartscope'.format(
                 len(self.readCTFAsList('CTF')), len(self.readCTFAsList('Micro'))))
-
 
             if (self.is_CTF and not self.CTF_stream and self.is_micro and not self.Mic_stream) or \
                 (self.is_CTF and not self.CTF_stream and not self.is_micro) or \
@@ -190,31 +185,31 @@ class provideCalculations(ProtImport, ProtStreamingBase):
                 if movie.getFrames() == MicName:
                     movieLinked = True
                     self.debug('CTF to update: {}'.format(MicName))
-                    #thumbnail = self.createThumbnail(CTF.getPsdFile()) #not necesary 1MB
+                    image2Post = '/home/agarcia/Downloads/BPV_1387.mrc'
                     self.postCTF(movie.getHmId(),
                                  astig,
                                  CTF.getFitQuality(),
                                  defocus,
                                  '1.111111',
-                                 CTF.getDefocusAngle())
-                    # image2Post = '/home/agarcia/Documents/XMIPP/bannerXmipp/banner-July.png'
-                    # payload = self.createJsonPath(image2Post)
-                    # payload = self.createJsonPath(self.createThumbnail(
-                    #         os.path.abspath(CTF.getPsdFile()), 1, ext='png'))
-                    # self.pyClient.postParameterFromID('highmag', movie.getHmId(),
-                    #                                   data={"ctf_img": payload})
-                    self.saveCTFItemRead(CTF.getPsdFile(), 'CTF')
-
+                                 CTF.getDefocusAngle(),
+                                 #CTF.getPsdFile(),
+                                 image2Post,
+                                 movie.getHmId())
                     break
             if movieLinked == False:
                 self.error('{} has not a movie associated. CTF not provided to Smartscope'.format(MicName))
 
-    def postCTF(self, hmID, astig, ctffit, defocus, offset, angast):
+    def postCTF(self, hmID, astig, ctffit, defocus, offset, angast, psdFile, HmID):
         self.pyClient.postParameterFromID('highmag', hmID, data={"astig": astig})
         self.pyClient.postParameterFromID('highmag', hmID, data={"ctffit": ctffit})
         self.pyClient.postParameterFromID('highmag', hmID, data={"defocus": defocus})
         self.pyClient.postParameterFromID('highmag', hmID, data={"offset": offset})
         self.pyClient.postParameterFromID('highmag', hmID, data={"angast": angast})
+
+        payload = self.createJsonPath(self.createThumbnail(
+            os.path.abspath(psdFile), 1, ext='png'))
+        self.pyClient.postImages(HmID, {"ctf_img": payload}, devel=True)
+        self.saveItemRead(psdFile, 'CTF')
 
 
         # pyClient.postParameterFromID('highmag', 'long_square15_hole10eRoomMJvKy',
@@ -236,11 +231,18 @@ class provideCalculations(ProtImport, ProtStreamingBase):
                     #thumbnail = self.createThumbnail(m.getFileName())
                     # self.postMicrograph(movie.getHmId(), m.getFileName(), thumbnail)
                     # self.setMicrographValues(m,  m.getFileName(), thumbnail)
-                    self.saveCTFItemRead(MicName, 'Micro')
+                    self.saveItemRead(MicName, 'Micro')
 
     def postMicrograph(self, hmID, MicPath, MicThum):
         self.pyClient.postParameterFromID('highmag', hmID, data={"MicPath": MicPath})
         self.pyClient.postParameterFromID('highmag', hmID, data={"MicThumbnail": MicThum})
+
+        payload = self.createJsonPath(self.createThumbnail(
+            os.path.abspath(MicPath), ext='png'))
+        self.pyClient.postImages(hmID, {"png": payload}, devel=True)
+        payload = self.createJsonPath(self.createThumbnail(
+            os.path.abspath(MicPath), 1, ext='mrc'))
+        self.pyClient.postImages(hmID, {"mrc": payload}, devel=True)
 
 
     # UTILS
@@ -261,7 +263,7 @@ class provideCalculations(ProtImport, ProtStreamingBase):
 
     def createJsonPath(self, path):
         with open(path, "rb") as f:
-            image = f.read_bytes()
+            image = f.read()
             encoded_image = base64.b64encode(image).decode(encoding='ascii')
             payload = json.dumps({'png': encoded_image})
             return payload
@@ -270,7 +272,7 @@ class provideCalculations(ProtImport, ProtStreamingBase):
         response = self.pyClient.getDetailsFromParameter('users', dev=False)
         return response
 
-    def saveCTFItemRead(self, item2Write, item):
+    def saveItemRead(self, item2Write, item):
         if item == 'CTF':
             file = self._getExtraPath("CTfsRead.txt")
         else:
