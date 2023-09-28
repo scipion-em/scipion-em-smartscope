@@ -12,7 +12,7 @@ This workflow integrate the Smartscope screening, provide CTF and alignment calc
         "runMode": 0,
         "importFrom": 0,
         "filesPath" "~Movie's folder|%(HOME)s|2|moviesPath~",
-        "filesPattern": "~File's pattern|*.tif|3|filepattern~",
+        "filesPattern": "*.mrcs *.tif",
         "copyFiles": false,
         "haveDataBeenPhaseFlipped": false,
         "acquisitionWizard": null,
@@ -25,7 +25,7 @@ This workflow integrate the Smartscope screening, provide CTF and alignment calc
         "scannedPixelSize": 7.0,
         "doseInitial": 0.0,
         "dosePerFrame": ~Dose per frame|1.0|4|dose~
-        "gainFile": "~Gain file|%(HOME)s|2|gain~",
+        "gainFile": "~Gain file|%(HOME)s|0|gain~",
         "darkFile": null,
         "dataStreaming": false,
         "timeout": 43200,
