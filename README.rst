@@ -2,7 +2,7 @@
 Scipion-em-smarscope
 =======================
 
-Plugin to manage the interaction with the SmartScope program.
+Plugin to manage the interaction with the SmartScope framework.
 
 Installation
 ------------
