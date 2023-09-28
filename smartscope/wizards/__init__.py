@@ -4,4 +4,4 @@
 # Find documentation here: https://scipion-em.github.io/docs/docs/developer/creating-a-wizard
 # **************************************************************************
 
-from .wizard_hello_world import smartscopeWizard
+from .wizard_list_sessions import smartscopeWizard

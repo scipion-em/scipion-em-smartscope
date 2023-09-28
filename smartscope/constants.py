@@ -1,12 +1,14 @@
 # **************************************************************************
 # *
-# * Authors:     you (you@yourinstitution.email)
+# * Authors: Daniel Marchan (da.marchan@cnb.csic.es)
+#            Alberto Garcia Mena   (alberto.garcia@cnb.csic.es)
 # *
-# * your institution
+# *
+# * Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -24,26 +26,6 @@
 # *
 # **************************************************************************
 
-import pwem
-from .constants import *
-
-_logo = "icon.png"
-_references = ['Bouvette2022']
-
-
-class Plugin(pwem.Plugin):
-    pass
-    @classmethod
-    def getEnviron(cls, xmippFirst=True):
-        pass
-
-    @classmethod
-    def _defineVariables(cls):
-        cls._defineVar(SMARTSCOPE_LOCALHOST, 'http://localhost:48000/api/')
-        cls._defineVar(SMARTSCOPE_TOKEN, 'Read Smartscope documentation to get the token...')
-        cls._defineVar(SMARTSCOPE_DATA_SESSION_PATH, 'Path assigned to the data in the Smartscope installation')
-
-        #https://docs.smartscope.org/getting_started/installation/docker/docker/#6-the-installation-is-done
-
-    #conda create --name smartscopeenv python==3.9
-
+SMARTSCOPE_TOKEN = 'SMARTSCOPE_TOKEN'
+SMARTSCOPE_LOCALHOST = 'SMARTSCOPE_LOCALHOST'
+SMARTSCOPE_DATA_SESSION_PATH = 'SMARTSCOPE_DATA_SESSION_PATH'
