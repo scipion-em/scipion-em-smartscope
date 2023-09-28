@@ -24,7 +24,7 @@ This workflow integrate the Smartscope screening, provide CTF and alignment calc
         "samplingRate":  ~Sampling rate|1|4|sr~,
         "scannedPixelSize": 7.0,
         "doseInitial": 0.0,
-        "dosePerFrame": ~Dose per frame|1.0|4|dose~
+        "dosePerFrame": ~Dose per frame|1.0|4|dose~,
         "gainFile": "~Gain file|%(HOME)s|0|gain~",
         "darkFile": null,
         "dataStreaming": false,
