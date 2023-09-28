@@ -28,7 +28,7 @@ setup(
     version='0.1',  # Required
     description='Plugin to manage Smartscope from Scipion',  # Required
     long_description=long_description,  # Optional
-    url='https://github.com/scipion-em/scipion-em-myplugin',  # Optional
+    url='https://github.com/scipion-em/scipion-em-smartscope',  # Optional
     author='Daniel Marchan and Alberto Garcia Mena',  # Optional
     author_email='da.marchan@cnb.csic.es, alberto.garcia@cnb.csic.es',  # Optional
     keywords='scipion cryoem imageprocessing scipion-3.0 screening smartscope',  # Optional
