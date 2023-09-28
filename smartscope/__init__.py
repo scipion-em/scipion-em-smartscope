@@ -1,12 +1,14 @@
 # **************************************************************************
 # *
-# * Authors:     you (you@yourinstitution.email)
+# * Authors: Daniel Marchan (da.marchan@cnb.csic.es)
+#            Alberto Garcia Mena   (alberto.garcia@cnb.csic.es)
 # *
-# * your institution
+# *
+# * Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -24,9 +26,14 @@
 # *
 # **************************************************************************
 
+"""
+This modules contains protocols useful for Smartscope framework integration
+"""
+
 import pwem
 from .constants import *
 
+__version__ = "3.0.0"
 _logo = "icon.png"
 _references = ['Bouvette2022']
 
