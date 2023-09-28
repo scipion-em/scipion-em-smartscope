@@ -97,10 +97,13 @@ class MainPyClient():
         except Exception as e:
             return e
         if dev==True: print(f'Requested url: {request}')
-        resp_jason = resp.json()
-        if dev==True: print(f'Response: {resp}\nResponse: {resp_jason}')
 
         try:
+            resp_jason = resp.json()
+        except Exception as e:
+            return resp
+        try:
+            if dev == True: print(f'Response: {resp}\nResponse: {resp_jason}')
             page_response = resp_jason['results']
             response.extend(page_response)
 

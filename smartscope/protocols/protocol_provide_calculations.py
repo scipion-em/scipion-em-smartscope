@@ -103,7 +103,7 @@ class provideCalculations(ProtImport, ProtStreamingBase):
             #---MICROGRAPH----------
             moviesSS = self.movieSmartscope.get()
             Microset = self.alignmentCalculated.get()
-            Micrographs_local = self.readCTFAsList('Micro')
+            Micrographs_local = self.readAsList('Micro')
             MictoRead = []
             if Microset:
                 self.is_micro = True
@@ -127,7 +127,7 @@ class provideCalculations(ProtImport, ProtStreamingBase):
 
             #---CTF----------
             CTFset = self.CTFCalculated.get()
-            SetOfCTFLocal = self.readCTFAsList('CTF')
+            SetOfCTFLocal = self.readAsList('CTF')
             CTFtoRead = []
             if CTFset:
                 self.is_CTF = True
@@ -155,7 +155,7 @@ class provideCalculations(ProtImport, ProtStreamingBase):
             summary = self._getExtraPath("summary.txt")
             summary = open(summary, "w")
             summary.write('{} CTFs provided to Smartscope\n{} Micrographs provided to Smartscope'.format(
-                len(self.readCTFAsList('CTF')), len(self.readCTFAsList('Micro'))))
+                len(self.readAsList('CTF')), len(self.readAsList('Micro'))))
 
             if (self.is_CTF and not self.CTF_stream and self.is_micro and not self.Mic_stream) or \
                 (self.is_CTF and not self.CTF_stream and not self.is_micro) or \
@@ -281,7 +281,7 @@ class provideCalculations(ProtImport, ProtStreamingBase):
         summaryF.write(item2Write + '\n')
         summaryF.close()
 
-    def readCTFAsList(self, item):
+    def readAsList(self, item):
         list = []
         if item == 'CTF':
             file = self._getExtraPath("CTfsRead.txt")
@@ -316,6 +316,7 @@ class provideCalculations(ProtImport, ProtStreamingBase):
         try:
             response[0]['username']
         except Exception as e:
+            self.error(e)
             try:
                 errors.append('Error Smartscope connection:\n{}'.format(response['detail']))
             except Exception:
