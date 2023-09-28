@@ -11,7 +11,7 @@ This workflow integrate the Smartscope screening, provide CTF and alignment calc
         "runName": null,
         "runMode": 0,
         "importFrom": 0,
-        "filesPath" "~Movie's folder|%(HOME)s|2|moviesPath~",
+        "filesPath": "~Movie's folder|%(HOME)s|2|moviesPath~",
         "filesPattern": "*.mrcs *.tif",
         "copyFiles": false,
         "haveDataBeenPhaseFlipped": false,
