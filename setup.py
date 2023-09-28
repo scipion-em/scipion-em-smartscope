@@ -10,6 +10,7 @@ from setuptools import setup, find_packages
 # To use a consistent encoding
 from codecs import open
 from os import path
+from smartscope import __version__
 
 here = path.abspath(path.dirname(__file__))
 
@@ -25,10 +26,10 @@ with open('requirements.txt') as f:
 
 setup(
     name='scipion-em-smartscope',  # Required
-    version='0.1',  # Required
+    version=__version__,  # Required
     description='Plugin to manage Smartscope from Scipion',  # Required
     long_description=long_description,  # Optional
-    url='https://github.com/scipion-em/scipion-em-myplugin',  # Optional
+    url='https://github.com/scipion-em/scipion-em-smartscope',  # Optional
     author='Daniel Marchan and Alberto Garcia Mena',  # Optional
     author_email='da.marchan@cnb.csic.es, alberto.garcia@cnb.csic.es',  # Optional
     keywords='scipion cryoem imageprocessing scipion-3.0 screening smartscope',  # Optional
