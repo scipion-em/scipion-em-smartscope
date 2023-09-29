@@ -221,6 +221,17 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         errors = []
         #self._validateThreads(errors)
 
+        if Plugin.getVar(SMARTSCOPE_TOKEN) == 'Read Smartscope documentation to get the token...':
+            errors.append('SMARTSCOPE_TOKEN has not been configured, '
+                          'please visit https://github.com/scipion-em/scipion-em-smartscope#configuration \n')
+        if Plugin.getVar(SMARTSCOPE_LOCALHOST) == None:
+            errors.append(
+                'SMARTSCOPE_LOCALHOST has not been configured, please visit https://github.com/scipion-em/scipion-em-smartscope#configuration \n')
+        if Plugin.getVar(SMARTSCOPE_DATA_SESSION_PATH) == 'Path assigned to the data in the Smartscope installation':
+            errors.append(
+                'SMARTSCOPE_DATA_SESSION_PATH has not been configured, '
+                'please visit https://github.com/scipion-em/scipion-em-smartscope#configuration \n')
+
         response = self.checkSmartscopeConnection()
         try:
             response[0]['username']
