@@ -109,10 +109,9 @@ class provideCalculations(ProtImport, ProtStreamingBase):
                 self.is_micro = True
                 self.Mic_stream = Microset.isStreamOpen()
                 if Micrographs_local:
-                    MicroLocalList = [os.path.basename(m.getFileName()) for m in Micrographs_local]
+                    MicroLocalList = [m for m in Micrographs_local]
                     for m in Microset:
-                        if os.path.basename(
-                                m.getFileName()) not in MicroLocalList:
+                        if os.path.basename(m.getFileName()) not in MicroLocalList:
                             MictoRead.append(m)
                 else:
                     MictoRead = Microset
@@ -228,15 +227,12 @@ class provideCalculations(ProtImport, ProtStreamingBase):
             for movie in moviesSS:
                 if movie.getFrames() == MicName:
                     self.debug('Micrograph to update: {}'.format(MicName))
-                    #thumbnail = self.createThumbnail(m.getFileName())
-                    # self.postMicrograph(movie.getHmId(), m.getFileName(), thumbnail)
-                    # self.setMicrographValues(m,  m.getFileName(), thumbnail)
+                    image2Post = '/home/agarcia/Downloads/microCarbon.mrc'
+                    self.postMicrograph(movie.getHmId(), image2Post)
+                    #self.postMicrograph(movie.getHmId(), m.getFileName())
                     self.saveItemRead(MicName, 'Micro')
 
-    def postMicrograph(self, hmID, MicPath, MicThum):
-        self.pyClient.postParameterFromID('highmag', hmID, data={"MicPath": MicPath})
-        self.pyClient.postParameterFromID('highmag', hmID, data={"MicThumbnail": MicThum})
-
+    def postMicrograph(self, hmID, MicPath):
         payload = self.createJsonPath(self.createThumbnail(
             os.path.abspath(MicPath), ext='png'))
         self.pyClient.postImages(hmID, {"png": payload}, devel=True)
