@@ -252,7 +252,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             if mAPI['frames'] not in ImportM:
                 moviesToAdd.append(mAPI)
 
-
         #Match movies to add and movies from importMovies protocol
         self.info('\n\nmoviesAPI: {}\nmoviesToAdd: {}'.format(len(moviesAPI), len(moviesToAdd)))
         notImportedMovies = []
@@ -262,16 +261,18 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                 return
             else:
                 for mImport in inputMovies:
+                    self.info('{} -------'.format(os.path.basename(mImport.getFileName())))
                     imported = False
                     for mAPI in moviesToAdd:
+                        self.info('{}'.format(mAPI['frames']))
                         if mAPI['frames'] == os.path.basename(mImport.getFileName()):
                             imported = True
-                            self.info('Movie to add: {}'.format(mAPI['frames']))
+                            self.info('{}'.format(mAPI['frames']))
                             self.addMovieSS(SOMSS, mImport, mAPI, inputMovies)
                             break
                     if imported == False:
                         notImportedMovies.append(mImport)
-                        self.info('Movie not imported: {}'.format(os.path.basename(mImport.getFileName())))
+                        self.info('Movie not imported: {}\n'.format(os.path.basename(mImport.getFileName())))
 
             # SUMMARY INFO
             summaryF3 = self._getExtraPath("summary3.txt")
@@ -295,11 +296,11 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         movie2Add.setName(movieSS['name'])
         movie2Add.setNumber(movieSS['number'])
         if movieSS['pixel_size'] == None or movieSS['pixel_size'] == 'null':
-            self.info('getSamplingRate: {}'.format(movieImport.getSamplingRate()))
+            #self.info('getSamplingRate: {}'.format(movieImport.getSamplingRate()))
             movie2Add.setSamplingRate(movieImport.getSamplingRate())
         else:
             movie2Add.setSamplingRate(movieSS['pixel_size'])
-            self.info('getSampligRate: {}'.format(movie2Add.getSamplingRate()))
+            #self.info('getSampligRate: {}'.format(movie2Add.getSamplingRate()))
 
         movie2Add.setShapeX(movieSS['shape_x'])
         movie2Add.setShapeY(movieSS['shape_y'])

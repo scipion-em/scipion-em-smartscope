@@ -43,6 +43,8 @@ from ..constants import *
 import math
 import base64
 import json
+from pathlib import Path
+
 
 THUMBNAIL_FACTOR = 0.5
 class provideCalculations(ProtImport, ProtStreamingBase):
@@ -101,6 +103,7 @@ class provideCalculations(ProtImport, ProtStreamingBase):
         """
         while True:
             #---MICROGRAPH----------
+            self.info('\nMicrographs providing --------')
             moviesSS = self.movieSmartscope.get()
             Microset = self.alignmentCalculated.get()
             Micrographs_local = self.readAsList('Micro')
@@ -125,6 +128,8 @@ class provideCalculations(ProtImport, ProtStreamingBase):
                 self.info('No Micrographs to read.')
 
             #---CTF----------
+            self.info('\nCTF providing --------')
+
             CTFset = self.CTFCalculated.get()
             SetOfCTFLocal = self.readAsList('CTF')
             CTFtoRead = []
@@ -205,9 +210,7 @@ class provideCalculations(ProtImport, ProtStreamingBase):
         self.pyClient.postParameterFromID('highmag', hmID, data={"offset": offset})
         self.pyClient.postParameterFromID('highmag', hmID, data={"angast": angast})
 
-        payload = self.createJsonPath(self.createThumbnail(
-            os.path.abspath(psdFile), 1, ext='png'))
-        self.pyClient.postImages(HmID, {"ctf_img": payload}, devel=True)
+        self.pyClient.postImages(HmID, {"ctf_img": self.createJsonPath(psdFile,'mrc')}, devel=True)
         self.saveItemRead(psdFile, 'CTF')
 
 
@@ -233,12 +236,21 @@ class provideCalculations(ProtImport, ProtStreamingBase):
                     self.saveItemRead(MicName, 'Micro')
 
     def postMicrograph(self, hmID, MicPath):
-        payload = self.createJsonPath(self.createThumbnail(
-            os.path.abspath(MicPath), ext='png'))
-        self.pyClient.postImages(hmID, {"png": payload}, devel=True)
-        payload = self.createJsonPath(self.createThumbnail(
-            os.path.abspath(MicPath), 1, ext='mrc'))
+        #ih = ImageHandler()
+
+        imageXmipp = '/home/agarcia/Documents/XMIPP/logoXmipp/xmipp.png'
+        mrcImage = '/home/agarcia/Downloads/20230321_AB_0317_2_330_0.0_aligned_mic_DW_ctf.mrc'
+        payload = self.createJsonPath(mrcImage, 'mrc')
+        #print(payload)
+        
         self.pyClient.postImages(hmID, {"mrc": payload}, devel=True)
+
+        # payload = self.createJsonPath(self.createThumbnail(
+        #     os.path.abspath(MicPath), ext='jpg'), 'png')
+        # self.pyClient.postImages(hmID, {"png": payload}, devel=True)
+
+        # payload = self.createJsonPath(MicPath, 'mrc')
+        # self.pyClient.postImages(hmID, {"mrc": payload}, devel=True)
 
 
     # UTILS
@@ -250,19 +262,26 @@ class provideCalculations(ProtImport, ProtStreamingBase):
         outPath = os.path.join(currentDir, outPath)
 
         args = '-i "%s" ' % self._getExtraPath(relativePath)
-        args += '-o "%s" ' % outPath
+        args += '-o {} '.format(outPath)
         args += '--factor {} '.format(FACTOR)
         args += '-v 0 '
 
         runProgram('xmipp_image_resize', args)
         return outPath
 
-    def createJsonPath(self, path):
-        with open(path, "rb") as f:
-            image = f.read()
-            encoded_image = base64.b64encode(image).decode(encoding='ascii')
-            payload = json.dumps({'png': encoded_image})
-            return payload
+    def createJsonPath(self, path, flag):
+        self.info('Creating JSON: {}'.format(path))
+        image = Path(path).read_bytes()
+        encoded_image = base64.b64encode(image).decode(encoding='ascii')
+        payload = json.dumps({flag: encoded_image})
+        self.info(type(payload))
+        return payload
+
+        # with open(path, "rb") as f:
+        #     image = f.read()
+        #     encoded_image = base64.b64encode(image).decode(encoding='ascii')
+        #     payload = json.dumps({'png': encoded_image})
+        #     return payload
 
     def checkSmartscopeConnection(self):
         response = self.pyClient.getDetailsFromParameter('users', dev=False)
