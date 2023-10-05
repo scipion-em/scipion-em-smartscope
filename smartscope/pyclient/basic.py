@@ -247,10 +247,15 @@ class MainPyClient():
             print(url)
         r = requests.patch(url, verify=False, headers=self.getHeaders(), data=payload)
         if r.status_code == 200 and devel:
-            print('Image updated')
+            print(r.json())
+            #print('Image updated')
         elif r.status_code != 200:
             print('Error code: {}'.format(r.status_code))
             print('Error: {}'.format(r.reason))
+            try:
+                print(r.json())
+            except Exception:
+                pass
 
     def postParameterFromID(self, route, ID, data='', devel=False):
         #https://linuxhint.com/python-requests-put-method/

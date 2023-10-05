@@ -44,7 +44,7 @@ import math
 import base64
 import json
 from pathlib import Path
-
+import mimetypes
 
 THUMBNAIL_FACTOR = 0.5
 class provideCalculations(ProtImport, ProtStreamingBase):
@@ -189,15 +189,13 @@ class provideCalculations(ProtImport, ProtStreamingBase):
                 if movie.getFrames() == MicName:
                     movieLinked = True
                     self.debug('CTF to update: {}'.format(MicName))
-                    image2Post = '/home/agarcia/Downloads/BPV_1387.mrc'
                     self.postCTF(movie.getHmId(),
                                  astig,
                                  CTF.getFitQuality(),
                                  defocus,
                                  '1.111111',
                                  CTF.getDefocusAngle(),
-                                 #CTF.getPsdFile(),
-                                 image2Post,
+                                 CTF.getPsdFile(),
                                  movie.getHmId())
                     break
             if movieLinked == False:
@@ -210,13 +208,24 @@ class provideCalculations(ProtImport, ProtStreamingBase):
         self.pyClient.postParameterFromID('highmag', hmID, data={"offset": offset})
         self.pyClient.postParameterFromID('highmag', hmID, data={"angast": angast})
 
-        self.pyClient.postImages(HmID, {"ctf_img": self.createJsonPath(psdFile,'mrc')}, devel=True)
+        #THUMBNAIL
+        outPath = self.createThumbnail(psdFile, 1,'jpg')
+        from PIL import Image
+        im1 = Image.open(outPath)
+        currentDir = os.getcwd()
+        path = os.path.splitext(os.path.basename(outPath))[0] + "ctf." + 'png'
+        outPath = os.path.join(self._getExtraPath(), path)
+        outPath = os.path.join(currentDir, outPath)
+        im1.save(outPath)#saving as PNG
+
+        payload = self.createJsonPath(outPath, 'png')
+        self.pyClient.postImages(hmID, {"ctf_img": payload}, devel=False)
+
+
+
+        #self.pyClient.postImages(HmID, {"ctf_img": self.createJsonPath(psdFile,'mrc')}, devel=True)
         self.saveItemRead(psdFile, 'CTF')
 
-
-        # pyClient.postParameterFromID('highmag', 'long_square15_hole10eRoomMJvKy',
-        #                              data={"astig": '100.00'})
-        #set on the movieSS objects
 
 
     def readMicrograph(self, moviesSS, MictoRead):
@@ -230,34 +239,37 @@ class provideCalculations(ProtImport, ProtStreamingBase):
             for movie in moviesSS:
                 if movie.getFrames() == MicName:
                     self.debug('Micrograph to update: {}'.format(MicName))
-                    image2Post = '/home/agarcia/Downloads/microCarbon.mrc'
-                    self.postMicrograph(movie.getHmId(), image2Post)
-                    #self.postMicrograph(movie.getHmId(), m.getFileName())
+                    self.postMicrograph(movie.getHmId(), m.getFileName())
                     self.saveItemRead(MicName, 'Micro')
 
     def postMicrograph(self, hmID, MicPath):
-        #ih = ImageHandler()
-
-        imageXmipp = '/home/agarcia/Documents/XMIPP/logoXmipp/xmipp.png'
-        mrcImage = '/home/agarcia/Downloads/20230321_AB_0317_2_330_0.0_aligned_mic_DW_ctf.mrc'
-        payload = self.createJsonPath(mrcImage, 'mrc')
-        #print(payload)
-        
+        #ORIGINAL
+        self.info('\npostMicrograph: {}'.format(MicPath))
+        #Size isue on API
+        payload = self.createJsonPath(os.path.abspath(MicPath), 'mrc')
         self.pyClient.postImages(hmID, {"mrc": payload}, devel=True)
 
-        # payload = self.createJsonPath(self.createThumbnail(
-        #     os.path.abspath(MicPath), ext='jpg'), 'png')
-        # self.pyClient.postImages(hmID, {"png": payload}, devel=True)
 
-        # payload = self.createJsonPath(MicPath, 'mrc')
-        # self.pyClient.postImages(hmID, {"mrc": payload}, devel=True)
 
+
+        #THUMBNAIL
+        imgJPG = self.createThumbnail(MicPath, THUMBNAIL_FACTOR, 'jpg')
+        from PIL import Image
+        im1 = Image.open(imgJPG)
+        currentDir = os.getcwd()
+        path = os.path.splitext(os.path.basename(imgJPG))[0] + "." + 'png'
+        outPath = os.path.join(self._getExtraPath(), path)
+        outPath = os.path.join(currentDir, outPath)
+        im1.save(outPath)#saving as PNG
+        #os.remove(imgJPG)
+        payload = self.createJsonPath(outPath, 'png')
+        self.pyClient.postImages(hmID, {"png": payload}, devel=True)
 
     # UTILS
-    def createThumbnail(self, pathOriginal, FACTOR=THUMBNAIL_FACTOR, ext='jpg'):
+    def createThumbnail(self, pathOriginal, FACTOR=THUMBNAIL_FACTOR, ext='png'):
         currentDir = os.getcwd()
         relativePath = os.path.join(currentDir, pathOriginal)
-        path = os.path.splitext(os.path.basename(pathOriginal))[0] +  "_THUMB." + ext
+        path = os.path.splitext(os.path.basename(pathOriginal))[0] + "_THUMB." + ext
         outPath = os.path.join(self._getExtraPath(), path)
         outPath = os.path.join(currentDir, outPath)
 
@@ -270,18 +282,12 @@ class provideCalculations(ProtImport, ProtStreamingBase):
         return outPath
 
     def createJsonPath(self, path, flag):
-        self.info('Creating JSON: {}'.format(path))
+        self.info('\nCreating JSON: {}'.format(path))
         image = Path(path).read_bytes()
         encoded_image = base64.b64encode(image).decode(encoding='ascii')
-        payload = json.dumps({flag: encoded_image})
-        self.info(type(payload))
+        payload = json.dumps(encoded_image)
         return payload
 
-        # with open(path, "rb") as f:
-        #     image = f.read()
-        #     encoded_image = base64.b64encode(image).decode(encoding='ascii')
-        #     payload = json.dumps({'png': encoded_image})
-        #     return payload
 
     def checkSmartscopeConnection(self):
         response = self.pyClient.getDetailsFromParameter('users', dev=False)
