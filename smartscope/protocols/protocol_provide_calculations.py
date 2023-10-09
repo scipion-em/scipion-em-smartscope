@@ -75,9 +75,7 @@ class provideCalculations(ProtImport, ProtStreamingBase):
         Params:
             form: this is the form to be populated with sections and params.
         """
-        # You need a params to belong to a section:
         form.addSection(label=Message.LABEL_INPUT)
-        #sesion de Smartscope -> para cada hole pregunto de que sesion viene su grid
         form.addParam('movieSmartscope', params.PointerParam, allowsNull=False,
                        pointerClass='SetOfMoviesSS',
                        label='Set of Movies',
@@ -137,7 +135,7 @@ class provideCalculations(ProtImport, ProtStreamingBase):
                 self.is_CTF = True
                 self.CTF_stream = CTFset.isStreamOpen()
                 if SetOfCTFLocal:
-                    CTFLocalList = [os.path.basename(c.getPsdFile()) for c in SetOfCTFLocal]
+                    CTFLocalList = [os.path.basename(c) for c in SetOfCTFLocal]
                     for c in CTFset:
                         if os.path.basename(c.getPsdFile()) not in CTFLocalList:
                             print(os.path.basename(c.getPsdFile()))
@@ -195,13 +193,14 @@ class provideCalculations(ProtImport, ProtStreamingBase):
                                  defocus,
                                  '1.111111',
                                  CTF.getDefocusAngle(),
-                                 CTF.getPsdFile(),
-                                 movie.getHmId())
+                                 CTF.getPsdFile())
                     break
             if movieLinked == False:
                 self.error('{} has not a movie associated. CTF not provided to Smartscope'.format(MicName))
 
-    def postCTF(self, hmID, astig, ctffit, defocus, offset, angast, psdFile, HmID):
+    def postCTF(self, hmID, astig, ctffit, defocus, offset, angast, psdFile):
+        self.info('\nPosting CTF: {}'.format(psdFile))
+
         self.pyClient.postParameterFromID('highmag', hmID, data={"astig": astig})
         self.pyClient.postParameterFromID('highmag', hmID, data={"ctffit": ctffit})
         self.pyClient.postParameterFromID('highmag', hmID, data={"defocus": defocus})
@@ -221,9 +220,6 @@ class provideCalculations(ProtImport, ProtStreamingBase):
         payload = self.createJsonPath(outPath, 'png')
         self.pyClient.postImages(hmID, {"ctf_img": payload}, devel=False)
 
-
-
-        #self.pyClient.postImages(HmID, {"ctf_img": self.createJsonPath(psdFile,'mrc')}, devel=True)
         self.saveItemRead(psdFile, 'CTF')
 
 
@@ -244,13 +240,10 @@ class provideCalculations(ProtImport, ProtStreamingBase):
 
     def postMicrograph(self, hmID, MicPath):
         #ORIGINAL
-        self.info('\npostMicrograph: {}'.format(MicPath))
+        self.info('\nPosting Micrograph: {}'.format(MicPath))
         #Size isue on API
         payload = self.createJsonPath(os.path.abspath(MicPath), 'mrc')
-        self.pyClient.postImages(hmID, {"mrc": payload}, devel=True)
-
-
-
+        self.pyClient.postImages(hmID, {"mrc": payload}, devel=False)
 
         #THUMBNAIL
         imgJPG = self.createThumbnail(MicPath, THUMBNAIL_FACTOR, 'jpg')
@@ -261,9 +254,9 @@ class provideCalculations(ProtImport, ProtStreamingBase):
         outPath = os.path.join(self._getExtraPath(), path)
         outPath = os.path.join(currentDir, outPath)
         im1.save(outPath)#saving as PNG
-        #os.remove(imgJPG)
+        os.remove(imgJPG)
         payload = self.createJsonPath(outPath, 'png')
-        self.pyClient.postImages(hmID, {"png": payload}, devel=True)
+        self.pyClient.postImages(hmID, {"png": payload}, devel=False)
 
     # UTILS
     def createThumbnail(self, pathOriginal, FACTOR=THUMBNAIL_FACTOR, ext='png'):
@@ -282,7 +275,7 @@ class provideCalculations(ProtImport, ProtStreamingBase):
         return outPath
 
     def createJsonPath(self, path, flag):
-        self.info('\nCreating JSON: {}'.format(path))
+        self.debug('\nCreating JSON: {}'.format(path))
         image = Path(path).read_bytes()
         encoded_image = base64.b64encode(image).decode(encoding='ascii')
         payload = json.dumps(encoded_image)
@@ -344,8 +337,6 @@ class provideCalculations(ProtImport, ProtStreamingBase):
             errors.append(
                 'SMARTSCOPE_DATA_SESSION_PATH has not been configured, '
                 'please visit https://github.com/scipion-em/scipion-em-smartscope#configuration \n')
-
-
 
         response = self.checkSmartscopeConnection()
         try:
