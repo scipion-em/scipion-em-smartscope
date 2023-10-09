@@ -158,13 +158,20 @@ class provideCalculations(ProtImport, ProtStreamingBase):
             summary.write('{} CTFs provided to Smartscope\n{} Micrographs provided to Smartscope'.format(
                 len(self.readAsList('CTF')), len(self.readAsList('Micro'))))
 
-            if (self.is_CTF and not self.CTF_stream and self.is_micro and not self.Mic_stream) or \
-                (self.is_CTF and not self.CTF_stream and not self.is_micro) or \
-                (not self.is_CTF and self.is_micro and not self.Mic_stream) or \
-                (not self.is_CTF and not self.is_micro):
-                self.info('Exiting protocol')
+            if (self.is_CTF and not self.CTF_stream and self.is_micro and not self.Mic_stream):
+                self.info('Exiting protocol. Micrograph set and CTF set closed')
+                break
+            elif (self.is_CTF and not self.CTF_stream and not self.is_micro):
+                self.info('Exiting protocol. CTF set closed')
+                break
+            elif (not self.is_CTF and self.is_micro and not self.Mic_stream):
+                self.info('Exiting protocol. Micrograph set closed')
+                break
+            elif (not self.is_CTF and not self.is_micro):
+                self.info('Exiting protocol, no CTF neither micrograpsh found')
                 break
 
+            self.info('Protocol still working on streaming')
             time.sleep(10)
 
     def readCTF(self, moviesSS, CTFtoRead):
