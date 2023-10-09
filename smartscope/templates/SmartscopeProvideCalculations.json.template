@@ -21,7 +21,7 @@ This workflow integrate the Smartscope screening and provide CTF and alignment c
     {
         "object.className": "CistemProtCTFFind",
         "object.id": "20717",
-        "object.label": "cistem - ctffind4 (copy 2)",
+        "object.label": "cistem - ctffind4",
         "object.comment": "",
         "_useQueue": false,
         "_prerequisites": "",
@@ -57,7 +57,7 @@ This workflow integrate the Smartscope screening and provide CTF and alignment c
     {
         "object.className": "ProtMotionCorr",
         "object.id": "20775",
-        "object.label": "motioncorr (copy 2)",
+        "object.label": "motioncorr",
         "object.comment": "",
         "_useQueue": false,
         "_prerequisites": "",
