@@ -1,7 +1,7 @@
 # **************************************************************************
 # *
-# * Authors: Daniel Marchan (da.marchan@cnb.csic.es)
-#            Alberto Garcia Mena   (alberto.garcia@cnb.csic.es)
+# * Authors: Alberto Garcia Mena   (alberto.garcia@cnb.csic.es)
+# *          Daniel Marchan (da.marchan@cnb.csic.es)
 # *
 # *
 # * Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC
@@ -96,7 +96,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                       label="Time to finish Smartscope (secs)",
                       help='Time from the begining ot the protocol to '
                            'the end of the acquisicion. By default 1 day (86400 secs)')
-
         form.addParallelSection(threads=3, mpi=1)
 
 
@@ -175,11 +174,9 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                                                  self.detectorList,
                                                  self.sessionList,
                                                  self.acquisition)
-
         MicroNames = ',  '.join([x.getName() for x in self.microscopeList])
         DetectorNames = ',  '.join([x.getName() for x in self.detectorList])
         SessionNames = ',  '.join([x.getSession() for x in self.sessionList])
-
         # SUMMARY INFO
         summaryF = self._getExtraPath("summary.txt")
         summaryF = open(summaryF, "w")
@@ -196,7 +193,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                                 'Squares': self.SOS,
                                 'Holes': self.SOH}
         self._defineOutputs(**self.outputsToDefine)
-
         self.SOG.enableAppend()
         self.SOA.enableAppend()
         self.SOS.enableAppend()
@@ -339,7 +335,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
     # --------------------------- INFO functions -----------------------------------
     def _summary(self):
         summary = []
-
         summaryF = self._getExtraPath("summary.txt")
         summaryF2 = self._getExtraPath("summary2.txt")
         summaryF3 = self._getExtraPath("summary3.txt")

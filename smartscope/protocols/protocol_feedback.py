@@ -1,7 +1,7 @@
 # **************************************************************************
 # *
-# * Authors: Daniel Marchan (da.marchan@cnb.csic.es)
-#            Alberto Garcia Mena   (alberto.garcia@cnb.csic.es)
+# * Authors: Alberto Garcia Mena   (alberto.garcia@cnb.csic.es)
+# *          Daniel Marchan (da.marchan@cnb.csic.es)
 # *
 # *
 # * Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC

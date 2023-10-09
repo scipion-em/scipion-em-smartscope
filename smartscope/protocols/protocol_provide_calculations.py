@@ -1,7 +1,7 @@
 # **************************************************************************
 # *
-# * Authors: Daniel Marchan (da.marchan@cnb.csic.es)
-#            Alberto Garcia Mena   (alberto.garcia@cnb.csic.es)
+# * Authors: Alberto Garcia Mena   (alberto.garcia@cnb.csic.es)
+# *          Daniel Marchan (da.marchan@cnb.csic.es)
 # *
 # *
 # * Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC
@@ -152,7 +152,6 @@ class provideCalculations(ProtImport, ProtStreamingBase):
             else:
                 self.info('No CTF to read.')
 
-
             # SUMMARY INFO
             summary = self._getExtraPath("summary.txt")
             summary = open(summary, "w")
@@ -219,10 +218,7 @@ class provideCalculations(ProtImport, ProtStreamingBase):
 
         payload = self.createJsonPath(outPath, 'png')
         self.pyClient.postImages(hmID, {"ctf_img": payload}, devel=False)
-
         self.saveItemRead(psdFile, 'CTF')
-
-
 
     def readMicrograph(self, moviesSS, MictoRead):
         '''
@@ -241,7 +237,6 @@ class provideCalculations(ProtImport, ProtStreamingBase):
     def postMicrograph(self, hmID, MicPath):
         #ORIGINAL
         self.info('\nPosting Micrograph: {}'.format(MicPath))
-        #Size isue on API
         payload = self.createJsonPath(os.path.abspath(MicPath), 'mrc')
         self.pyClient.postImages(hmID, {"mrc": payload}, devel=False)
 
