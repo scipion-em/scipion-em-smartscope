@@ -233,10 +233,13 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         # Match movies from the API and from the output of the protocol
         if self.MoviesSS == None:
             SOMSS = SetOfMoviesSS.create(outputPath=self._getPath())
+            SOMSS.copyInfo(inputMovies)
+            SOMSS.setSamplingRate(0)
             self.outputsToDefine = {'MoviesSS': SOMSS}
             self._defineOutputs(**self.outputsToDefine)
         else:
             SOMSS = self.MoviesSS
+
 
         for gr in self.Grids:
             dictMAPI = self.pyClient.getRouteFromID('highmag', 'grid', gr.getGridId())
@@ -270,6 +273,10 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                         notImportedMovies.append(mImport)
                         self.info('Movie not imported: {}\n'.format(os.path.basename(mImport.getFileName())))
 
+            # STORE SQLITE
+            SOMSS.setStreamState(SOMSS.STREAM_CLOSED)
+            self._store(SOMSS)
+
             # SUMMARY INFO
             summaryF3 = self._getExtraPath("summary3.txt")
             summaryF3 = open(summaryF3, "w")
@@ -284,9 +291,15 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
     def addMovieSS(self, SOMSS, movieImport, movieSS, inputMovies):
         SOMSS.setStreamState(SOMSS.STREAM_OPEN)
-        SOMSS.copyInfo(inputMovies)
+        self.info('getSampligRate SOMSS: {}'.format(SOMSS.getSamplingRate()))
+
+
+        movieImport.setSamplingRate(movieSS['pixel_size'])
+        self.info('getSampligRate Movie: {}'.format(movieImport.getSamplingRate()))
+
         movie2Add = MovieSS()
         movie2Add.copy(movieImport)
+        self.info('getSampligRate: {}'.format(movie2Add.getSamplingRate()))
 
         movie2Add.setHmId(movieSS['hm_id'])
         movie2Add.setName(movieSS['name'])
@@ -294,9 +307,10 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         if movieSS['pixel_size'] == None or movieSS['pixel_size'] == 'null':
             #self.info('getSamplingRate: {}'.format(movieImport.getSamplingRate()))
             movie2Add.setSamplingRate(movieImport.getSamplingRate())
+            self.info('NULLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL')
         else:
             movie2Add.setSamplingRate(movieSS['pixel_size'])
-            #self.info('getSampligRate: {}'.format(movie2Add.getSamplingRate()))
+            self.info('SAMPLINGGGGGGGGGGGGGGGGGGGGGGGGGG')
 
         movie2Add.setShapeX(movieSS['shape_x'])
         movie2Add.setShapeY(movieSS['shape_y'])
@@ -314,17 +328,18 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         movie2Add.setGridId(movieSS['grid_id'])
         movie2Add.setHoleId(movieSS['hole_id'])
 
+        self.info('getSampligRate: {}'.format(movie2Add.getSamplingRate()))
+
         SOMSS.append(movie2Add)
+        SOMSS.write()#persist on sqlite
 
-        if self.hasAttribute('MoviesSS'):
-            SOMSS.write()
-            outputAttr = getattr(self, 'MoviesSS')
-            outputAttr.copy(SOMSS, copyId=False)
-            self._store(outputAttr)
+        # if self.hasAttribute('MoviesSS'):
+        #     SOMSS.write()
+        #     outputAttr = getattr(self, 'MoviesSS')
+        #     outputAttr.copy(SOMSS, copyId=False)
+        #     self._store(outputAttr)
 
-        # STORE SQLITE
-        SOMSS.setStreamState(SOMSS.STREAM_CLOSED)
-        self._store(SOMSS)
+
 
 
     def checkSmartscopeConnection(self):
