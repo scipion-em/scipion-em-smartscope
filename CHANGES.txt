@@ -1,3 +1,10 @@
+v3.0.0: First stable release
+    - Protocol Smartscope connection
+        - Fixes on sampling rate
+    - Protocol Provide calculations
+        - Providing ctf and align on streaming
+    - Protocol Smartscope feedback (working on)
+
 v3.0.0: First release
     - Protocol Smartscope connection
     - Protocol Provide calculations
