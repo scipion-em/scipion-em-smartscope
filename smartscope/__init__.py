@@ -33,7 +33,7 @@ This modules contains protocols useful for Smartscope framework integration
 import pwem
 from .constants import *
 
-__version__ = "3.0.0"
+__version__ = "3.0.1"
 _logo = "icon.png"
 _references = ['Bouvette2022']
 
