@@ -1,7 +1,7 @@
 # **************************************************************************
 # *
-# * Authors: Daniel Marchan (da.marchan@cnb.csic.es)
-#            Alberto Garcia Mena   (alberto.garcia@cnb.csic.es)
+# * Authors: Alberto Garcia Mena   (alberto.garcia@cnb.csic.es)
+# *          Daniel Marchan (da.marchan@cnb.csic.es)
 # *
 # *
 # * Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC
@@ -43,6 +43,8 @@ from ..constants import *
 import math
 import base64
 import json
+from pathlib import Path
+import mimetypes
 
 THUMBNAIL_FACTOR = 0.5
 class provideCalculations(ProtImport, ProtStreamingBase):
@@ -73,9 +75,7 @@ class provideCalculations(ProtImport, ProtStreamingBase):
         Params:
             form: this is the form to be populated with sections and params.
         """
-        # You need a params to belong to a section:
         form.addSection(label=Message.LABEL_INPUT)
-        #sesion de Smartscope -> para cada hole pregunto de que sesion viene su grid
         form.addParam('movieSmartscope', params.PointerParam, allowsNull=False,
                        pointerClass='SetOfMoviesSS',
                        label='Set of Movies',
@@ -101,6 +101,7 @@ class provideCalculations(ProtImport, ProtStreamingBase):
         """
         while True:
             #---MICROGRAPH----------
+            self.info('\nMicrographs providing --------')
             moviesSS = self.movieSmartscope.get()
             Microset = self.alignmentCalculated.get()
             Micrographs_local = self.readAsList('Micro')
@@ -109,10 +110,9 @@ class provideCalculations(ProtImport, ProtStreamingBase):
                 self.is_micro = True
                 self.Mic_stream = Microset.isStreamOpen()
                 if Micrographs_local:
-                    MicroLocalList = [os.path.basename(m.getFileName()) for m in Micrographs_local]
+                    MicroLocalList = [m for m in Micrographs_local]
                     for m in Microset:
-                        if os.path.basename(
-                                m.getFileName()) not in MicroLocalList:
+                        if os.path.basename(m.getFileName()) not in MicroLocalList:
                             MictoRead.append(m)
                 else:
                     MictoRead = Microset
@@ -126,6 +126,8 @@ class provideCalculations(ProtImport, ProtStreamingBase):
                 self.info('No Micrographs to read.')
 
             #---CTF----------
+            self.info('\nCTF providing --------')
+
             CTFset = self.CTFCalculated.get()
             SetOfCTFLocal = self.readAsList('CTF')
             CTFtoRead = []
@@ -133,7 +135,7 @@ class provideCalculations(ProtImport, ProtStreamingBase):
                 self.is_CTF = True
                 self.CTF_stream = CTFset.isStreamOpen()
                 if SetOfCTFLocal:
-                    CTFLocalList = [os.path.basename(c.getPsdFile()) for c in SetOfCTFLocal]
+                    CTFLocalList = [os.path.basename(c) for c in SetOfCTFLocal]
                     for c in CTFset:
                         if os.path.basename(c.getPsdFile()) not in CTFLocalList:
                             print(os.path.basename(c.getPsdFile()))
@@ -150,20 +152,26 @@ class provideCalculations(ProtImport, ProtStreamingBase):
             else:
                 self.info('No CTF to read.')
 
-
             # SUMMARY INFO
             summary = self._getExtraPath("summary.txt")
             summary = open(summary, "w")
             summary.write('{} CTFs provided to Smartscope\n{} Micrographs provided to Smartscope'.format(
                 len(self.readAsList('CTF')), len(self.readAsList('Micro'))))
 
-            if (self.is_CTF and not self.CTF_stream and self.is_micro and not self.Mic_stream) or \
-                (self.is_CTF and not self.CTF_stream and not self.is_micro) or \
-                (not self.is_CTF and self.is_micro and not self.Mic_stream) or \
-                (not self.is_CTF and not self.is_micro):
-                self.info('Exiting protocol')
+            if (self.is_CTF and not self.CTF_stream and self.is_micro and not self.Mic_stream):
+                self.info('Exiting protocol. Micrograph set and CTF set closed')
+                break
+            elif (self.is_CTF and not self.CTF_stream and not self.is_micro):
+                self.info('Exiting protocol. CTF set closed')
+                break
+            elif (not self.is_CTF and self.is_micro and not self.Mic_stream):
+                self.info('Exiting protocol. Micrograph set closed')
+                break
+            elif (not self.is_CTF and not self.is_micro):
+                self.info('Exiting protocol, no CTF neither micrograpsh found')
                 break
 
+            self.info('Protocol still working on streaming')
             time.sleep(10)
 
     def readCTF(self, moviesSS, CTFtoRead):
@@ -185,37 +193,39 @@ class provideCalculations(ProtImport, ProtStreamingBase):
                 if movie.getFrames() == MicName:
                     movieLinked = True
                     self.debug('CTF to update: {}'.format(MicName))
-                    image2Post = '/home/agarcia/Downloads/BPV_1387.mrc'
                     self.postCTF(movie.getHmId(),
                                  astig,
                                  CTF.getFitQuality(),
                                  defocus,
                                  '1.111111',
                                  CTF.getDefocusAngle(),
-                                 #CTF.getPsdFile(),
-                                 image2Post,
-                                 movie.getHmId())
+                                 CTF.getPsdFile())
                     break
             if movieLinked == False:
                 self.error('{} has not a movie associated. CTF not provided to Smartscope'.format(MicName))
 
-    def postCTF(self, hmID, astig, ctffit, defocus, offset, angast, psdFile, HmID):
+    def postCTF(self, hmID, astig, ctffit, defocus, offset, angast, psdFile):
+        self.info('\nPosting CTF: {}'.format(psdFile))
+
         self.pyClient.postParameterFromID('highmag', hmID, data={"astig": astig})
         self.pyClient.postParameterFromID('highmag', hmID, data={"ctffit": ctffit})
         self.pyClient.postParameterFromID('highmag', hmID, data={"defocus": defocus})
         self.pyClient.postParameterFromID('highmag', hmID, data={"offset": offset})
         self.pyClient.postParameterFromID('highmag', hmID, data={"angast": angast})
 
-        payload = self.createJsonPath(self.createThumbnail(
-            os.path.abspath(psdFile), 1, ext='png'))
-        self.pyClient.postImages(HmID, {"ctf_img": payload}, devel=True)
+        #THUMBNAIL
+        outPath = self.createThumbnail(psdFile, 1,'jpg')
+        from PIL import Image
+        im1 = Image.open(outPath)
+        currentDir = os.getcwd()
+        path = os.path.splitext(os.path.basename(outPath))[0] + "ctf." + 'png'
+        outPath = os.path.join(self._getExtraPath(), path)
+        outPath = os.path.join(currentDir, outPath)
+        im1.save(outPath)#saving as PNG
+
+        payload = self.createJsonPath(outPath, 'png')
+        self.pyClient.postImages(hmID, {"ctf_img": payload}, devel=False)
         self.saveItemRead(psdFile, 'CTF')
-
-
-        # pyClient.postParameterFromID('highmag', 'long_square15_hole10eRoomMJvKy',
-        #                              data={"astig": '100.00'})
-        #set on the movieSS objects
-
 
     def readMicrograph(self, moviesSS, MictoRead):
         '''
@@ -228,45 +238,51 @@ class provideCalculations(ProtImport, ProtStreamingBase):
             for movie in moviesSS:
                 if movie.getFrames() == MicName:
                     self.debug('Micrograph to update: {}'.format(MicName))
-                    #thumbnail = self.createThumbnail(m.getFileName())
-                    # self.postMicrograph(movie.getHmId(), m.getFileName(), thumbnail)
-                    # self.setMicrographValues(m,  m.getFileName(), thumbnail)
+                    self.postMicrograph(movie.getHmId(), m.getFileName())
                     self.saveItemRead(MicName, 'Micro')
 
-    def postMicrograph(self, hmID, MicPath, MicThum):
-        self.pyClient.postParameterFromID('highmag', hmID, data={"MicPath": MicPath})
-        self.pyClient.postParameterFromID('highmag', hmID, data={"MicThumbnail": MicThum})
+    def postMicrograph(self, hmID, MicPath):
+        #ORIGINAL
+        self.info('\nPosting Micrograph: {}'.format(MicPath))
+        payload = self.createJsonPath(os.path.abspath(MicPath), 'mrc')
+        self.pyClient.postImages(hmID, {"mrc": payload}, devel=False)
 
-        payload = self.createJsonPath(self.createThumbnail(
-            os.path.abspath(MicPath), ext='png'))
-        self.pyClient.postImages(hmID, {"png": payload}, devel=True)
-        payload = self.createJsonPath(self.createThumbnail(
-            os.path.abspath(MicPath), 1, ext='mrc'))
-        self.pyClient.postImages(hmID, {"mrc": payload}, devel=True)
-
+        #THUMBNAIL
+        imgJPG = self.createThumbnail(MicPath, THUMBNAIL_FACTOR, 'jpg')
+        from PIL import Image
+        im1 = Image.open(imgJPG)
+        currentDir = os.getcwd()
+        path = os.path.splitext(os.path.basename(imgJPG))[0] + "." + 'png'
+        outPath = os.path.join(self._getExtraPath(), path)
+        outPath = os.path.join(currentDir, outPath)
+        im1.save(outPath)#saving as PNG
+        os.remove(imgJPG)
+        payload = self.createJsonPath(outPath, 'png')
+        self.pyClient.postImages(hmID, {"png": payload}, devel=False)
 
     # UTILS
-    def createThumbnail(self, pathOriginal, FACTOR=THUMBNAIL_FACTOR, ext='jpg'):
+    def createThumbnail(self, pathOriginal, FACTOR=THUMBNAIL_FACTOR, ext='png'):
         currentDir = os.getcwd()
         relativePath = os.path.join(currentDir, pathOriginal)
-        path = os.path.splitext(os.path.basename(pathOriginal))[0] +  "_THUMB." + ext
+        path = os.path.splitext(os.path.basename(pathOriginal))[0] + "_THUMB." + ext
         outPath = os.path.join(self._getExtraPath(), path)
         outPath = os.path.join(currentDir, outPath)
 
         args = '-i "%s" ' % self._getExtraPath(relativePath)
-        args += '-o "%s" ' % outPath
+        args += '-o {} '.format(outPath)
         args += '--factor {} '.format(FACTOR)
         args += '-v 0 '
 
         runProgram('xmipp_image_resize', args)
         return outPath
 
-    def createJsonPath(self, path):
-        with open(path, "rb") as f:
-            image = f.read()
-            encoded_image = base64.b64encode(image).decode(encoding='ascii')
-            payload = json.dumps({'png': encoded_image})
-            return payload
+    def createJsonPath(self, path, flag):
+        self.debug('\nCreating JSON: {}'.format(path))
+        image = Path(path).read_bytes()
+        encoded_image = base64.b64encode(image).decode(encoding='ascii')
+        payload = json.dumps(encoded_image)
+        return payload
+
 
     def checkSmartscopeConnection(self):
         response = self.pyClient.getDetailsFromParameter('users', dev=False)
@@ -312,6 +328,18 @@ class provideCalculations(ProtImport, ProtStreamingBase):
     def _validate(self):
         errors = []
         self._validateThreads(errors)
+
+        if Plugin.getVar(SMARTSCOPE_TOKEN) == 'Read Smartscope documentation to get the token...':
+            errors.append('SMARTSCOPE_TOKEN has not been configured, '
+                          'please visit https://github.com/scipion-em/scipion-em-smartscope#configuration \n')
+        if Plugin.getVar(SMARTSCOPE_LOCALHOST) == None:
+            errors.append(
+                'SMARTSCOPE_LOCALHOST has not been configured, please visit https://github.com/scipion-em/scipion-em-smartscope#configuration \n')
+        if Plugin.getVar(SMARTSCOPE_DATA_SESSION_PATH) == 'Path assigned to the data in the Smartscope installation':
+            errors.append(
+                'SMARTSCOPE_DATA_SESSION_PATH has not been configured, '
+                'please visit https://github.com/scipion-em/scipion-em-smartscope#configuration \n')
+
         response = self.checkSmartscopeConnection()
         try:
             response[0]['username']

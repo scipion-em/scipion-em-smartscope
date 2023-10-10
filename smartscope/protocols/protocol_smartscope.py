@@ -1,7 +1,7 @@
 # **************************************************************************
 # *
-# * Authors: Daniel Marchan (da.marchan@cnb.csic.es)
-#            Alberto Garcia Mena   (alberto.garcia@cnb.csic.es)
+# * Authors: Alberto Garcia Mena   (alberto.garcia@cnb.csic.es)
+# *          Daniel Marchan (da.marchan@cnb.csic.es)
 # *
 # *
 # * Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC
@@ -96,7 +96,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                       label="Time to finish Smartscope (secs)",
                       help='Time from the begining ot the protocol to '
                            'the end of the acquisicion. By default 1 day (86400 secs)')
-
         form.addParallelSection(threads=3, mpi=1)
 
 
@@ -175,11 +174,9 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                                                  self.detectorList,
                                                  self.sessionList,
                                                  self.acquisition)
-
         MicroNames = ',  '.join([x.getName() for x in self.microscopeList])
         DetectorNames = ',  '.join([x.getName() for x in self.detectorList])
         SessionNames = ',  '.join([x.getSession() for x in self.sessionList])
-
         # SUMMARY INFO
         summaryF = self._getExtraPath("summary.txt")
         summaryF = open(summaryF, "w")
@@ -196,7 +193,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                                 'Squares': self.SOS,
                                 'Holes': self.SOH}
         self._defineOutputs(**self.outputsToDefine)
-
         self.SOG.enableAppend()
         self.SOA.enableAppend()
         self.SOS.enableAppend()
@@ -237,10 +233,13 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         # Match movies from the API and from the output of the protocol
         if self.MoviesSS == None:
             SOMSS = SetOfMoviesSS.create(outputPath=self._getPath())
+            SOMSS.copyInfo(inputMovies)
+            SOMSS.setSamplingRate(0)
             self.outputsToDefine = {'MoviesSS': SOMSS}
             self._defineOutputs(**self.outputsToDefine)
         else:
             SOMSS = self.MoviesSS
+
 
         for gr in self.Grids:
             dictMAPI = self.pyClient.getRouteFromID('highmag', 'grid', gr.getGridId())
@@ -251,7 +250,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         for mAPI in moviesAPI:
             if mAPI['frames'] not in ImportM:
                 moviesToAdd.append(mAPI)
-
 
         #Match movies to add and movies from importMovies protocol
         self.info('\n\nmoviesAPI: {}\nmoviesToAdd: {}'.format(len(moviesAPI), len(moviesToAdd)))
@@ -266,12 +264,15 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                     for mAPI in moviesToAdd:
                         if mAPI['frames'] == os.path.basename(mImport.getFileName()):
                             imported = True
-                            self.info('Movie to add: {}'.format(mAPI['frames']))
                             self.addMovieSS(SOMSS, mImport, mAPI, inputMovies)
                             break
                     if imported == False:
                         notImportedMovies.append(mImport)
-                        self.info('Movie not imported: {}'.format(os.path.basename(mImport.getFileName())))
+                        self.info('Movie not imported: {}\n'.format(os.path.basename(mImport.getFileName())))
+
+            # STORE SQLITE
+            SOMSS.setStreamState(SOMSS.STREAM_CLOSED)
+            self._store(SOMSS)
 
             # SUMMARY INFO
             summaryF3 = self._getExtraPath("summary3.txt")
@@ -287,7 +288,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
     def addMovieSS(self, SOMSS, movieImport, movieSS, inputMovies):
         SOMSS.setStreamState(SOMSS.STREAM_OPEN)
-        SOMSS.copyInfo(inputMovies)
+        movieImport.setSamplingRate(movieSS['pixel_size'])
         movie2Add = MovieSS()
         movie2Add.copy(movieImport)
 
@@ -295,11 +296,11 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         movie2Add.setName(movieSS['name'])
         movie2Add.setNumber(movieSS['number'])
         if movieSS['pixel_size'] == None or movieSS['pixel_size'] == 'null':
-            self.info('getSamplingRate: {}'.format(movieImport.getSamplingRate()))
             movie2Add.setSamplingRate(movieImport.getSamplingRate())
         else:
             movie2Add.setSamplingRate(movieSS['pixel_size'])
-            self.info('getSampligRate: {}'.format(movie2Add.getSamplingRate()))
+        if SOMSS.getSamplingRate() == 0:
+            SOMSS.setSamplingRate(movie2Add.getSamplingRate())
 
         movie2Add.setShapeX(movieSS['shape_x'])
         movie2Add.setShapeY(movieSS['shape_y'])
@@ -318,16 +319,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         movie2Add.setHoleId(movieSS['hole_id'])
 
         SOMSS.append(movie2Add)
-
-        if self.hasAttribute('MoviesSS'):
-            SOMSS.write()
-            outputAttr = getattr(self, 'MoviesSS')
-            outputAttr.copy(SOMSS, copyId=False)
-            self._store(outputAttr)
-
-        # STORE SQLITE
-        SOMSS.setStreamState(SOMSS.STREAM_CLOSED)
-        self._store(SOMSS)
+        SOMSS.write()#persist on sqlite
 
 
     def checkSmartscopeConnection(self):
@@ -338,7 +330,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
     # --------------------------- INFO functions -----------------------------------
     def _summary(self):
         summary = []
-
         summaryF = self._getExtraPath("summary.txt")
         summaryF2 = self._getExtraPath("summary2.txt")
         summaryF3 = self._getExtraPath("summary3.txt")
@@ -365,6 +356,15 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
     def _validate(self):
         errors = []
         self._validateThreads(errors)
+        if Plugin.getVar(SMARTSCOPE_TOKEN) == 'Read Smartscope documentation to get the token...':
+            errors.append('SMARTSCOPE_TOKEN has not been configured, please visit https://github.com/scipion-em/scipion-em-smartscope#configuration')
+        if Plugin.getVar(SMARTSCOPE_LOCALHOST) == None:
+            errors.append(
+                'SMARTSCOPE_LOCALHOST has not been configured, please visit https://github.com/scipion-em/scipion-em-smartscope#configuration')
+        if Plugin.getVar(SMARTSCOPE_DATA_SESSION_PATH) == 'Path assigned to the data in the Smartscope installation':
+            errors.append(
+                'SMARTSCOPE_DATA_SESSION_PATH has not been configured, please visit https://github.com/scipion-em/scipion-em-smartscope#configuration')
+
         response = self.checkSmartscopeConnection()
         try:
             response[0]['username']
