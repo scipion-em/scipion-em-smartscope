@@ -260,13 +260,10 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                 return
             else:
                 for mImport in inputMovies:
-                    self.info('{} -------'.format(os.path.basename(mImport.getFileName())))
                     imported = False
                     for mAPI in moviesToAdd:
-                        self.info('{}'.format(mAPI['frames']))
                         if mAPI['frames'] == os.path.basename(mImport.getFileName()):
                             imported = True
-                            self.info('{}'.format(mAPI['frames']))
                             self.addMovieSS(SOMSS, mImport, mAPI, inputMovies)
                             break
                     if imported == False:
@@ -291,26 +288,19 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
     def addMovieSS(self, SOMSS, movieImport, movieSS, inputMovies):
         SOMSS.setStreamState(SOMSS.STREAM_OPEN)
-        self.info('getSampligRate SOMSS: {}'.format(SOMSS.getSamplingRate()))
-
-
         movieImport.setSamplingRate(movieSS['pixel_size'])
-        self.info('getSampligRate Movie: {}'.format(movieImport.getSamplingRate()))
-
         movie2Add = MovieSS()
         movie2Add.copy(movieImport)
-        self.info('getSampligRate: {}'.format(movie2Add.getSamplingRate()))
 
         movie2Add.setHmId(movieSS['hm_id'])
         movie2Add.setName(movieSS['name'])
         movie2Add.setNumber(movieSS['number'])
         if movieSS['pixel_size'] == None or movieSS['pixel_size'] == 'null':
-            #self.info('getSamplingRate: {}'.format(movieImport.getSamplingRate()))
             movie2Add.setSamplingRate(movieImport.getSamplingRate())
-            self.info('NULLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL')
         else:
             movie2Add.setSamplingRate(movieSS['pixel_size'])
-            self.info('SAMPLINGGGGGGGGGGGGGGGGGGGGGGGGGG')
+        if SOMSS.getSamplingRate() == 0:
+            SOMSS.setSamplingRate(movie2Add.getSamplingRate())
 
         movie2Add.setShapeX(movieSS['shape_x'])
         movie2Add.setShapeY(movieSS['shape_y'])
@@ -328,18 +318,8 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         movie2Add.setGridId(movieSS['grid_id'])
         movie2Add.setHoleId(movieSS['hole_id'])
 
-        self.info('getSampligRate: {}'.format(movie2Add.getSamplingRate()))
-
         SOMSS.append(movie2Add)
         SOMSS.write()#persist on sqlite
-
-        # if self.hasAttribute('MoviesSS'):
-        #     SOMSS.write()
-        #     outputAttr = getattr(self, 'MoviesSS')
-        #     outputAttr.copy(SOMSS, copyId=False)
-        #     self._store(outputAttr)
-
-
 
 
     def checkSmartscopeConnection(self):
