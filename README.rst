@@ -40,4 +40,4 @@ Protocols
 ---------
 - Smartscope connection
 - Provide calculations
-- Smartscope feedback
+- Smartscope feedback (in progress...)
