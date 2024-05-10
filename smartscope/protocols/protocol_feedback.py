@@ -45,6 +45,7 @@ from ..objects.dataCollection import *
 import time
 from ..constants import *
 
+
 class smartscopeFeedback(ProtImport, ProtStreamingBase):
     """
     This protocol will calculate which are the best holes of the session based
