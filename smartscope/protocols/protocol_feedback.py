@@ -132,9 +132,12 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
 
         self.info('Assigning good/bad particles to holes...')
         classesToiterate = {'goodParticles': goodP, 'badParticles': badP}
-        dictHoles2Add = {}
         pCount = 0
         pAdded = 0
+        dictHoles = {}
+        for h in holes:
+            dictHoles[h.getHoleId()] = [0, 0]
+
 
         for key, value in classesToiterate.items():
             self.info('\n\n{}'.format(key))
@@ -143,33 +146,25 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                 for p in classItem:
                     pCount += 1
                     for m in movies:
-                        if (os.path.basename(m.getMicName()) == os.path.basename(p.getCoordinate().getMicName())):
+                        if (os.path.basename(m.getMicName()) == os.path.basename(p.getCoordinate().getMicName())):#TODO tiene que haber otra forma de conseguir el ID de la movie
                             for h in holes:
                                 H_ID = h.getHoleId()
                                 if m.getHoleId() == H_ID:
-                                    keyList = [key2 for key2 in dictHoles2Add.keys()]
+                                    keyList = [key2 for key2 in dictHoles.keys()]
                                     pAdded += 1
                                     if key == 'goodParticles':
-                                        if H_ID not in keyList:
-                                            dictHoles2Add[H_ID] = [1, 0]
-                                            self.debug('H_ID: {}  resolution: {}'.format(H_ID, p.getCTF().getResolution()))
-                                            #self.debug('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(m.getMicName())))
-                                        else:
-                                            dictHoles2Add[H_ID] = [dictHoles2Add[H_ID][0] + 1, dictHoles2Add[H_ID][1]]
+                                        dictHoles[H_ID] = [dictHoles[H_ID][0] + 1, dictHoles[H_ID][1]]
                                         break
                                     elif key == 'badParticles':
-                                        if H_ID not in keyList:
-                                            dictHoles2Add[H_ID] = [0, 1]
-                                            self.info('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(m.getMicName())))
-                                        else:
-                                            dictHoles2Add[H_ID] = [dictHoles2Add[H_ID][0], dictHoles2Add[H_ID][1] + 1]
+                                        #self.info('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(m.getMicName())))
+                                        dictHoles[H_ID] = [dictHoles[H_ID][0], dictHoles[H_ID][1] + 1]
                                         break
 
         self.info('\n\nParticles to add: {}'.format(pCount))
         self.info('Particles added: {}'.format(pAdded))
-        self.info('Holes to update: {}'.format(len(dictHoles2Add.items())))
+        self.info('Holes: {}'.format(len(dictHoles.items())))
 
-        for key, value in dictHoles2Add.items():
+        for key, value in dictHoles.items():
             self.debug(key)
             self.debug(value)
             for h in holes:
