@@ -171,9 +171,6 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                     h.setGoodParticles(int(h.getGoodParticles()) + value[0])
                     h.setBadParticles(int(h.getBadParticles()) + value[1])
                     break
-
-            if value[1] == 0:
-                justGood = True
             self.createOutputStep(SOH, h, holes)
 
 
