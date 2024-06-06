@@ -68,7 +68,6 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         self.pyClient = MainPyClient(self.token, self.endpoint)
         self.connectionClient = dataCollection(self.pyClient)
 
-
     def _defineParams(self, form):
         """ Define the input parameters that will be used.
         Params:
@@ -100,8 +99,6 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         # form.addParam('refreshTime', params.IntParam, default=120,
         #               label="Time to refresh Smartscope synchronization (secs)")
 
-
-
     def _insertAllSteps(self):
         totalC = self.totalClasses2D.get()
         goodC = self.goodClasses2D.get()
@@ -121,13 +118,10 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         self._insertFunctionStep('readClasses',goodC, badC,
                                  self.inputMovies.get(),  self.inputHoles.get())
 
-
     def readClasses(self, goodP, badP, movies, holes):
         '''Increase 1 to the hole.goodparticle (badParticle) based on the class ranker'''
         self.info('Reading inputs...')
-
         SOH = SetOfHoles.create(outputPath=self._getPath())
-
         self.outputsToDefine = {'SetOfHoles': SOH}
         self._defineOutputs(**self.outputsToDefine)
 
@@ -136,9 +130,11 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         pCount = 0
         pAdded = 0
         dictHoles = {}
+        dictMovies = {}
         for h in holes:
             dictHoles[h.getHoleId()] = [0, 0]
-
+        for m in movies:
+            dictMovies[m.getMicName()] = m.clone()
 
         for key, value in classesToiterate.items():
             self.info('\n\n{}'.format(key))
@@ -146,18 +142,16 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                 self.info('\t----->{}'.format(classItem))
                 for p in classItem:
                     pCount += 1
-                    for m in movies:
-                        if (os.path.basename(m.getMicName()) == os.path.basename(p.getCoordinate().getMicName())):#TODO tiene que haber otra forma de conseguir el ID de la movie
-                            H_ID = m.getHoleId()
-                            if m.getHoleId() == H_ID:
-                                pAdded += 1
-                                if key == 'goodParticles':
-                                    dictHoles[H_ID] = [dictHoles[H_ID][0] + 1, dictHoles[H_ID][1]]
-                                    break
-                                elif key == 'badParticles':
-                                    #self.info('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(m.getMicName())))
-                                    dictHoles[H_ID] = [dictHoles[H_ID][0], dictHoles[H_ID][1] + 1]
-                                    break
+                    name = p.getCoordinate().getMicName()
+                    H_ID = dictMovies[name].getHoleId()
+                    pAdded += 1
+                    if key == 'goodParticles':
+                        dictHoles[H_ID] = [dictHoles[H_ID][0] + 1, dictHoles[H_ID][1]]
+                        break
+                    elif key == 'badParticles':
+                        #self.info('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(m.getMicName())))
+                        dictHoles[H_ID] = [dictHoles[H_ID][0], dictHoles[H_ID][1] + 1]
+                        break
 
         self.info('\n\nParticles to add: {}'.format(pCount))
         self.info('Particles added: {}'.format(pAdded))
@@ -172,7 +166,6 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                     h.setBadParticles(int(h.getBadParticles()) + value[1])
                     break
             self.createOutputStep(SOH, h, holes)
-
 
     def holesStatistis(self):
         '''
@@ -202,8 +195,6 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         # STORE SQLITE
         self._store(SOH)
 
-
-
     def checkSmartscopeConnection(self):
         response = self.pyClient.getDetailsFromParameter('users')
         return response
@@ -213,7 +204,6 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
 
 
         return summary
-
 
     def _validate(self):
         errors = []
