@@ -53,7 +53,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
     on the good particles of each hole. After knowing the good holes, will
     sort the queue of hole acquisition that Smartscope uses.
     """
-    _label = 'Smartscope feedback'
+    _label = '2D Feedback'
     _devStatus = BETA
     _possibleOutputs = {'SetOfHoles': SetOfHoles}
 
@@ -67,6 +67,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
 
         self.pyClient = MainPyClient(self.token, self.endpoint)
         self.connectionClient = dataCollection(self.pyClient)
+
 
     def _defineParams(self, form):
         """ Define the input parameters that will be used.
@@ -99,6 +100,8 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         # form.addParam('refreshTime', params.IntParam, default=120,
         #               label="Time to refresh Smartscope synchronization (secs)")
 
+
+
     def _insertAllSteps(self):
         totalC = self.totalClasses2D.get()
         goodC = self.goodClasses2D.get()
@@ -118,23 +121,20 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         self._insertFunctionStep('readClasses',goodC, badC,
                                  self.inputMovies.get(),  self.inputHoles.get())
 
+
     def readClasses(self, goodP, badP, movies, holes):
         '''Increase 1 to the hole.goodparticle (badParticle) based on the class ranker'''
         self.info('Reading inputs...')
+
         SOH = SetOfHoles.create(outputPath=self._getPath())
         self.outputsToDefine = {'SetOfHoles': SOH}
         self._defineOutputs(**self.outputsToDefine)
 
         self.info('Assigning good/bad particles to holes...')
         classesToiterate = {'goodParticles': goodP, 'badParticles': badP}
+        dictHoles2Add = {}
         pCount = 0
         pAdded = 0
-        dictHoles = {}
-        dictMovies = {}
-        for h in holes:
-            dictHoles[h.getHoleId()] = [0, 0]
-        for m in movies:
-            dictMovies[m.getMicName()] = m.clone()
 
         for key, value in classesToiterate.items():
             self.info('\n\n{}'.format(key))
@@ -142,22 +142,34 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                 self.info('\t----->{}'.format(classItem))
                 for p in classItem:
                     pCount += 1
-                    name = p.getCoordinate().getMicName()
-                    H_ID = dictMovies[name].getHoleId()
-                    pAdded += 1
-                    if key == 'goodParticles':
-                        dictHoles[H_ID] = [dictHoles[H_ID][0] + 1, dictHoles[H_ID][1]]
-                        break
-                    elif key == 'badParticles':
-                        #self.info('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(m.getMicName())))
-                        dictHoles[H_ID] = [dictHoles[H_ID][0], dictHoles[H_ID][1] + 1]
-                        break
+                    for m in movies:
+                        if (os.path.basename(m.getMicName()) == os.path.basename(p.getCoordinate().getMicName())):
+                            for h in holes:
+                                H_ID = h.getHoleId()
+                                if m.getHoleId() == H_ID:
+                                    keyList = [key2 for key2 in dictHoles2Add.keys()]
+                                    pAdded += 1
+                                    if key == 'goodParticles':
+                                        if H_ID not in keyList:
+                                            dictHoles2Add[H_ID] = [1, 0]
+                                            self.debug('H_ID: {}  resolution: {}'.format(H_ID, p.getCTF().getResolution()))
+                                            #self.debug('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(m.getMicName())))
+                                        else:
+                                            dictHoles2Add[H_ID] = [dictHoles2Add[H_ID][0] + 1, dictHoles2Add[H_ID][1]]
+                                        break
+                                    elif key == 'badParticles':
+                                        if H_ID not in keyList:
+                                            dictHoles2Add[H_ID] = [0, 1]
+                                            self.info('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(m.getMicName())))
+                                        else:
+                                            dictHoles2Add[H_ID] = [dictHoles2Add[H_ID][0], dictHoles2Add[H_ID][1] + 1]
+                                        break
 
         self.info('\n\nParticles to add: {}'.format(pCount))
         self.info('Particles added: {}'.format(pAdded))
-        self.info('Holes: {}'.format(len(dictHoles.items())))
+        self.info('Holes to update: {}'.format(len(dictHoles2Add.items())))
 
-        for key, value in dictHoles.items():
+        for key, value in dictHoles2Add.items():
             self.debug(key)
             self.debug(value)
             for h in holes:
@@ -166,6 +178,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                     h.setBadParticles(int(h.getBadParticles()) + value[1])
                     break
             self.createOutputStep(SOH, h, holes)
+
 
     def holesStatistis(self):
         '''
@@ -204,6 +217,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
 
 
         return summary
+
 
     def _validate(self):
         errors = []

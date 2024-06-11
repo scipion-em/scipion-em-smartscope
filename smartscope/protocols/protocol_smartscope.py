@@ -45,7 +45,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
     Smartscope. As input require the movies from Import Movies protocol,
     as output all the metadata as objects and the movies enrich with the metadatada
     """
-    _label = 'Smartscope connection'
+    _label = 'Connection'
     _devStatus = BETA
     _possibleOutputs = {'Squares': SetOfSquares,
                         'Atlas': SetOfAtlas,

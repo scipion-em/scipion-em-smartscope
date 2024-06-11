@@ -53,7 +53,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
     on the good particles of each hole. After knowing the good holes, will
     sort the queue of hole acquisition that Smartscope uses.
     """
-    _label = 'Smartscope feedback filter'
+    _label = 'Feedback filter'
     _devStatus = BETA
     _possibleOutputs = {'SetOfHoles': SetOfHoles}
 

@@ -244,7 +244,7 @@ class dataCollection():
                         #holeDetail = self.pyClient.getDetailFromItem('holes', h['hole_id'])
                         finder = h['finders'][0]
                         ho.setFinderName(finder['method_name'])
-                        selectors = h['selectors'][0]
+                        selectors = h['selectors'][-1]
                         ho.setSelectorName(selectors['method_name'])
                         ho.setSelectorLabel(selectors['label'])
                         ho.setSelectorValue(selectors['value'])
