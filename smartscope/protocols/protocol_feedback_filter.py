@@ -57,8 +57,6 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
     _devStatus = BETA
     _possibleOutputs = {'SetOfHoles': SetOfHoles}
 
-
-
     def __init__(self, **args):
         ProtImport.__init__(self, **args)
         self.stepsExecutionMode = STEPS_PARALLEL
