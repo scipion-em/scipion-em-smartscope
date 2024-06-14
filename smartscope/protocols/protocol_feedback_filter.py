@@ -84,24 +84,27 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                       important=True, allowsNull=False,
                       label='Input movies from Smartscope',
                       help='Select a set of movies from Smartscope connection protocol.')
-        
-        form.addParam('inputMicrographs', params.PointerParam, pointerClass='SetOfMicrographs',
-                      important=True, allowsNull=False,
-                      label='Input micrographs from Smartscope',
-                      help='Select a set of holes from Smartscope connection protocol.')
-        form.addParam('filteredMicrographs', params.PointerParam, pointerClass='SetOfMicrographs',
+        # form.addParam('inputMicrographs', params.PointerParam, pointerClass='SetOfMicrographs',
+        #               important=True, allowsNull=False,
+        #               label='Input micrographs before filters',
+        #               help='Select a set of holes from Smartscope connection protocol.')
+        form.addParam('filteredMics', params.PointerParam, pointerClass='SetOfMicrographs',
                       important=True, allowsNull=False,
                       label='Filtered micrographs',
                       help='Select a set of micrographs filtered by any protocol.')
-        form.addParam('micNumerTriger', params.IntParam,
-                      default=100, label='Filtered micrographs',
-                      help='Select a number of initial micrograps to launch the protool.')
+        form.addParam('triggerMicrograph', params.IntParam, default=100,
+                      label="Micrographs to launch the protocol",
+                      help='Number of micrographs filtered to launch the protocol')
+        form.addSection('Streaming')
+
+        form.addParam('refreshTime', params.IntParam, default=120,
+                      label="Time to refresh data collected (secs)")
 
     def _initialize(self):
         self.movies = self.inputMovies.get()
-        self.initialMics = self.inputMicrographs.get()
         self.holes = self.inputHoles.get()
-	    
+        self.zeroTime = time.time()
+
     def stepsGeneratorStep(self):
         """
         This step should be implemented by any streaming protocol.
@@ -110,20 +113,19 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         """
         self._initialize()
         while True:
-            self.filteredMics = self.filteredMicrographs.get()
-            self.info(len(self.initialMics))
-            self.info(self.micNumerTriger.get())
-            self.info(self.filteredMics)
-            if len(self.initialMics) >= self.micNumerTriger.get() and self.filteredMics:
-                self.info('collecting')
-                getSOH = self._insertFunctionStep(
-                    self.collectSetOfHolesFiltered, prerequisites=[])
-                createOutput = self._insertFunctionStep(
-		            self.createSetOfFilteredHoles,  prerequisites=[getSOH])
-            if not self.filteredMics.isStreamOpen():
-                self.info('Not more micrographs are expected, set closed')
-                break
-			
+            if len(self.filteredMicrographs.get()) >= self.triggerMicrograph.get():
+                rTime = time.time() - self.zeroTime
+                if rTime >= self.refreshTime.get():
+                    self.fMics = self.filteredMics.get()
+                    self.info('collecting...')
+                    getSOH = self._insertFunctionStep(
+                        self.collectSetOfHolesFiltered, prerequisites=[])
+                    createOutput = self._insertFunctionStep(
+                        self.createSetOfFilteredHoles,  prerequisites=[getSOH])
+                    if not self.fMics.isStreamOpen():
+                        self.info('Not more micrographs are expected, set closed')
+                        break
+
     def collectSetOfHolesFiltered(self):
         self.info('in collect')
         self.holesFiltered = []
@@ -131,11 +133,11 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         for m in self.movies:
             dictMovies[m.getMicName()] = m.clone()
         self.info('movies on dict')
-        for mic in self.filteredMics:
+        for mic in self.fMics:
             H_ID = dictMovies[mic.getMicName()].getHoleId()
             self.holesFiltered.append(H_ID)
-            self.info('hole from mic on holesFiltered')
-            self.info(self.holesFiltered)
+            #self.info('hole from mic on holesFiltered')
+            #self.info(self.holesFiltered)
     def createSetOfFilteredHoles(self):
         SOH = SetOfHoles.create(outputPath=self._getPath())
         self.outputsToDefine = {'SetOfHoles': SOH}
