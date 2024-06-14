@@ -120,8 +120,10 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                     self.info('collecting...')
                     getSOH = self._insertFunctionStep(
                         self.collectSetOfHolesFiltered, prerequisites=[])
+                    statistics = self._insertFunctionStep(
+                        self.statistics,  prerequisites=[getSOH])
                     createOutput = self._insertFunctionStep(
-                        self.createSetOfFilteredHoles,  prerequisites=[getSOH])
+                        self.createSetOfFilteredHoles,  prerequisites=[statistics])
                     if not self.fMics.isStreamOpen():
                         self.info('Not more micrographs are expected, set closed')
                         break
@@ -138,6 +140,12 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             self.holesFiltered.append(H_ID)
             #self.info('hole from mic on holesFiltered')
             #self.info(self.holesFiltered)
+
+
+    def statistics(self):
+        pass
+
+
     def createSetOfFilteredHoles(self):
         SOH = SetOfHoles.create(outputPath=self._getPath())
         self.outputsToDefine = {'SetOfHoles': SOH}
