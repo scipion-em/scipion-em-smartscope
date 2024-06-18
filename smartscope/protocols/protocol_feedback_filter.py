@@ -169,8 +169,8 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 		
 		histTotal, rangeIntensity = np.histogram(arrayHoles, bins=bins)
 		histFiltered, ranges = np.histogram(arrayFilteredHoles, bins=bins)
-		self.info('histTotal:{}\n \nhistFiltered: {}'.format(histTotal,
-		                                                     histFiltered))
+		self.debug('histTotal:{}\n \nhistFiltered: {}'.format(histTotal,
+		                                                      histFiltered))
 		# Asegurarse de que los histogramas tengan el mismo tama�o
 		assert len(histTotal) == len(
 			histFiltered), "Los histogramas no tienen la misma cantidad de bins"
@@ -181,48 +181,23 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 		                      where=histTotal != 0)
 		histRatio[np.isinf(histRatio)] = 0
 		histRatio[np.isnan(histRatio)] = 0
-		self.info('ranges: {}'.format(ranges))
-		self.info("histRatio: {}".format(histRatio))
+		self.debug('ranges: {}'.format(ranges))
+		self.debug("histRatio: {}".format(histRatio))
 		
-		mu = np.sum(ranges * histRatio) / np.sum(histRatio)
+		mu = np.sum(ranges[:-1] * histRatio) / np.sum(histRatio)
 		sigma = np.sqrt(
-			np.sum(histRatio * (ranges - mu) ** 2) / np.sum(histRatio))
+			np.sum(histRatio * (ranges[:-1] - mu) ** 2) / np.sum(histRatio))
 		self.minIntensity = mu - sigma
 		self.maxIntensity = mu + sigma + step
 		self.info('std_dev: {}\nmedian_value: {}'.format(sigma, mu))
 		self.info('minIntensity: {}\nmaxIntensity: {}'.format(minIntensity,
 		                                                      maxIntensity))
 	
-	# # Graficar los histogramas y el cociente
-	
-	# Plotear los datos
-	# plt.figure(figsize=(10, 6))
-	#
-	# # Scatter plot de los datos originales
-	# plt.scatter(ranges, histRatio, label='Datos', color='b')
-	#
-	# # Generar puntos para la distribuci�n normal
-	# x_fit = np.linspace(np.min(ranges), np.max(ranges), 100)
-	# y_fit = np.exp(-(x_fit - mu) ** 2 / (2 * sigma ** 2)) / (sigma * np.sqrt(2 * np.pi))
-	#
-	# # Plotear la distribuci�n normal
-	# plt.plot(x_fit, y_fit, label=f'Distribuci�n Normal ($\mu$={mu:.2f}, $\sigma$={sigma:.2f})', color='r')
-	#
-	# # Configuraci�n del gr�fico
-	# plt.title('Distribuci�n de datos y ajuste a distribuci�n normal')
-	# plt.xlabel('Eje Intensity')
-	# plt.ylabel('Eje Coef')
-	# plt.legend()
-	# plt.grid(True)
-	#
-	# # Mostrar el gr�fico
-	# plt.show()
-	
 	def postingBack2Smartscope(self):
 		for h in self.holes:
-			if self.minIntensity > h.getSelectorValue() or h.getSelectorValue() > self.maxIntensity and h.getStatus() != 'completed':
+			if self.minIntensity > h.getSelectorValue() or h.getSelectorValue() > self.maxIntensity and h.getStatus() != 'complete':
 				self.pyClient.postParameterFromID('holes', h.getHoleId(),
-				                                  data={"status": 'Cancelled'})
+				                                  data={"selected": 'False'})
 	
 	def createSetOfFilteredHoles(self):
 		SOH = SetOfHoles.create(outputPath=self._getPath())

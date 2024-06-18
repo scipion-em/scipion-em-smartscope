@@ -30,7 +30,7 @@
 from pwem.viewers.viewers_data import DataViewer
 #from ..objects.data_deprecated import *
 from ..objects.data import *
-from pwem.viewers import DataView, ObjectView
+from pwem.viewers import DataView, ObjectView, EmPlotter
 from pwem.viewers.showj import ORDER, VISIBLE, MODE, RENDER, MODE_MD, ZOOM, SORT_BY
 from pwem.viewers.showj import *
 from pyworkflow.viewer import DESKTOP_TKINTER, WEB_DJANGO, ProtocolViewer
@@ -123,5 +123,47 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
                 }
 
     def _visualizeAllHoles(self, e=None):
-        return self._visualizeCtfs("outputCTF")
+        return self._visualizeHoles("SetOfHoles")
 
+    def _visualizeFilteredHoles(self, e=None):
+        return self._visualizeHoles("SetOfHoles")
+
+    def _visualizeHoles(self, obj):
+        labels = (
+            '_pngDir _hole_id _grid_id _status _selected _completion_time _shape_x _shape_y _sampligRate _number _area')
+        self._views.append(ObjectView(self._project,
+                                      obj.strId(),
+                                      obj.getFileName(),
+                                      viewParams={VISIBLE: labels,
+                                                  RENDER: '_pngDir',
+                                                  SORT_BY: labels}))
+
+    def _visualizeHistograms(self, e=None):
+        plotter = EmPlotter()
+		#
+        # # Calcular la media (mu) y la desviaci�n est�ndar (sigma)
+        # mu = np.sum(eje_x * eje_y) / np.sum(eje_y)
+        # sigma = np.sqrt(np.sum(eje_y * (eje_x - mu) ** 2) / np.sum(eje_y))
+		#
+        # # Plotear los datos
+        # plt.figure(figsize=(10, 6))
+		#
+        # # Scatter plot de los datos originales
+        # plt.scatter(eje_x, eje_y, label='Datos', color='b')
+		#
+        # # Generar puntos para la distribuci�n normal
+        # x_fit = np.linspace(np.min(eje_x), np.max(eje_x), 100)
+        # y_fit = np.exp(-(x_fit - mu) ** 2 / (2 * sigma ** 2)) / (sigma * np.sqrt(2 * np.pi))
+		#
+        # # Plotear la distribuci�n normal
+        # plt.plot(x_fit, y_fit, label=f'Distribuci�n Normal ($\mu$={mu:.2f}, $\sigma$={sigma:.2f})', color='r')
+		#
+        # # Configuraci�n del gr�fico
+        # plt.title('Distribuci�n de datos y ajuste a distribuci�n normal')
+        # plt.xlabel('Eje X')
+        # plt.ylabel('Eje Y')
+        # plt.legend()
+        # plt.grid(True)
+		#
+        # # Mostrar el gr�fico
+        # plt.show()
