@@ -31,8 +31,11 @@ from pwem.viewers.viewers_data import DataViewer
 #from ..objects.data_deprecated import *
 from ..objects.data import *
 from pwem.viewers import DataView, ObjectView
-from pwem.viewers.showj import ORDER, VISIBLE, MODE, RENDER, MODE_MD, ZOOM
+from pwem.viewers.showj import ORDER, VISIBLE, MODE, RENDER, MODE_MD, ZOOM, SORT_BY
 from pwem.viewers.showj import *
+from pyworkflow.viewer import DESKTOP_TKINTER, WEB_DJANGO, ProtocolViewer
+from smartscope.protocols.protocol_feedback_filter import smartscopeFeedbackFilter
+from pyworkflow.protocol.params import IntParam, LabelParam
 
 # class DataViewer_cnb(DataViewer):
 #     _targets = [SetOfLowMagImages]
@@ -88,3 +91,37 @@ class DataViewer_smartscope(DataViewer):
         else:
             self._views.append(DataView(obj.getFileName()))
         return self._views
+
+class SmartscopeFilterFeedbackViewer(ProtocolViewer):
+    """
+
+    """
+    _label = 'viewer feedback holes filter'
+    _environments = [DESKTOP_TKINTER, WEB_DJANGO]
+    _targets = [smartscopeFeedbackFilter]
+
+    def _defineParams(self, form):
+        form.addSection(label='Visualization')
+        group = form.addGroup('Holes')
+        group.addParam('visualizeAllHoles', LabelParam,
+                       label="Visualize all holes",
+                       help="")
+        group.addParam('visualizeFilteredHoles', LabelParam,
+                       label="Visualize filtered holes",
+                       help="")
+        group2 = form.addGroup('Statistics')
+        group2.addParam('visualizeHistograms', LabelParam,
+                       label="Visualize the histograms of intensity",
+                       help="Visualize the histograms of intensity per holes")
+
+
+    def _getVisualizeDict(self):
+        return {
+                 'visualizeAllHoles': self._visualizeAllHoles,
+                 'visualizeFilteredHoles': self._visualizeFilteredHoles,
+                 'visualizeHistograms': self._visualizeHistograms,
+                }
+
+    def _visualizeAllHoles(self, e=None):
+        return self._visualizeCtfs("outputCTF")
+

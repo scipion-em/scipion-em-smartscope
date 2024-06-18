@@ -113,7 +113,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         """
         self._initialize()
         while True:
-            if len(self.filteredMicrographs.get()) >= self.triggerMicrograph.get():
+            if len(self.filteredMics.get()) >= self.triggerMicrograph.get():
                 rTime = time.time() - self.zeroTime
                 if rTime >= self.refreshTime.get():
                     self.fMics = self.filteredMics.get()
@@ -136,7 +136,6 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         dictMovies = {}
         for m in self.movies:
             dictMovies[m.getMicName()] = m.clone()
-        self.info('movies on dict')
         for mic in self.fMics:
             H_ID = dictMovies[mic.getMicName()].getHoleId()
             self.holesFiltered.append(H_ID)
@@ -145,11 +144,73 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 
 
     def statistics(self):
-        pass
+        stepNum = 50
+        self.info('statistics')
+        import numpy as np
+        #import matplotlib.pyplot as plt
+        listHoles = []
+        listFilteredHoles = []
+        for h in self.holes:
+            listHoles.append(h.getSelectorValue())
+            if h.getHoleId() in self.holesFiltered:
+                listFilteredHoles.append(h.getSelectorValue())
+        arrayHoles = np.array(listHoles)
+        arrayFilteredHoles = np.array(listFilteredHoles)
+        #self.info('listFilteredHoles: {}'.format(listFilteredHoles))
+        # Calcular los histogramas de ambas series
+        minIntensity = min(listHoles)
+        maxIntensity = max(listHoles)
+        step = (maxIntensity - minIntensity) / stepNum
+        bins = np.linspace(minIntensity, maxIntensity, stepNum)  # Definir los límites de los bins para el histograma
 
+        histTotal, rangeIntensity = np.histogram(arrayHoles, bins=bins)
+        histFiltered, ranges = np.histogram(arrayFilteredHoles, bins=bins)
+        self.info('histTotal:{}\n \nhistFiltered: {}'.format(histTotal, histFiltered))
+        # Asegurarse de que los histogramas tengan el mismo tamaño
+        assert len(histTotal) == len(histFiltered), "Los histogramas no tienen la misma cantidad de bins"
+
+        # Calcular el cociente de los histogramas
+        histRatio = np.divide(histFiltered, histTotal, out=np.zeros_like(histFiltered, dtype=float), where=histTotal != 0)
+        histRatio[np.isinf(histRatio)] = 0
+        histRatio[np.isnan(histRatio)] = 0
+        self.info('ranges: {}'.format(ranges))
+        self.info("histRatio: {}".format(histRatio))
+
+        mu = np.sum(ranges * histRatio) / np.sum(histRatio)
+        sigma = np.sqrt(np.sum(histRatio * (ranges - mu) ** 2) / np.sum(histRatio))
+        self.minIntensity = mu - sigma
+        self.maxIntensity = mu + sigma + step
+        self.info('std_dev: {}\nmedian_value: {}'.format(sigma, mu))
+        self.info('minIntensity: {}\nmaxIntensity: {}'.format(minIntensity, maxIntensity))
+        # # Graficar los histogramas y el cociente
+
+        # Plotear los datos
+        # plt.figure(figsize=(10, 6))
+        #
+        # # Scatter plot de los datos originales
+        # plt.scatter(ranges, histRatio, label='Datos', color='b')
+        #
+        # # Generar puntos para la distribución normal
+        # x_fit = np.linspace(np.min(ranges), np.max(ranges), 100)
+        # y_fit = np.exp(-(x_fit - mu) ** 2 / (2 * sigma ** 2)) / (sigma * np.sqrt(2 * np.pi))
+        #
+        # # Plotear la distribución normal
+        # plt.plot(x_fit, y_fit, label=f'Distribución Normal ($\mu$={mu:.2f}, $\sigma$={sigma:.2f})', color='r')
+        #
+        # # Configuración del gráfico
+        # plt.title('Distribución de datos y ajuste a distribución normal')
+        # plt.xlabel('Eje Intensity')
+        # plt.ylabel('Eje Coef')
+        # plt.legend()
+        # plt.grid(True)
+        #
+        # # Mostrar el gráfico
+        # plt.show()
 
     def postingBack2Smartscope(self):
-        pass
+        for h in self.holes:
+            if self.minIntensity > h.getSelectorValue() or h.getSelectorValue() > self.maxIntensity and h.getStatus() != 'completed':
+                self.pyClient.postParameterFromID('holes', h.getHoleId(), data={"status": 'Cancelled'})
 
     def createSetOfFilteredHoles(self):
         SOH = SetOfHoles.create(outputPath=self._getPath())
