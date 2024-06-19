@@ -182,8 +182,8 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 		                           out=np.zeros_like(histFiltered,
 		                                             dtype=float),
 		                           where=histTotal != 0)
-		self.histRatio[np.isinf(self.histRatio)] = 0
-		self.histRatio[np.isnan(self.histRatio)] = 0
+		self.histRatio[np.isinf(self.histRatio)] = 0.0000001
+		self.histRatio[np.isnan(self.histRatio)] = 0.0000001
 		
 		self.debug('ranges: {}'.format(ranges))
 		self.debug("histRatio: {}".format(self.histRatio))
@@ -199,23 +199,30 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 		                                                      maxIntensity))
 		
 		# saving data to plot in extra folder
-		
 		rangeFile = self._getExtraPath(
 			"rangeI-{}.txt".format(self.countStreamingSteps))
-		file = open(rangeFile, "a")
-		file.write(np.array2string(rangeIntensity)[1:-1])
-		file.close()
+		np.savetxt(rangeFile, rangeIntensity[:-1].reshape(1, -1), fmt='%.8f',
+		           delimiter=' ')
+		# file = open(rangeFile, "a")
+		# file.write(np.array2string(rangeIntensity)[1:-1])
+		# file.close()
 		histRatioFile = self._getExtraPath(
 			"histRatio-{}.txt".format(self.countStreamingSteps))
-		file = open(histRatioFile, "a")
-		file.write(np.array2string(self.histRatio)[1:-1])
-		file.close()
+		np.savetxt(histRatioFile, self.histRatio.reshape(1, -1), fmt='%.8f',
+		           delimiter=' ')
+	
+	# file = open(histRatioFile, "a")
+	# file.write(np.array2string(self.histRatio, separator=' ')[1:-1])
+	# file.close()
 	
 	def postingBack2Smartscope(self):
-		for h in self.holes:
-			if self.minIntensity > h.getSelectorValue() or h.getSelectorValue() > self.maxIntensity and h.getStatus() != 'complete':
-				self.pyClient.postParameterFromID('holes', h.getHoleId(),
-				                                  data={"selected": 'False'})
+		# TODO post a setValueIntensity
+		# TODO request regroup
+		# TODO requeue
+		# for h in self.holes:
+		#     if self.minIntensity > h.getSelectorValue() or h.getSelectorValue() > self.maxIntensity and h.getStatus() != 'complete':
+		#         self.pyClient.postParameterFromID('holes', h.getHoleId(), data={"selected": 'False'})
+		pass
 	
 	def createSetOfFilteredHoles(self):
 		SOH = SetOfHoles.create(outputPath=self._getPath())
