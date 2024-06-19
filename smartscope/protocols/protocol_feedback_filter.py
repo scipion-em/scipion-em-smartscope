@@ -66,6 +66,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 		
 		self.pyClient = MainPyClient(self.token, self.endpoint)
 		self.connectionClient = dataCollection(self.pyClient)
+		self.countStreamingSteps = 0
 	
 	def _defineParams(self, form):
 		""" Define the input parameters that will be used.
@@ -117,6 +118,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 			if len(self.filteredMics.get()) >= self.triggerMicrograph.get():
 				rTime = time.time() - self.zeroTime
 				if rTime >= self.refreshTime.get():
+					self.countStreamingSteps += 1
 					self.fMics = self.filteredMics.get()
 					self.info('collecting...')
 					getSOH = self._insertFunctionStep(
@@ -176,22 +178,38 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 			histFiltered), "Los histogramas no tienen la misma cantidad de bins"
 		
 		# Calcular el cociente de los histogramas
-		histRatio = np.divide(histFiltered, histTotal,
-		                      out=np.zeros_like(histFiltered, dtype=float),
-		                      where=histTotal != 0)
-		histRatio[np.isinf(histRatio)] = 0
-		histRatio[np.isnan(histRatio)] = 0
-		self.debug('ranges: {}'.format(ranges))
-		self.debug("histRatio: {}".format(histRatio))
+		self.histRatio = np.divide(histFiltered, histTotal,
+		                           out=np.zeros_like(histFiltered,
+		                                             dtype=float),
+		                           where=histTotal != 0)
+		self.histRatio[np.isinf(self.histRatio)] = 0
+		self.histRatio[np.isnan(self.histRatio)] = 0
 		
-		mu = np.sum(ranges[:-1] * histRatio) / np.sum(histRatio)
+		self.debug('ranges: {}'.format(ranges))
+		self.debug("histRatio: {}".format(self.histRatio))
+		
+		mu = np.sum(ranges[:-1] * self.histRatio) / np.sum(self.histRatio)
 		sigma = np.sqrt(
-			np.sum(histRatio * (ranges[:-1] - mu) ** 2) / np.sum(histRatio))
+			np.sum(self.histRatio * (ranges[:-1] - mu) ** 2) / np.sum(
+				self.histRatio))
 		self.minIntensity = mu - sigma
 		self.maxIntensity = mu + sigma + step
 		self.info('std_dev: {}\nmedian_value: {}'.format(sigma, mu))
 		self.info('minIntensity: {}\nmaxIntensity: {}'.format(minIntensity,
 		                                                      maxIntensity))
+		
+		# saving data to plot in extra folder
+		
+		rangeFile = self._getExtraPath(
+			"rangeI-{}.txt".format(self.countStreamingSteps))
+		file = open(rangeFile, "a")
+		file.write(np.array2string(rangeIntensity)[1:-1])
+		file.close()
+		histRatioFile = self._getExtraPath(
+			"histRatio-{}.txt".format(self.countStreamingSteps))
+		file = open(histRatioFile, "a")
+		file.write(np.array2string(self.histRatio)[1:-1])
+		file.close()
 	
 	def postingBack2Smartscope(self):
 		for h in self.holes:
