@@ -54,7 +54,8 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 	"""
 	_label = 'Feedback filter'
 	_devStatus = BETA
-	_possibleOutputs = {'SetOfHoles': SetOfHoles}
+	_possibleOutputs = {'SetOfHolesFiltered': SetOfHoles,
+	                    'SeOfHolesFilteredOut': SetOfHoles}
 	
 	def __init__(self, **args):
 		ProtImport.__init__(self, **args)
@@ -96,16 +97,23 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 		              help='Select a set of micrographs filtered by any protocol.')
 		form.addParam('triggerMicrograph', params.IntParam, default=100,
 		              label="Micrographs to launch the protocol",
-		              help='Number of micrographs filtered to launch the protocol')
+		              help='Number of micrographs filtered to launch the statistics')
+		form.addParam('binsHist', params.IntParam, default=50,
+		              expertLevel=params.LEVEL_ADVANCED,
+		              label="Number of bins of the Intensity histogram",
+		              help='')
 		form.addSection('Streaming')
 		
 		form.addParam('refreshTime', params.IntParam, default=120,
 		              label="Time to refresh data collected (secs)")
+		
+		form.addParallelSection(threads=3, mpi=1)
 	
 	def _initialize(self):
 		self.movies = self.inputMovies.get()
 		self.holes = self.inputHoles.get()
 		self.zeroTime = time.time()
+		self.finish = False
 	
 	def stepsGeneratorStep(self):
 		"""
@@ -114,13 +122,15 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 		call the self._insertFunctionStep method.
 		"""
 		self._initialize()
-		while True:
-			if len(self.filteredMics.get()) >= self.triggerMicrograph.get():
-				rTime = time.time() - self.zeroTime
-				if rTime >= self.refreshTime.get():
+		
+		while not self.finish:
+			rTime = time.time() - self.zeroTime
+			if rTime >= self.refreshTime.get():
+				self.zeroTime = time.time()
+				if len(self.filteredMics.get()) >= self.triggerMicrograph.get():
+					self.info('In progres...')
 					self.countStreamingSteps += 1
 					self.fMics = self.filteredMics.get()
-					self.info('collecting...')
 					getSOH = self._insertFunctionStep(
 						self.collectSetOfHolesFiltered, prerequisites=[])
 					statistics = self._insertFunctionStep(
@@ -134,10 +144,15 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 					if not self.fMics.isStreamOpen():
 						self.info(
 							'Not more micrographs are expected, set closed')
-						break
+						self.finish = True
+				else:
+					self.info('Waiting enought micrographs to launch protocol.'
+					          ' triggerMicrograph: {}, micrographsFiltered: {}'.format(
+						self.triggerMicrograph.get(),
+						len(self.filteredMics.get())))
 	
 	def collectSetOfHolesFiltered(self):
-		self.info('in collect')
+		self.info('In collect')
 		self.holesFiltered = []
 		dictMovies = {}
 		for m in self.movies:
@@ -149,7 +164,6 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 		# self.info(self.holesFiltered)
 	
 	def statistics(self):
-		stepNum = 50
 		self.info('statistics')
 		import numpy as np
 		# import matplotlib.pyplot as plt
@@ -161,13 +175,12 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 				listFilteredHoles.append(h.getSelectorValue())
 		arrayHoles = np.array(listHoles)
 		arrayFilteredHoles = np.array(listFilteredHoles)
-		# self.info('listFilteredHoles: {}'.format(listFilteredHoles))
 		# Calcular los histogramas de ambas series
 		minIntensity = min(listHoles)
 		maxIntensity = max(listHoles)
-		step = (maxIntensity - minIntensity) / stepNum
+		step = (maxIntensity - minIntensity) / self.binsHist.get()
 		bins = np.linspace(minIntensity, maxIntensity,
-		                   stepNum)  # Definir los l�mites de los bins para el histograma
+		                   self.binsHist.get())  # Definir los l�mites de los bins para el histograma
 		
 		histTotal, rangeIntensity = np.histogram(arrayHoles, bins=bins)
 		histFiltered, ranges = np.histogram(arrayFilteredHoles, bins=bins)
@@ -182,8 +195,8 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 		                           out=np.zeros_like(histFiltered,
 		                                             dtype=float),
 		                           where=histTotal != 0)
-		self.histRatio[np.isinf(self.histRatio)] = 0.0000001
-		self.histRatio[np.isnan(self.histRatio)] = 0.0000001
+		self.histRatio[np.isinf(self.histRatio)] = 0.0
+		self.histRatio[np.isnan(self.histRatio)] = 0.0
 		
 		self.debug('ranges: {}'.format(ranges))
 		self.debug("histRatio: {}".format(self.histRatio))
@@ -192,28 +205,31 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 		sigma = np.sqrt(
 			np.sum(self.histRatio * (ranges[:-1] - mu) ** 2) / np.sum(
 				self.histRatio))
-		self.minIntensity = mu - sigma
-		self.maxIntensity = mu + sigma + step
+		self.minIntensity = int(mu - sigma)
+		self.maxIntensity = int(mu + sigma + step)
 		self.info('std_dev: {}\nmedian_value: {}'.format(sigma, mu))
-		self.info('minIntensity: {}\nmaxIntensity: {}'.format(minIntensity,
-		                                                      maxIntensity))
-		
+		self.info(
+			'minIntensity: {}\nmaxIntensity: {}'.format(self.minIntensity,
+			                                            self.maxIntensity))
 		# saving data to plot in extra folder
 		rangeFile = self._getExtraPath(
 			"rangeI-{}.txt".format(self.countStreamingSteps))
 		np.savetxt(rangeFile, rangeIntensity[:-1].reshape(1, -1), fmt='%.8f',
 		           delimiter=' ')
-		# file = open(rangeFile, "a")
-		# file.write(np.array2string(rangeIntensity)[1:-1])
-		# file.close()
 		histRatioFile = self._getExtraPath(
 			"histRatio-{}.txt".format(self.countStreamingSteps))
 		np.savetxt(histRatioFile, self.histRatio.reshape(1, -1), fmt='%.8f',
 		           delimiter=' ')
-	
-	# file = open(histRatioFile, "a")
-	# file.write(np.array2string(self.histRatio, separator=' ')[1:-1])
-	# file.close()
+		
+		# SUMMARY INFO
+		summaryF = self._getExtraPath("summary.txt")
+		summaryF = open(summaryF, "w")
+		summaryF.write(
+			'Standard deviation: {}\nMedian value: {}\n'.format(int(sigma),
+			                                                    int(mu)) +
+			'Intensity range with holes to acquire: {} - {}'.format(
+				self.minIntensity, self.maxIntensity))
+		summaryF.close()
 	
 	def postingBack2Smartscope(self):
 		# TODO post a setValueIntensity
@@ -225,26 +241,54 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 		pass
 	
 	def createSetOfFilteredHoles(self):
-		SOH = SetOfHoles.create(outputPath=self._getPath())
-		self.outputsToDefine = {'SetOfHoles': SOH}
+		# JORGE STARTS
+		import os
+		fname = "/home/agarcia/Documents/test_JJ.txt"
+		if os.path.exists(fname):
+			os.remove(fname)
+		fjj = open(fname, "a+")
+		fjj.write('JORGE--------->onDebugMode PID {}'.format(os.getpid()))
+		fjj.close()
+		print('JORGE--------->onDebugMode PID {}'.format(os.getpid()))
+		time.sleep(30)
+		# JORGE_END
+		SOH = SetOfHoles.create(outputPath=self._getPath())  # baseName
+		SOHFO = SetOfHoles.create(outputPath=self._getPath(),
+		                          prefix='FilteredOut')
+		self.outputsToDefine = {'SetOfHolesFiltered': SOH,
+		                        'SeOfHolesFilteredOut': SOHFO}
 		self._defineOutputs(**self.outputsToDefine)
 		for h in self.holes:
 			if h.getHoleId() in self.holesFiltered:
-				self.createOutputStep(SOH, h, self.holes)
+				self.createOutputStep(SOH, h)
+			else:
+				self.createOutputStepFilteredOut(SOHFO, h)
 	
-	def createOutputStep(self, SOH, hole, holes):
-		SOH.copyInfo(holes)
+	def createOutputStep(self, SOH, hole):
+		SOH.copyInfo(self.holes)
 		hole2Add_copy = Hole()
 		hole2Add_copy.copy(hole, copyId=False)
 		SOH.append(hole2Add_copy)
-		
-		if self.hasAttribute('SetOfHoles'):
+		if self.hasAttribute('SetOfHolesFiltered'):
 			SOH.write()
-			outputAttr = getattr(self, 'SetOfHoles')
+			outputAttr = getattr(self, 'SetOfHolesFiltered')
 			outputAttr.copy(SOH, copyId=False)
 			self._store(outputAttr)
 		# STORE SQLITE
 		self._store(SOH)
+	
+	def createOutputStepFilteredOut(self, SOHFO, hole):
+		SOHFO.copyInfo(self.holes)
+		hole2Add_copy = Hole()
+		hole2Add_copy.copy(hole, copyId=False)
+		SOHFO.append(hole2Add_copy)
+		if self.hasAttribute('SeOfHolesFilteredOut'):
+			SOHFO.write()
+			outputAttr = getattr(self, 'SeOfHolesFilteredOut')
+			outputAttr.copy(SOHFO, copyId=False)
+			self._store(outputAttr)
+		# STORE SQLITE
+		self._store(SOHFO)
 	
 	def checkSmartscopeConnection(self):
 		response = self.pyClient.getDetailsFromParameter('users')
@@ -252,7 +296,14 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 	
 	def _summary(self):
 		summary = []
-		
+		summaryF = self._getExtraPath("summary.txt")
+		if not os.path.exists(summaryF):
+			summary.append("No summary file yet.")
+		else:
+			summaryF = open(summaryF, "r")
+			for line in summaryF.readlines():
+				summary.append(line.rstrip())
+			summaryF.close()
 		return summary
 	
 	def _validate(self):
