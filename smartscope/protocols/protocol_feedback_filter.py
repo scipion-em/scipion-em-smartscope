@@ -127,20 +127,17 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 			rTime = time.time() - self.zeroTime
 			if rTime >= self.refreshTime.get():
 				self.zeroTime = time.time()
+				self.info('len filteredMics: {}'.format(
+					len(self.filteredMics.get())))
 				if len(self.filteredMics.get()) >= self.triggerMicrograph.get():
 					self.info('In progres...')
 					self.countStreamingSteps += 1
+					
 					self.fMics = self.filteredMics.get()
-					getSOH = self._insertFunctionStep(
-						self.collectSetOfHolesFiltered, prerequisites=[])
-					statistics = self._insertFunctionStep(
-						self.statistics, prerequisites=[getSOH])
-					feedback = self._insertFunctionStep(
-						self.postingBack2Smartscope,
-						prerequisites=[statistics])
-					createOutput = self._insertFunctionStep(
-						self.createSetOfFilteredHoles,
-						prerequisites=[feedback])
+					self.collectSetOfHolesFiltered()
+					self.statistics()
+					self.postingBack2Smartscope()
+					self.createSetOfFilteredHoles()
 					if not self.fMics.isStreamOpen():
 						self.info(
 							'Not more micrographs are expected, set closed')
@@ -166,7 +163,6 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 	def statistics(self):
 		self.info('statistics')
 		import numpy as np
-		# import matplotlib.pyplot as plt
 		listHoles = []
 		listFilteredHoles = []
 		for h in self.holes:
@@ -241,17 +237,6 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 		pass
 	
 	def createSetOfFilteredHoles(self):
-		# JORGE STARTS
-		import os
-		fname = "/home/agarcia/Documents/test_JJ.txt"
-		if os.path.exists(fname):
-			os.remove(fname)
-		fjj = open(fname, "a+")
-		fjj.write('JORGE--------->onDebugMode PID {}'.format(os.getpid()))
-		fjj.close()
-		print('JORGE--------->onDebugMode PID {}'.format(os.getpid()))
-		time.sleep(30)
-		# JORGE_END
 		SOH = SetOfHoles.create(outputPath=self._getPath())  # baseName
 		SOHFO = SetOfHoles.create(outputPath=self._getPath(),
 		                          prefix='FilteredOut')

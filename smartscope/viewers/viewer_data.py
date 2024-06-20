@@ -36,6 +36,8 @@ from pwem.viewers.showj import *
 from pyworkflow.viewer import DESKTOP_TKINTER, WEB_DJANGO, ProtocolViewer
 from smartscope.protocols.protocol_feedback_filter import smartscopeFeedbackFilter
 from pyworkflow.protocol.params import IntParam, LabelParam
+import numpy as np
+import matplotlib.pyplot as plt
 
 # class DataViewer_cnb(DataViewer):
 #     _targets = [SetOfLowMagImages]
@@ -47,8 +49,8 @@ from pyworkflow.protocol.params import IntParam, LabelParam
 
 class DataViewer_smartscope(DataViewer):
     _targets = [SetOfGrids, SetOfAtlas, SetOfSquares, SetOfHoles, SetOfMoviesSS]
-
     def _visualize(self, obj, **kwargs):
+        self._views = []
         if isinstance(obj, SetOfSquares):
             labels = ('_pngDir _square_id _atlas_id _status _selected _completion_time _area _shape_x _shape_y _sampligRate')
             self._views.append(ObjectView(self._project,
@@ -112,7 +114,8 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
         group2 = form.addGroup('Statistics')
         group2.addParam('visualizeHistograms', LabelParam,
                        label="Visualize the histograms of intensity",
-                       help="Visualize the histograms of intensity per holes")
+                       help="Visualize the histograms of intensity per holes. The last serie"
+                            " is scattered and the first (the older) and the last (newest) 5 gaussian reconstructions")
 
 
     def _getVisualizeDict(self):
@@ -123,47 +126,95 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
                 }
 
     def _visualizeAllHoles(self, e=None):
-        return self._visualizeHoles("SetOfHoles")
+        return self._visualizeHoles()
 
     def _visualizeFilteredHoles(self, e=None):
-        return self._visualizeHoles("SetOfHoles")
+        return self._visualizeHoles()
 
-    def _visualizeHoles(self, obj):
-        labels = (
-            '_pngDir _hole_id _grid_id _status _selected _completion_time _shape_x _shape_y _sampligRate _number _area')
-        self._views.append(ObjectView(self._project,
-                                      obj.strId(),
-                                      obj.getFileName(),
-                                      viewParams={VISIBLE: labels,
-                                                  RENDER: '_pngDir',
-                                                  SORT_BY: labels}))
+    def _visualizeHoles(self):
+        views = []
+        if hasattr(self.protocol, 'SetOfHoles'):
+            labels = (
+                '_pngDir _hole_id _grid_id _status _selected _completion_time _shape_x _shape_y _sampligRate _number _area')
+            views.append(ObjectView(self._project,
+                                          self.protocol.SetOfHoles.strId(),
+                                          self.protocol.SetOfHoles.getFileName(),
+                                          viewParams={VISIBLE: labels,
+                                                      RENDER: '_pngDir',
+                                                      SORT_BY: labels}))
+            return views
+
 
     def _visualizeHistograms(self, e=None):
-        plotter = EmPlotter()
-		#
-        # # Calcular la media (mu) y la desviaci�n est�ndar (sigma)
-        # mu = np.sum(eje_x * eje_y) / np.sum(eje_y)
-        # sigma = np.sqrt(np.sum(eje_y * (eje_x - mu) ** 2) / np.sum(eje_y))
-		#
-        # # Plotear los datos
-        # plt.figure(figsize=(10, 6))
-		#
-        # # Scatter plot de los datos originales
-        # plt.scatter(eje_x, eje_y, label='Datos', color='b')
-		#
-        # # Generar puntos para la distribuci�n normal
-        # x_fit = np.linspace(np.min(eje_x), np.max(eje_x), 100)
-        # y_fit = np.exp(-(x_fit - mu) ** 2 / (2 * sigma ** 2)) / (sigma * np.sqrt(2 * np.pi))
-		#
-        # # Plotear la distribuci�n normal
-        # plt.plot(x_fit, y_fit, label=f'Distribuci�n Normal ($\mu$={mu:.2f}, $\sigma$={sigma:.2f})', color='r')
-		#
-        # # Configuraci�n del gr�fico
-        # plt.title('Distribuci�n de datos y ajuste a distribuci�n normal')
-        # plt.xlabel('Eje X')
-        # plt.ylabel('Eje Y')
-        # plt.legend()
-        # plt.grid(True)
-		#
-        # # Mostrar el gr�fico
-        # plt.show()
+        def muSigma(intensityRange, coefHoles):
+            mu = np.sum(intensityRange * coefHoles) / np.sum(coefHoles)
+            sigma = np.sqrt(np.sum(coefHoles * (intensityRange - mu) ** 2) / np.sum(coefHoles))
+            return mu, sigma
+        listRangesFiles = []
+        listHistFiles = []
+        listRanges = []
+        listHist = []
+        files = os.listdir(self.protocol._getExtraPath())
+        with open(os.path.join(self.protocol._getExtraPath(),'pathsFile.txt'), 'w') as fi:
+            for f in files:
+                fi.write(f)
+                fi.write('\n')
+
+        for f in files:
+            if f.find('rangeI') != -1:
+                listRangesFiles.append(f)
+            elif f.find('histRatio') != -1:
+                listHistFiles.append(f)
+
+        def extraer_numero(rango):
+            return int(rango.split('-')[1].split('.')[0])
+
+        # Ordenar la lista utilizando la funci�n de clave personalizada
+        listRangesFiles = sorted(listRangesFiles, key=extraer_numero)[::-1]
+        listHistFiles = sorted(listHistFiles, key=extraer_numero)[::-1] #the first the newer
+        for f in listRangesFiles:
+            listRanges.append(np.loadtxt(os.path.join(self.protocol._getExtraPath(), f), dtype=np.float))
+        for f in listHistFiles:
+            listHist.append(np.loadtxt(os.path.join(self.protocol._getExtraPath(), f), dtype=np.float))#TODO no carga datos del fichero
+
+        mu = []
+        sigma = []
+        if len(listRangesFiles) > 0:
+            for index, _ in enumerate(listRangesFiles):
+                if len(listHist) > 0:
+                    m, s = muSigma(listRanges[index], listHist[index])
+                    mu.append(m)
+                    sigma.append(s)
+
+        # Crear figura y ejes
+        fig, ax1 = plt.subplots(figsize=(12, 8))
+        # Configuraci�n del primer eje (izquierdo) para los puntos
+        color = 'tab:blue'
+        ax1.set_xlabel('Holes Intensity')
+        ax1.set_ylabel('total holes / good holes', color=color)
+        ax1.bar(listRanges[0], listHist[0], label='Coef good holes (Last update)', color='midnightblue', width=15, alpha=0.8)
+        ax1.tick_params(axis='y', labelcolor=color)
+        ax1.legend(loc='upper left')
+        ax1.set_ylim(0, 1)
+        ax1.grid(True)
+
+        # Crear el segundo eje (derecho) para la distribuci�n normal
+        ax2 = ax1.twinx()
+        color = 'black'
+        ax2.set_ylabel('Gaussian Distribution', color=color)
+        numSerie2 = 0
+        colors = ['midnightblue', 'mediumblue', 'slateblue', 'mediumpurple']
+        order = ['Last', 'Second to last', 'Third to last', 'Fourth to last']
+        for _ in listRanges[:4]:
+            x_fit = np.linspace(np.min(listRanges[numSerie2]), np.max(listRanges[numSerie2]), 100)
+            y_fit1 = np.exp(-(x_fit - mu[numSerie2]) ** 2 / (2 * sigma[numSerie2] ** 2)) / (sigma[numSerie2] * np.sqrt(2 * np.pi))
+            ax2.plot(x_fit, y_fit1, label=f'{order[numSerie2]} ($\mu$={mu[numSerie2]:.2f}, $\sigma$={sigma[numSerie2]:.2f})',
+                     color=colors[numSerie2])
+
+            ax2.tick_params(axis='y', labelcolor=color)
+            ax2.legend(loc='upper right')
+            numSerie2 += 1
+
+        # Mostrar el gr�fico
+        plt.title('Intensity - total / good holes')
+        plt.show()
