@@ -141,11 +141,11 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
 
     def _visualizeFilteredOut(self, e=None):
         views = []
-        if hasattr(self.protocol, 'SeOfHolesFilteredOut'):
+        if hasattr(self.protocol, 'SetOfHolesFilteredOut'):
             labels = (
                 '_pngDir _hole_id _grid_id _status _selected _completion_time _shape_x _shape_y _sampligRate _number _area')
             views.append(ObjectView(self._project,
-                                          self.protocol.SeOfHolesFilteredOut.strId(),
+                                          self.protocol.SetOfHolesFilteredOut.strId(),
                                           self.protocol.SetOfHolesFilteredOut.getFileName(),
                                           viewParams={VISIBLE: labels,
                                                       RENDER: '_pngDir',
