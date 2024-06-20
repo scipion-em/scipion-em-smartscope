@@ -105,8 +105,8 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
     def _defineParams(self, form):
         form.addSection(label='Visualization')
         group = form.addGroup('Holes')
-        group.addParam('visualizeAllHoles', LabelParam,
-                       label="Visualize all holes",
+        group.addParam('visualizeFilteredOutHoles', LabelParam,
+                       label="Visualize filtered out holes",
                        help="")
         group.addParam('visualizeFilteredHoles', LabelParam,
                        label="Visualize filtered holes",
@@ -120,25 +120,33 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
 
     def _getVisualizeDict(self):
         return {
-                 'visualizeAllHoles': self._visualizeAllHoles,
+                 'visualizeFilteredOutHoles': self._visualizeFilteredOut,
                  'visualizeFilteredHoles': self._visualizeFilteredHoles,
                  'visualizeHistograms': self._visualizeHistograms,
                 }
 
-    def _visualizeAllHoles(self, e=None):
-        return self._visualizeHoles()
 
     def _visualizeFilteredHoles(self, e=None):
-        return self._visualizeHoles()
-
-    def _visualizeHoles(self):
         views = []
-        if hasattr(self.protocol, 'SetOfHoles'):
+        if hasattr(self.protocol, 'SetOfHolesFiltered'):
             labels = (
                 '_pngDir _hole_id _grid_id _status _selected _completion_time _shape_x _shape_y _sampligRate _number _area')
             views.append(ObjectView(self._project,
-                                          self.protocol.SetOfHoles.strId(),
-                                          self.protocol.SetOfHoles.getFileName(),
+                                    self.protocol.SetOfHolesFiltered.strId(),
+                                    self.protocol.SetOfHolesFiltered.getFileName(),
+                                    viewParams={VISIBLE: labels,
+                                                RENDER: '_pngDir',
+                                                SORT_BY: labels}))
+            return views
+
+    def _visualizeFilteredOut(self, e=None):
+        views = []
+        if hasattr(self.protocol, 'SeOfHolesFilteredOut'):
+            labels = (
+                '_pngDir _hole_id _grid_id _status _selected _completion_time _shape_x _shape_y _sampligRate _number _area')
+            views.append(ObjectView(self._project,
+                                          self.protocol.SeOfHolesFilteredOut.strId(),
+                                          self.protocol.SetOfHolesFilteredOut.getFileName(),
                                           viewParams={VISIBLE: labels,
                                                       RENDER: '_pngDir',
                                                       SORT_BY: labels}))
@@ -191,9 +199,9 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
         # Configuraci�n del primer eje (izquierdo) para los puntos
         color = 'tab:blue'
         ax1.set_xlabel('Holes Intensity')
-        ax1.set_ylabel('total holes / good holes', color=color)
+        ax1.set_ylabel('total holes / good holes')
         ax1.bar(listRanges[0], listHist[0], label='Coef good holes (Last update)', color='midnightblue', width=15, alpha=0.8)
-        ax1.tick_params(axis='y', labelcolor=color)
+        ax1.tick_params(axis='y')
         ax1.legend(loc='upper left')
         ax1.set_ylim(0, 1)
         ax1.grid(True)

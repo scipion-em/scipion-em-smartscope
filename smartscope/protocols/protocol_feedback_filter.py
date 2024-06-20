@@ -55,7 +55,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 	_label = 'Feedback filter'
 	_devStatus = BETA
 	_possibleOutputs = {'SetOfHolesFiltered': SetOfHoles,
-	                    'SeOfHolesFilteredOut': SetOfHoles}
+	                    'SetOfHolesFilteredOut': SetOfHoles}
 	
 	def __init__(self, **args):
 		ProtImport.__init__(self, **args)
@@ -241,7 +241,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 		SOHFO = SetOfHoles.create(outputPath=self._getPath(),
 		                          prefix='FilteredOut')
 		self.outputsToDefine = {'SetOfHolesFiltered': SOH,
-		                        'SeOfHolesFilteredOut': SOHFO}
+		                        'SetOfHolesFilteredOut': SOHFO}
 		self._defineOutputs(**self.outputsToDefine)
 		for h in self.holes:
 			if h.getHoleId() in self.holesFiltered:
@@ -267,9 +267,9 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 		hole2Add_copy = Hole()
 		hole2Add_copy.copy(hole, copyId=False)
 		SOHFO.append(hole2Add_copy)
-		if self.hasAttribute('SeOfHolesFilteredOut'):
+		if self.hasAttribute('SetOfHolesFilteredOut'):
 			SOHFO.write()
-			outputAttr = getattr(self, 'SeOfHolesFilteredOut')
+			outputAttr = getattr(self, 'SetOfHolesFilteredOut')
 			outputAttr.copy(SOHFO, copyId=False)
 			self._store(outputAttr)
 		# STORE SQLITE
