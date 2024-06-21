@@ -44,6 +44,7 @@ from pyworkflow.protocol import params, STEPS_PARALLEL
 from ..objects.dataCollection import *
 import time
 from ..constants import *
+from scipy.stats import shapiro
 
 
 class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
@@ -160,11 +161,24 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 		# self.info('hole from mic on holesFiltered')
 		# self.info(self.holesFiltered)
 	
+	def Shapiro_Wilk(self, histRatio):
+		# Test de Shapiro-Wilk
+		stat, p_value = shapiro(histRatio)
+		print(f"Shapiro-Wilk test: W={stat:.4f}, p-value={p_value:.4f}")
+		# Interpretation Shapiro-Wilk test
+		alpha = 0.05
+		if p_value > alpha:
+			return True, p_value, "Pass the null hypothesis of Shapiro_Wilk (the data appears to be normally distributed)."
+		else:
+			return False, p_value, "Reject the null hypothesis of Shapiro_Wilk ({} < {}) (the data does not appear to be normally distributed).".format(
+				p_value, alpha)
+	
 	def statistics(self):
 		self.info('statistics')
 		import numpy as np
 		listHoles = []
 		listFilteredHoles = []
+		shapiroList = []
 		for h in self.holes:
 			listHoles.append(h.getSelectorValue())
 			if h.getHoleId() in self.holesFiltered:
@@ -174,58 +188,74 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 		# Calcular los histogramas de ambas series
 		minIntensity = min(listHoles)
 		maxIntensity = max(listHoles)
-		step = (maxIntensity - minIntensity) / self.binsHist.get()
-		bins = np.linspace(minIntensity, maxIntensity,
-		                   self.binsHist.get())  # Definir los l�mites de los bins para el histograma
+		import os
+		fname = "/home/agarcia/Documents/test_JJ.txt"
+		if os.path.exists(fname):
+			os.remove(fname)
+		fjj = open(fname, "a+")
+		fjj.write('JORGE--------->onDebugMode PID {}'.format(os.getpid()))
+		fjj.close()
+		print('JORGE--------->onDebugMode PID {}'.format(os.getpid()))
+		import time
+		time.sleep(10)
+		# JORGE_END
+		listRange = range(5, 101)
 		
-		histTotal, rangeIntensity = np.histogram(arrayHoles, bins=bins)
-		histFiltered, ranges = np.histogram(arrayFilteredHoles, bins=bins)
-		self.debug('histTotal:{}\n \nhistFiltered: {}'.format(histTotal,
-		                                                      histFiltered))
-		# Asegurarse de que los histogramas tengan el mismo tama�o
-		assert len(histTotal) == len(
-			histFiltered), "Los histogramas no tienen la misma cantidad de bins"
+		def calculate(b):
+			step = (maxIntensity - minIntensity) / b
+			bins = np.linspace(minIntensity, maxIntensity,
+			                   b)  # Definir los l�mites de los bins para el histograma
+			histTotal, rangeIntensity = np.histogram(arrayHoles, bins=bins)
+			histFiltered, ranges = np.histogram(arrayFilteredHoles, bins=bins)
+			# 3self.debug('histTotal:{}\n \nhistFiltered: {}'.format(histTotal, histFiltered))
+			# Asegurarse de que los histogramas tengan el mismo tama�o
+			assert len(histTotal) == len(
+				histFiltered), "Los histogramas no tienen la misma cantidad de bins"
+			
+			# Calcular el cociente de los histogramas
+			histRatio = np.divide(histFiltered, histTotal,
+			                      out=np.zeros_like(histFiltered, dtype=float),
+			                      where=histTotal != 0)
+			histRatio[np.isinf(histRatio)] = 0.0
+			histRatio[np.isnan(histRatio)] = 0.0
+			
+			# self.debug('ranges: {}'.format(ranges))
+			# self.debug("histRatio: {}".format(self.histRatio))
+			
+			mu = np.sum(ranges[:-1] * histRatio) / np.sum(histRatio)
+			sigma = np.sqrt(
+				np.sum(histRatio * (ranges[:-1] - mu) ** 2) / np.sum(
+					histRatio))
+			minIntensityL = int(mu - sigma)
+			maxIntensityL = int(mu + sigma + step)
+			# self.info('std_dev: {}\nmedian_value: {}'.format(sigma, mu))
+			# self.info('minIntensity: {}\minIntensityL: {}'.format(self.minIntensity, self.maxIntensityL))
+			# saving data to plot in extra folder
+			rangeFile = self._getExtraPath(
+				"rangeI-{}.txt".format(self.countStreamingSteps))
+			np.savetxt(rangeFile, rangeIntensity[:-1].reshape(1, -1),
+			           fmt='%.8f', delimiter=' ')
+			histRatioFile = self._getExtraPath(
+				"histRatio-{}.txt".format(self.countStreamingSteps))
+			np.savetxt(histRatioFile, histRatio.reshape(1, -1), fmt='%.8f',
+			           delimiter=' ')
+			shapiroTest = self.Shapiro_Wilk(histRatio)
+			shapiroList.append(shapiroTest[1])
 		
-		# Calcular el cociente de los histogramas
-		self.histRatio = np.divide(histFiltered, histTotal,
-		                           out=np.zeros_like(histFiltered,
-		                                             dtype=float),
-		                           where=histTotal != 0)
-		self.histRatio[np.isinf(self.histRatio)] = 0.0
-		self.histRatio[np.isnan(self.histRatio)] = 0.0
+		for b in listRange:
+			calculate(b)
 		
-		self.debug('ranges: {}'.format(ranges))
-		self.debug("histRatio: {}".format(self.histRatio))
-		
-		mu = np.sum(ranges[:-1] * self.histRatio) / np.sum(self.histRatio)
-		sigma = np.sqrt(
-			np.sum(self.histRatio * (ranges[:-1] - mu) ** 2) / np.sum(
-				self.histRatio))
-		self.minIntensity = int(mu - sigma)
-		self.maxIntensity = int(mu + sigma + step)
-		self.info('std_dev: {}\nmedian_value: {}'.format(sigma, mu))
-		self.info(
-			'minIntensity: {}\nmaxIntensity: {}'.format(self.minIntensity,
-			                                            self.maxIntensity))
-		# saving data to plot in extra folder
-		rangeFile = self._getExtraPath(
-			"rangeI-{}.txt".format(self.countStreamingSteps))
-		np.savetxt(rangeFile, rangeIntensity[:-1].reshape(1, -1), fmt='%.8f',
-		           delimiter=' ')
-		histRatioFile = self._getExtraPath(
-			"histRatio-{}.txt".format(self.countStreamingSteps))
-		np.savetxt(histRatioFile, self.histRatio.reshape(1, -1), fmt='%.8f',
-		           delimiter=' ')
-		
-		# SUMMARY INFO
-		summaryF = self._getExtraPath("summary.txt")
-		summaryF = open(summaryF, "w")
-		summaryF.write(
-			'Standard deviation: {}\nMedian value: {}\n'.format(int(sigma),
-			                                                    int(mu)) +
-			'Intensity range with holes to acquire: {} - {}'.format(
-				self.minIntensity, self.maxIntensity))
-		summaryF.close()
+		self.info('best bin to normal distribution: {}'.format(
+			listRange[np.argmax(shapiroList)]))
+		calculate(listRange[np.argmax(shapiroList)])
+	
+	# # # SUMMARY INFO
+	# # summaryF = self._getExtraPath("summary.txt")
+	# # summaryF = open(summaryF, "w")
+	# # summaryF.write(self.shapiroTest[2])
+	# # summaryF.write('\n\nStandard deviation: {}\nMedian value: {}\n'.format(int(sigma), int(mu)) +
+	# #                'Intensity range with holes to acquire: {} - {}'.format(minIntensityL, maxIntensityL))
+	# # summaryF.close()
 	
 	def postingBack2Smartscope(self):
 		# TODO post a setValueIntensity

@@ -222,7 +222,9 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
             ax2.tick_params(axis='y', labelcolor=color)
             ax2.legend(loc='upper right')
             numSerie2 += 1
+        ax2.fill_between(x_fit, 0, y_fit1, where=((x_fit >= mu[0] - sigma[0]) & (x_fit <= mu[0] + sigma[0])),
+                         color='green', alpha=0.3, label=f'Rango $\mu \pm \sigma$')
+        ax2.set_ylim(0, max(y_fit1) * 1.1)
 
-        # Mostrar el gr�fico
         plt.title('Intensity - total / good holes')
         plt.show()
