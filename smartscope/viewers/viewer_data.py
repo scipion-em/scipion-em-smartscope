@@ -218,6 +218,7 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
             ax2 = ax1.twinx()
             color = 'black'
             ax2.set_ylabel('Gaussian Distribution', color=color)
+
             numSerie2 = 0
             colors = ['midnightblue', 'mediumblue', 'slateblue', 'mediumpurple']
             order = ['Last', 'Second to last', 'Third to last', 'Fourth to last']

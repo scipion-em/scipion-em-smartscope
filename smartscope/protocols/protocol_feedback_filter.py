@@ -168,6 +168,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         self.holes
         self.holespassFilter
 
+
         self.groupsH = defaultdict(list)
         for h in self.holes:
             grid_id = h.getGridId()
