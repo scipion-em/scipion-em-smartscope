@@ -64,6 +64,7 @@ class dataCollection():
         for g in grid:
             if g['status'] == 'started':
                 return g['session_id']
+
     def metadataCollection(self, microscopeList, detectorList, sessionList, acquisition):
         microscopes = self.pyClient.getDetailsFromParameter('microscopes')
         for m in microscopes:
@@ -118,8 +119,6 @@ class dataCollection():
             ses.setMicroscopeId(s['microscope_id'])
             ses.setDetectorId(s['detector_id'])
             sessionList.append(ses)
-
-
 
     def screeningCollection(self, dataPath, sessionId, sessionName, setOfGrids, setOfAtlas,
                             setOfSquares, setOfHoles):
@@ -260,7 +259,6 @@ class dataCollection():
         microscopeId = session[0]['microscope_id']
         microscope = self.pyClient.getRouteFromID('microscopes', 'microscope', microscopeId)
         return microscope[0]['windows_path']
-
 
     def sessionWorkingDir(self, sessionName):
         session = self.pyClient.getRouteFromName('sessions', 'session', sessionName)

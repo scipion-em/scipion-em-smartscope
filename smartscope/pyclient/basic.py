@@ -5,12 +5,14 @@ from requests.auth import HTTPBasicAuth
 DETAILED = 'detailed'
 
 class MainPyClient():
-
     def __init__(self, Authorization, endpoint):
-        #self._headers = {'Authorization': 'Token 2aacc9f9fceb89117ae61b9dc0b5ad84901e28e3'}#Tocken de Servidor
         self._headers = {'Authorization': f'Token {Authorization}'}
         self._main_endpoint = endpoint
         self._current_endpoint = self._main_endpoint
+        self._api_endpoint = '/api/'
+
+    def getApiEndPoint(self):
+        return self._api_endpoint
 
     def getHeaders(self):
         return self._headers
@@ -21,65 +23,8 @@ class MainPyClient():
     def getCurrentEndpoint(self):
         return self._current_endpoint
 
-    def getUrlsDict(self):
-        return self._urlsDict
-
     def setCurrentEndpoint(self, newEndpoint):
         self._current_endpoint = newEndpoint
-
-    def setUrlsDict(self, dictUrls):
-        self._urlsDict.set(dictUrls)
-
-    # def _getAllEndpoints(self):
-    #     try:
-    #         r = requests.get(self.getMainEndpoint(), headers=self.getHeaders(), verify=False)
-    #         r.raise_for_status()
-    #         urlsDict = r.json()
-    #         correctDict = correctEndpointsDictFormat(urlsDict)
-    #         return correctDict
-    #     except requests.exceptions.HTTPError as errh:
-    #         print("Http Error:", errh)
-    #     except requests.exceptions.ConnectionError as errc:
-    #         print("Error Connecting:", errc)
-    #     except requests.exceptions.Timeout as errt:
-    #         print("Timeout Error:", errt)
-    #     except requests.exceptions.RequestException as err:
-    #         print("OOps: Something Else", err)
-    #
-    #     return None
-
-    def getLabelUrl(self, label):
-        if label in self._keys:
-            url = self._urlsDict[label]
-            self.setCurrentEndpoint(url)
-            return url
-        else:
-            print('The label is not found in the APIs endpoints')
-            return None
-
-    def getDetailedLabelUrl(self, label):
-        if self.getLabelUrl(label):
-            detailed_endpoint = self._urlsDict[label] + DETAILED + '/'
-            try:
-                r = requests.get(detailed_endpoint, headers=self.getHeaders(), verify=False)
-                r.raise_for_status()
-                return detailed_endpoint
-            except requests.exceptions.HTTPError as errh:
-                print("Http Error:", errh)
-                return None
-            except requests.exceptions.ConnectionError as errc:
-                print("Error Connecting:", errc)
-                return None
-            except requests.exceptions.Timeout as errt:
-                print("Timeout Error:", errt)
-                return None
-            except requests.exceptions.RequestException as err:
-                print("OOps: Something Else", err)
-                return None
-
-        else:
-            print('The label is not found in the APIs endpoints')
-            return None
 
 
 ##COMMUNICATION
@@ -90,7 +35,7 @@ class MainPyClient():
             sortByLast='sort=last_update'
         else:
             sortByLast=''
-        request = f'{self.getMainEndpoint()}{route}?&{status}&{sortByLast}'
+        request = f'{self.getMainEndpoint()}{self.getApiEndPoint()}{route}?&{status}&{sortByLast}'
         #print(f'Requested url: {request}')
         try:
             resp = requests.get(request, headers=self.getHeaders(), verify=False)
@@ -148,7 +93,7 @@ class MainPyClient():
             completed = 'status=completed'
         else:
             completed = ''
-        request = f'{self.getMainEndpoint()}{route}{endpoint}/?{roude_id}{id}&{selected}&{completed}'
+        request = f'{self.getMainEndpoint()}{self.getApiEndPoint()}{route}{endpoint}/?{roude_id}{id}&{selected}&{completed}'
         if dev==True: print(f'Requested url: {request}')
         resp = requests.get(request, headers=self.getHeaders(), verify=False)
         if route=='highmags':print(request)
@@ -170,7 +115,6 @@ class MainPyClient():
         except KeyError:
             return []
 
-
     def getDetailFromItem(self, route, ID, detailed=True, dev=False):
         '''
         route: element you request for
@@ -185,13 +129,11 @@ class MainPyClient():
             detailed = '/detailed'
         else:
             detailed = ''
-        request = f'{self.getMainEndpoint()}{route}/{ID}{detailed}'
+        request = f'{self.getMainEndpoint()}{self.getApiEndPoint()}{route}/{ID}{detailed}'
         if dev==True: print(f'Requested url: {request}')
         resp = requests.get(request, headers=self.getHeaders(), verify=False)
         resp_jason = resp.json()
         return resp_jason
-
-
 
     def getRouteFromName(self, route, from_name, name, detailed=False, selected=False, completed=False, dev=False):
         '''
@@ -217,7 +159,7 @@ class MainPyClient():
             completed = 'status=completed'
         else:
             completed = ''
-        request = f'{self.getMainEndpoint()}{route}{detailed}/?{roude_name}{name}&{selected}&{completed}'
+        request = f'{self.getMainEndpoint()}{self.getApiEndPoint()}{route}{detailed}/?{roude_name}{name}&{selected}&{completed}'
         if dev==True: print(f'Requested url: {request}')
         resp = requests.get(request, headers=self.getHeaders(), verify=False)
         resp_jason = resp.json()
@@ -242,7 +184,7 @@ class MainPyClient():
     def postImages(self, ID, payload, devel=False):
         highmag = 'highmag'
         upload = 'upload_images'
-        url = f'{self.getMainEndpoint()}{highmag}/{ID}/{upload}/'
+        url = f'{self.getMainEndpoint()}{self.getApiEndPoint()}{highmag}/{ID}/{upload}/'
         if devel:
             print(url)
         r = requests.patch(url, verify=False, headers=self.getHeaders(), data=payload)
@@ -257,10 +199,16 @@ class MainPyClient():
             except Exception:
                 pass
 
-    def postParameterFromID(self, route, ID, data='', devel=False):
+    def postParameterFromID(self, route, ID, apiRoute='', data='', devel=False):
         #https://linuxhint.com/python-requests-put-method/
         #https://stackoverflow.com/questions/31089221/what-is-the-difference-between-put-post-and-patch
-        url = f'{self.getMainEndpoint()}{route}/{ID}/'
+        grayScaleRoute = ''
+        if apiRoute == 'selector':
+            apiRoute = 'selector_viewer/api'
+            grayScaleRoute = 'Graylevel%20selector/save/'
+        else:
+            apiRoute = self.getApiEndPoint()
+        url = f'{self.getMainEndpoint()}{apiRoute}{route}/{ID}/{grayScaleRoute}'
         if devel:
             print(url)
         r = requests.patch(url, verify=False, headers=self.getHeaders(), data=data)
@@ -284,8 +232,9 @@ def correctEndpointFormat(url):
 
 
 if __name__ == "__main__":
-    pyClient = MainPyClient('136737181feb270a1bc4120b19d5440b2f697c94',    ' http://localhost:48000/api/',)
-    #print(pyClient.getUrlsDict())
+    pyClient = MainPyClient('cf566e4846930c9097db38acdd4775001609f831',    ' http://localhost:48000/',)
+    pyClient.postParameterFromID(apiRoute='selector', route='', ID='1jQKnk6kZGeJWbDfduWIkeEPODfkPB',
+                                      data={"low_limit": 100.0, "high_limit": 400.0})
 
     # metadataSession = {'microscopes': None,'detectors': None, 'sessions': None}
     # for key, value in metadataSession.items():
@@ -319,11 +268,11 @@ if __name__ == "__main__":
     #print(allHM)
     #hm = pyClient.getRouteFromID('highmag', 'hm', 'autoloader_08-06-23_2bSFBdE1AC', dev=True)
     #pyClient.getRouteFromID('grids', 'session', '20230906testProvideCTFhs4yj7wy', dev=True)
-    hm = pyClient.getRouteFromID('highmag', 'hole', 'CTF_square37_hole136LqrcTrAbre', dev=True)
+    #hm = pyClient.getRouteFromID('highmag', 'hole', 'CTF_square37_hole136LqrcTrAbre', dev=True)
     #hole = pyClient.getDetailFromItem('holes', 'CTF_square29_hole0Qj1E07XrZfvd', dev=True)
     #hD = pyClient.getRouteFromID('holes', '', 'aaa_square43_hole612z66b3yBcw9', detailed=True, dev=True)
     #selectors = hole[1].json()
-    print(hm)
+    #print(hm)
 
 
     #print(hm[0]['name']+ '.mrc.mdoc')

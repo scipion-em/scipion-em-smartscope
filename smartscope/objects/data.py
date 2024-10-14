@@ -684,7 +684,6 @@ class Hole(Image):
     def setPngDir(self, pngDir):
         self._pngDir.set(pngDir)
 
-
     def setShapeX(self, xDim):
         self._shape_x.set(xDim)
 
@@ -776,7 +775,6 @@ class Hole(Image):
 
     def getNumber(self):
         return self._number.get()
-
 
     def getShapeX(self):
         return self._shape_x.get()
@@ -974,6 +972,7 @@ class MovieSS(Movie):
 
     def getStatus(self):
         return self._status.get()
+
     def getSelected(self):
         return self._selected.get()
 

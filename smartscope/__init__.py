@@ -46,7 +46,7 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def _defineVariables(cls):
-        cls._defineVar(SMARTSCOPE_LOCALHOST, 'http://localhost:48000/api/')
+        cls._defineVar(SMARTSCOPE_LOCALHOST, 'http://localhost:48000/')
         cls._defineVar(SMARTSCOPE_TOKEN, 'Read Smartscope documentation to get the token...')
         cls._defineVar(SMARTSCOPE_DATA_SESSION_PATH, 'Path assigned to the data in the Smartscope installation')
 
