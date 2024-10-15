@@ -159,10 +159,11 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
             sigma = np.sqrt(np.sum(coefHoles * (intensityRange - mu) ** 2) / np.sum(coefHoles))
             return mu, sigma
 
-        with open(os.path.join(self.protocol._getExtraPath(),'gridsName.txt'), 'r') as fi:
-            gridsList = [line.strip() for line in fi]
+        # with open(os.path.join(self.protocol._getExtraPath(),'gridsName.txt'), 'r') as fi:
+        #     gridsList = [line.strip() for line in fi]
 
-        for grid in gridsList:
+        #for grid in gridsList:
+        if True:
             listRangesFiles = []
             listHistFiles = []
             listRanges = []
@@ -235,5 +236,5 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
                              color='green', alpha=0.3, label=f'Rango $\mu \pm \sigma$')
             ax2.set_ylim(0, max(y_fit1) * 1.1)
 
-            plt.title('GRID grid  Intensity - total holes / good holes')
+            plt.title('GRID  Intensity - total holes / good holes')
             plt.show()

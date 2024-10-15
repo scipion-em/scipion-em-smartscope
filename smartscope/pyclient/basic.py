@@ -9,7 +9,7 @@ class MainPyClient():
         self._headers = {'Authorization': f'Token {Authorization}'}
         self._main_endpoint = endpoint
         self._current_endpoint = self._main_endpoint
-        self._api_endpoint = '/api/'
+        self._api_endpoint = 'api/'
 
     def getApiEndPoint(self):
         return self._api_endpoint
@@ -233,8 +233,8 @@ def correctEndpointFormat(url):
 
 if __name__ == "__main__":
     pyClient = MainPyClient('cf566e4846930c9097db38acdd4775001609f831',    ' http://localhost:48000/',)
-    pyClient.postParameterFromID(apiRoute='selector', route='', ID='1jQKnk6kZGeJWbDfduWIkeEPODfkPB',
-                                      data={"low_limit": 100.0, "high_limit": 400.0})
+    #pyClient.postParameterFromID(apiRoute='selector', route='', ID='1jQKnk6kZGeJWbDfduWIkeEPODfkPB',
+    #                                  data={"low_limit": 100.0, "high_limit": 400.0})
 
     # metadataSession = {'microscopes': None,'detectors': None, 'sessions': None}
     # for key, value in metadataSession.items():
@@ -246,7 +246,7 @@ if __name__ == "__main__":
     #hm = pyClient.getRouteFromID('highmag', 'highmag', 'aaa_square15_hole27_fflyClmoDr', dev=True)
     #hole = pyClient.getRouteFromID('hole', 'hole', 'aaa_square15_hole0Fq2BoTroLv24', dev=True)
 
-    #allHM = pyClient.getDetailsFromParameter('grids')
+    allHM = pyClient.getDetailsFromParameter('grids')
     #allHM = pyClient.getRouteFromID('highmag', 'grid', '1autoloaderucI1Nd2F55R0OY5E18g', dev=True)
 
     # print(allHM)

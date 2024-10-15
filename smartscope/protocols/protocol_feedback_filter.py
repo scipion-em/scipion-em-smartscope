@@ -45,7 +45,7 @@ from ..objects.dataCollection import *
 import time
 from ..constants import *
 from scipy.stats import shapiro
-
+import numpy as np
 
 class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
     """
@@ -154,77 +154,80 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 
     def collectSetOfHolesFiltered(self):
         self.holespassFilter = []
-        dictMovies = {}
+        self.dictMovies = {}
+        self.dictHoles = {}
+        self.dictPassHoles = {}
         for m in self.movies:
-            dictMovies[m.getMicName()] = m.clone()
+            self.dictMovies[m.getMicName()] = m.clone()
+        for hole in self.holes:
+            self.dictHoles[hole.getHoleId()] = hole.clone()
         for mic in self.fMics:
-            H_ID = dictMovies[mic.getMicName()].getHoleId()
-            self.holespassFilter.append(H_ID)
-            #self.info('hole from mic on holesFiltered')
-            #self.info(self.holesFiltered)
+            H_ID = self.dictMovies[mic.getMicName()].getHoleId()
+            self.dictPassHoles[H_ID] = self.dictHoles[H_ID]
+
     def assignGridHoles(self):
         '''This function create list of holes based on the behaves of a grids'''
         from collections import defaultdict
-        self.holes
-        self.holespassFilter
-
-
         self.groupsH = defaultdict(list)
-        for h in self.holes:
-            grid_id = h.getGridId()
-            self.groupsH[grid_id].append(h)
-        for grid_id, group in self.groupsH.items():
-            print(f"Grid ID: {grid_id}, Elements: {group}")
-
         self.groupsPH = defaultdict(list)
-        for h in self.holespassFilter:
-            grid_id = h.getGridId()
-            self.groupsPH[grid_id].append(h)
-        for grid_id, group in self.groupsPH.items():
-            print(f"Grid ID: {grid_id}, Elements: {group}")
 
-        with open(os.path.join(self.protocol._getExtraPath(),'gridsName.txt'), 'w') as fi:
+        for h in self.dictHoles.values():
+            grid_id = h.getGridId()
+            self.groupsH[grid_id].append(h.getSelectorValue())
+        for h in self.dictPassHoles.values():
+            grid_id = h.getGridId()
+            self.groupsPH[grid_id].append(h.getSelectorValue())
+
+        with open(os.path.join(self._getExtraPath(),'gridsName.txt'), 'w') as fi:
             for g in self.grids:
-                fi.write(g)
+                fi.write(g.getName())
                 fi.write('\n')
 
     def statistics(self):
         self.info('statistics')
-        import numpy as np
 
+        # DEBUGALBERTO START
+        import os
+        fname = "/home/agarcia/Documents/attachActionDebug.txt"
+        if os.path.exists(fname):
+            os.remove(fname)
+        fjj = open(fname, "a+")
+        fjj.write('JORGE--------->onDebugMode PID {}'.format(os.getpid()))
+        fjj.close()
+        print('JORGE--------->onDebugMode PID {}'.format(os.getpid()))
+        import time
+        time.sleep(12)
+
+        # DEBUGALBERTO END
         for grid in self.grids:
             gridId = grid.getGridId()
             listHoles = []
-            listFilteredHoles = []
-            shapiroList = []
-            for h in self.groupsH[gridId]:
-                listHoles.append(h.getSelectorValue())
-                if h.getHoleId() in self.groupsPH:
-                    listFilteredHoles.append(h.getSelectorValue())
-            arrayHoles = np.array(listHoles)
-            arrayFilteredHoles = np.array(listFilteredHoles)
-            # Calcular los histogramas de ambas series
+            self.shapiroList = []
+            arrayHoles = np.array(self.groupsH[gridId])
+            arrayFilteredHoles = np.array(self.groupsPH[gridId])
             minIntensity = min(listHoles)
             maxIntensity = max(listHoles)
-            import os
-            fname = "/home/agarcia/Documents/test_JJ.txt"
-            if os.path.exists(fname):
-                os.remove(fname)
-            fjj = open(fname, "a+")
-            fjj.write('JORGE--------->onDebugMode PID {}'.format(os.getpid()))
-            fjj.close()
-            print('JORGE--------->onDebugMode PID {}'.format(os.getpid()))
-            import time
-            time.sleep(10)
-            # JORGE_END
 
             listRange = range(5, 101)
-            def calculate(b):
-                step = (maxIntensity - minIntensity) / b
-                bins = np.linspace(minIntensity, maxIntensity, b)  # Definir los límites de los bins para el histograma
+            for bin in listRange: #To check with prints the best bin value
+                _, _, _, _ = self.calculate(bin, maxIntensity, minIntensity, arrayHoles, arrayFilteredHoles)
+
+            self.info('\n/////////////\nGRID: {}'.format(grid))
+            self.info('best bin to normal distribution: {}'.format(listRange[np.argmax(self.shapiroList)]))
+            mu, sigma, self.minIntensity, self.maxIntensity = self.calculate(listRange[np.argmax(self.shapiroList)])
+            # SUMMARY INFO
+            summaryF = self._getExtraPath("summary.txt")
+            summaryF = open(summaryF, "w")
+            summaryF.write('\n\nStandard deviation: {}\nMedian value: {}\n'.format(int(sigma), int(mu)) +
+                           'Intensity range with holes to acquire: {} - {}'.format(self.minIntensity, self.maxIntensity))
+            summaryF.close()
+
+    def calculate(self, bin, maxIntensity, minIntensity, arrayHoles, arrayFilteredHoles):
+                step = (maxIntensity - minIntensity) / bin
+                bins = np.linspace(minIntensity, maxIntensity, bin)  # Definir los límites de los bins para el histograma
                 histTotal, rangeIntensity = np.histogram(arrayHoles, bins=bins)
                 histFiltered, ranges = np.histogram(arrayFilteredHoles, bins=bins)
-                #3self.debug('histTotal:{}\n \nhistFiltered: {}'.format(histTotal, histFiltered))
+                #self.debug('histTotal:{}\n \nhistFiltered: {}'.format(histTotal, histFiltered))
                 # Asegurarse de que los histogramas tengan el mismo tamaño
                 assert len(histTotal) == len(histFiltered), "Los histogramas no tienen la misma cantidad de bins"
 
@@ -248,21 +251,9 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                 histRatioFile = self._getExtraPath("histRatio-{}.txt".format(self.countStreamingSteps))
                 np.savetxt(histRatioFile, histRatio.reshape(1, -1), fmt='%.8f', delimiter=' ')
                 shapiroTest = self.Shapiro_Wilk(histRatio)
-                shapiroList.append(shapiroTest[1])
+                self.shapiroList.append(shapiroTest[1])
                 return mu, sigma, minIntensityL, maxIntensityL
 
-            for b in listRange: #To check with prints the best bin value
-                _, _, _, _ = calculate(b)
-
-            self.info('\n/////////////\nGRID: {}'.format(grid))
-            self.info('best bin to normal distribution: {}'.format(listRange[np.argmax(shapiroList)]))
-            mu, sigma, self.minIntensity, self.maxIntensity = calculate(listRange[np.argmax(shapiroList)])
-            # SUMMARY INFO
-            summaryF = self._getExtraPath("summary.txt")
-            summaryF = open(summaryF, "w")
-            summaryF.write('\n\nStandard deviation: {}\nMedian value: {}\n'.format(int(sigma), int(mu)) +
-                           'Intensity range with holes to acquire: {} - {}'.format(self.minIntensity, self.maxIntensity))
-            summaryF.close()
 
     def Shapiro_Wilk(self, histRatio):
         # Test de Shapiro-Wilk
