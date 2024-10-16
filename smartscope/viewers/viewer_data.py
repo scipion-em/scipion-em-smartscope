@@ -154,87 +154,82 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
 
 
     def _visualizeHistograms(self, e=None):
+        import os
         def muSigma(intensityRange, coefHoles):
             mu = np.sum(intensityRange * coefHoles) / np.sum(coefHoles)
             sigma = np.sqrt(np.sum(coefHoles * (intensityRange - mu) ** 2) / np.sum(coefHoles))
             return mu, sigma
 
-        # with open(os.path.join(self.protocol._getExtraPath(),'gridsName.txt'), 'r') as fi:
-        #     gridsList = [line.strip() for line in fi]
+        with open(os.path.join(self.protocol._getExtraPath(),'gridsName.txt'), 'r') as fi:
+            gridsList = [line.strip() for line in fi]
+        for grid in gridsList:
+            if True:
+                listRangesFiles = []
+                listHistFiles = []
+                listRanges = []
+                listHist = []
+                files = os.listdir(self.protocol._getExtraPath())
 
-        #for grid in gridsList:
-        if True:
-            listRangesFiles = []
-            listHistFiles = []
-            listRanges = []
-            listHist = []
-            files = os.listdir(self.protocol._getExtraPath())
-            with open(os.path.join(self.protocol._getExtraPath(),'pathsFile.txt'), 'w') as fi:
                 for f in files:
-                    fi.write(f)
-                    fi.write('\n')
+                    if f.find('{}-rangeI'.format(grid)) != -1:
+                        listRangesFiles.append(f)
+                    elif f.find('{}-histRatio'.format(grid)) != -1:
+                        listHistFiles.append(f)
 
-            for f in files:
-                if f.find('rangeI') != -1:
-                    listRangesFiles.append(f)
-                elif f.find('histRatio') != -1:
-                    listHistFiles.append(f)
+                def extraer_numero(rango):
+                    return int(rango.split('-')[2].split('.')[0])
 
-            def extraer_numero(rango):
-                return int(rango.split('-')[1].split('.')[0])
+                listRangesFiles = sorted(listRangesFiles, key=extraer_numero)[::-1]
+                listHistFiles = sorted(listHistFiles, key=extraer_numero)[::-1] #the first the newer
+                for f in listRangesFiles:
+                    listRanges.append(np.loadtxt(os.path.join(self.protocol._getExtraPath(), f), dtype=np.float))
+                for f in listHistFiles:
+                    listHist.append(np.loadtxt(os.path.join(self.protocol._getExtraPath(), f), dtype=np.float))#TODO no carga datos del fichero
 
-            # Ordenar la lista utilizando la función de clave personalizada
-            listRangesFiles = sorted(listRangesFiles, key=extraer_numero)[::-1]
-            listHistFiles = sorted(listHistFiles, key=extraer_numero)[::-1] #the first the newer
-            for f in listRangesFiles:
-                listRanges.append(np.loadtxt(os.path.join(self.protocol._getExtraPath(), f), dtype=np.float))
-            for f in listHistFiles:
-                listHist.append(np.loadtxt(os.path.join(self.protocol._getExtraPath(), f), dtype=np.float))#TODO no carga datos del fichero
+                mu = []
+                sigma = []
+                if len(listRangesFiles) > 0:
+                    for index, _ in enumerate(listRangesFiles):
+                        if len(listHist) > 0:
+                            m, s = muSigma(listRanges[index], listHist[index])
+                            mu.append(m)
+                            sigma.append(s)
 
-            mu = []
-            sigma = []
-            if len(listRangesFiles) > 0:
-                for index, _ in enumerate(listRangesFiles):
-                    if len(listHist) > 0:
-                        m, s = muSigma(listRanges[index], listHist[index])
-                        mu.append(m)
-                        sigma.append(s)
+                # Crear figura y ejes
+                fig, ax1 = plt.subplots(figsize=(12, 8))
+                # Calcular el ancho de los bins
+                bin_widths = int((listRanges[0][1] - listRanges[0][0])) #truncated number
 
-            # Crear figura y ejes
-            fig, ax1 = plt.subplots(figsize=(12, 8))
-            # Calcular el ancho de los bins
-            bin_widths = int((listRanges[0][1] - listRanges[0][0])) #truncated number
+                # Configuración del primer eje (izquierdo) para los puntos
+                color = 'tab:blue'
+                ax1.set_xlabel('Holes Intensity')
+                ax1.set_ylabel('total holes / good holes')
+                ax1.bar(listRanges[0], listHist[0], label='Coef good holes (Last update)', color='midnightblue', width=bin_widths, alpha=0.8, edgecolor='black')
+                ax1.tick_params(axis='y')
+                ax1.legend(loc='upper left')
+                ax1.set_ylim(0, 1)
+                ax1.grid(True)
 
-            # Configuración del primer eje (izquierdo) para los puntos
-            color = 'tab:blue'
-            ax1.set_xlabel('Holes Intensity')
-            ax1.set_ylabel('total holes / good holes')
-            ax1.bar(listRanges[0], listHist[0], label='Coef good holes (Last update)', color='midnightblue', width=bin_widths, alpha=0.8, edgecolor='black')
-            ax1.tick_params(axis='y')
-            ax1.legend(loc='upper left')
-            ax1.set_ylim(0, 1)
-            ax1.grid(True)
+                # Crear el segundo eje (derecho) para la distribución normal
+                ax2 = ax1.twinx()
+                color = 'black'
+                ax2.set_ylabel('Gaussian Distribution', color=color)
 
-            # Crear el segundo eje (derecho) para la distribución normal
-            ax2 = ax1.twinx()
-            color = 'black'
-            ax2.set_ylabel('Gaussian Distribution', color=color)
+                numSerie2 = 0
+                colors = ['midnightblue', 'mediumblue', 'slateblue', 'mediumpurple']
+                order = ['Last', 'Second to last', 'Third to last', 'Fourth to last']
+                for _ in listRanges[:4]:
+                    x_fit = np.linspace(np.min(listRanges[numSerie2]), np.max(listRanges[numSerie2]), 100)
+                    y_fit1 = np.exp(-(x_fit - mu[numSerie2]) ** 2 / (2 * sigma[numSerie2] ** 2)) / (sigma[numSerie2] * np.sqrt(2 * np.pi))
+                    ax2.plot(x_fit, y_fit1, label=f'{order[numSerie2]} ($\mu$={mu[numSerie2]:.2f}, $\sigma$={sigma[numSerie2]:.2f})',
+                             color=colors[numSerie2])
 
-            numSerie2 = 0
-            colors = ['midnightblue', 'mediumblue', 'slateblue', 'mediumpurple']
-            order = ['Last', 'Second to last', 'Third to last', 'Fourth to last']
-            for _ in listRanges[:4]:
-                x_fit = np.linspace(np.min(listRanges[numSerie2]), np.max(listRanges[numSerie2]), 100)
-                y_fit1 = np.exp(-(x_fit - mu[numSerie2]) ** 2 / (2 * sigma[numSerie2] ** 2)) / (sigma[numSerie2] * np.sqrt(2 * np.pi))
-                ax2.plot(x_fit, y_fit1, label=f'{order[numSerie2]} ($\mu$={mu[numSerie2]:.2f}, $\sigma$={sigma[numSerie2]:.2f})',
-                         color=colors[numSerie2])
+                    ax2.tick_params(axis='y', labelcolor=color)
+                    ax2.legend(loc='upper right')
+                    numSerie2 += 1
+                ax2.fill_between(x_fit, 0, y_fit1, where=((x_fit >= mu[0] - sigma[0]) & (x_fit <= mu[0] + sigma[0])),
+                                 color='green', alpha=0.3, label=f'Rango $\mu \pm \sigma$')
+                ax2.set_ylim(0, max(y_fit1) * 1.1)
 
-                ax2.tick_params(axis='y', labelcolor=color)
-                ax2.legend(loc='upper right')
-                numSerie2 += 1
-            ax2.fill_between(x_fit, 0, y_fit1, where=((x_fit >= mu[0] - sigma[0]) & (x_fit <= mu[0] + sigma[0])),
-                             color='green', alpha=0.3, label=f'Rango $\mu \pm \sigma$')
-            ax2.set_ylim(0, max(y_fit1) * 1.1)
-
-            plt.title('GRID  Intensity - total holes / good holes')
-            plt.show()
+                plt.title('GRID: {}  Intensity - total holes / good holes'.format(grid))
+                plt.show()

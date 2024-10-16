@@ -55,8 +55,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
     """
     _label = 'Feedback filter'
     _devStatus = BETA
-    _possibleOutputs = {'SetOfHolesFiltered': SetOfHoles, 'SetOfHolesFilteredOut': SetOfHoles}
-
+    _possibleOutputs = {'SetOfHolesRejected': SetOfHoles, 'SetOfHolesPassFilter': SetOfHoles}
     def __init__(self, **args):
         ProtImport.__init__(self, **args)
         self.stepsExecutionMode = STEPS_PARALLEL
@@ -68,6 +67,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         self.pyClient = MainPyClient(self.token, self.endpoint)
         self.connectionClient = dataCollection(self.pyClient)
         self.countStreamingSteps = 0
+        self.BIN_RANGE = [5, 101]
 
     def _defineParams(self, form):
         """ Define the input parameters that will be used.
@@ -106,11 +106,10 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                       help='')
         form.addSection('Streaming')
 
-        form.addParam('refreshTime', params.IntParam, default=120,
+        form.addParam('refreshTime', params.IntParam, default=180,
                       label="Time to refresh data collected (secs) and update the feedback if neccesary")
 
         form.addParallelSection(threads=3, mpi=1)
-
 
     def _initialize(self):
         self.movies = self.inputMovies.get()
@@ -157,6 +156,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         self.dictMovies = {}
         self.dictHoles = {}
         self.dictPassHoles = {}
+        self.dictRejectHoles = {}
         for m in self.movies:
             self.dictMovies[m.getMicName()] = m.clone()
         for hole in self.holes:
@@ -164,19 +164,30 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         for mic in self.fMics:
             H_ID = self.dictMovies[mic.getMicName()].getHoleId()
             self.dictPassHoles[H_ID] = self.dictHoles[H_ID]
+        self.dictRejectHoles = {key: value.clone() for key, value in self.dictHoles.items() if key not in self.dictPassHoles}
 
     def assignGridHoles(self):
         '''This function create list of holes based on the behaves of a grids'''
         from collections import defaultdict
-        self.groupsH = defaultdict(list)
-        self.groupsPH = defaultdict(list)
-
+        self.totalHolesByGrid_value = defaultdict(list)
+        self.passHolesByGrid_value = defaultdict(list)
+        self.rejectedHolesByGrid_value = defaultdict(list)
+        self.totalHolesByGrid = defaultdict(list)
+        self.passHolesByGrid = defaultdict(list)
+        self.rejectedHolesByGrid = defaultdict(list)
         for h in self.dictHoles.values():
             grid_id = h.getGridId()
-            self.groupsH[grid_id].append(h.getSelectorValue())
+            self.totalHolesByGrid_value[grid_id].append(h.getSelectorValue())
+            self.totalHolesByGrid[grid_id].append(h.getHoleId())
+
         for h in self.dictPassHoles.values():
             grid_id = h.getGridId()
-            self.groupsPH[grid_id].append(h.getSelectorValue())
+            self.passHolesByGrid_value[grid_id].append(h.getSelectorValue())
+            self.passHolesByGrid[grid_id].append(h.getHoleId())
+
+        for grid_id, holes in self.totalHolesByGrid.items():
+            holesPass = self.passHolesByGrid.get(grid_id, [])
+            self.rejectedHolesByGrid[grid_id] = [hole for hole in holes if hole not in holesPass]
 
         with open(os.path.join(self._getExtraPath(),'gridsName.txt'), 'w') as fi:
             for g in self.grids:
@@ -185,75 +196,46 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 
     def statistics(self):
         self.info('statistics')
+        self.listGridsStatistics = {}
 
-        # DEBUGALBERTO START
-        import os
-        fname = "/home/agarcia/Documents/attachActionDebug.txt"
-        if os.path.exists(fname):
-            os.remove(fname)
-        fjj = open(fname, "a+")
-        fjj.write('JORGE--------->onDebugMode PID {}'.format(os.getpid()))
-        fjj.close()
-        print('JORGE--------->onDebugMode PID {}'.format(os.getpid()))
-        import time
-        time.sleep(12)
-
-        # DEBUGALBERTO END
         for grid in self.grids:
             gridId = grid.getGridId()
-            listHoles = []
             self.shapiroList = []
-            arrayHoles = np.array(self.groupsH[gridId])
-            arrayFilteredHoles = np.array(self.groupsPH[gridId])
-            minIntensity = min(listHoles)
-            maxIntensity = max(listHoles)
+            arrayHoles = np.array(self.totalHolesByGrid_value[gridId])
+            arrayFilteredHoles = np.array(self.passHolesByGrid_value[gridId])
+            minI = min(self.totalHolesByGrid_value[gridId])
+            maxI = max(self.totalHolesByGrid_value[gridId])
 
-            listRange = range(5, 101)
+            listRange = range(self.BIN_RANGE[0], self.BIN_RANGE[1])
             for bin in listRange: #To check with prints the best bin value
-                _, _, _, _ = self.calculate(bin, maxIntensity, minIntensity, arrayHoles, arrayFilteredHoles)
-
+                _, _, _, _ = self.calculate(bin, maxI, minI, arrayHoles, arrayFilteredHoles, grid.getName())
             self.info('\n/////////////\nGRID: {}'.format(grid))
             self.info('best bin to normal distribution: {}'.format(listRange[np.argmax(self.shapiroList)]))
-            mu, sigma, self.minIntensity, self.maxIntensity = self.calculate(listRange[np.argmax(self.shapiroList)])
-            # SUMMARY INFO
-            summaryF = self._getExtraPath("summary.txt")
-            summaryF = open(summaryF, "w")
-            summaryF.write('\n\nStandard deviation: {}\nMedian value: {}\n'.format(int(sigma), int(mu)) +
-                           'Intensity range with holes to acquire: {} - {}'.format(self.minIntensity, self.maxIntensity))
-            summaryF.close()
 
-    def calculate(self, bin, maxIntensity, minIntensity, arrayHoles, arrayFilteredHoles):
-                step = (maxIntensity - minIntensity) / bin
-                bins = np.linspace(minIntensity, maxIntensity, bin)  # Definir los límites de los bins para el histograma
-                histTotal, rangeIntensity = np.histogram(arrayHoles, bins=bins)
-                histFiltered, ranges = np.histogram(arrayFilteredHoles, bins=bins)
-                #self.debug('histTotal:{}\n \nhistFiltered: {}'.format(histTotal, histFiltered))
-                # Asegurarse de que los histogramas tengan el mismo tamaño
-                assert len(histTotal) == len(histFiltered), "Los histogramas no tienen la misma cantidad de bins"
+            mu, sigma, minIntensityL, maxIntensityL = self.calculate(listRange[np.argmax(self.shapiroList)],
+                                                            maxI, minI, arrayHoles, arrayFilteredHoles, grid.getName())
+            self.listGridsStatistics[grid.getName()] = {'mu': mu, 'sigma': sigma, 'minIntensityL': minIntensityL,'maxIntensityL': maxIntensityL}
 
-                # Calcular el cociente de los histogramas
-                histRatio = np.divide(histFiltered, histTotal, out=np.zeros_like(histFiltered, dtype=float), where=histTotal != 0)
-                histRatio[np.isinf(histRatio)] = 0.0
-                histRatio[np.isnan(histRatio)] = 0.0
-
-                #self.debug('ranges: {}'.format(ranges))
-                #self.debug("histRatio: {}".format(self.histRatio))
-
-                mu = np.sum(ranges[:-1] * histRatio) / np.sum(histRatio)
-                sigma = np.sqrt(np.sum(histRatio * (ranges[:-1] - mu) ** 2) / np.sum(histRatio))
-                minIntensityL = int(mu - sigma)
-                maxIntensityL = int(mu + sigma + step)
-                #self.info('std_dev: {}\nmedian_value: {}'.format(sigma, mu))
-                #self.info('minIntensity: {}\minIntensityL: {}'.format(self.minIntensity, self.maxIntensityL))
-                #saving data to plot in extra folder
-                rangeFile = self._getExtraPath("rangeI-{}.txt".format(self.countStreamingSteps))
-                np.savetxt(rangeFile, rangeIntensity[:-1].reshape(1, -1), fmt='%.8f', delimiter=' ')
-                histRatioFile = self._getExtraPath("histRatio-{}.txt".format(self.countStreamingSteps))
-                np.savetxt(histRatioFile, histRatio.reshape(1, -1), fmt='%.8f', delimiter=' ')
-                shapiroTest = self.Shapiro_Wilk(histRatio)
-                self.shapiroList.append(shapiroTest[1])
-                return mu, sigma, minIntensityL, maxIntensityL
-
+    def calculate(self, bin, maxI, minI, arrayHoles, arrayFilteredHoles, gridName):
+        step = (maxI - minI) / bin
+        bins = np.linspace(minI, maxI, bin)
+        histTotal, rangeIntensity = np.histogram(arrayHoles, bins=bins)
+        histFiltered, ranges = np.histogram(arrayFilteredHoles, bins=bins)
+        assert len(histTotal) == len(histFiltered), "Los histogramas no tienen la misma cantidad de bins"
+        histRatio = np.divide(histFiltered, histTotal, out=np.zeros_like(histFiltered, dtype=float), where=histTotal != 0)
+        histRatio[np.isinf(histRatio)] = 0.0
+        histRatio[np.isnan(histRatio)] = 0.0
+        mu = np.sum(ranges[:-1] * histRatio) / np.sum(histRatio)
+        sigma = np.sqrt(np.sum(histRatio * (ranges[:-1] - mu) ** 2) / np.sum(histRatio))
+        minIntensityL = int(mu - sigma)
+        maxIntensityL = int(mu + sigma + step)
+        rangeFile = self._getExtraPath("{}-rangeI-{}.txt".format(gridName, self.countStreamingSteps))
+        np.savetxt(rangeFile, rangeIntensity[:-1].reshape(1, -1), fmt='%.8f', delimiter=' ')
+        histRatioFile = self._getExtraPath("{}-histRatio-{}.txt".format(gridName, self.countStreamingSteps))
+        np.savetxt(histRatioFile, histRatio.reshape(1, -1), fmt='%.8f', delimiter=' ')
+        shapiroTest = self.Shapiro_Wilk(histRatio)
+        self.shapiroList.append(shapiroTest[1])
+        return mu, sigma, minIntensityL, maxIntensityL
 
     def Shapiro_Wilk(self, histRatio):
         # Test de Shapiro-Wilk
@@ -267,46 +249,65 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             return False, p_value, "Reject the null hypothesis of Shapiro_Wilk ({} < {}) (the data does not appear to be normally distributed).".format(
                 p_value, alpha)
 
-    def postingBack2Smartscope(self):
-        self.pyClient.postParameterFromID(apiRoute='selector', route='', ID=grID, data={"low_limit": self.minIntensity, "high_limit": self.maxIntensity})
+    def check_data_coverage(self):
+        pass
 
+
+    def postingBack2Smartscope(self):
+        for grid in self.grids:
+            minI = self.listGridsStatistics[grid.getName()]['minIntensityL']
+            maxI = self.listGridsStatistics[grid.getName()]['maxIntensityL']
+            self.pyClient.postParameterFromID(apiRoute='selector', route='', ID=grid.getGridId(), data={"low_limit": minI, "high_limit": maxI})
+
+            # SUMMARY INFO
+            summaryF = self._getExtraPath("summary.txt")
+            summaryF = open(summaryF, "w")
+            summaryF.write('\nGRID: {}\n'.format(grid.getName()))
+            summaryF.write('Median value: {}\nStandard deviation: {}\nIntensity range with holes to acquire: {} - {}'.format(
+                round(self.listGridsStatistics[grid.getName()]['mu'],1),
+                round(self.listGridsStatistics[grid.getName()]['sigma'],1),
+                self.listGridsStatistics[grid.getName()]['minIntensityL'],
+                self.listGridsStatistics[grid.getName()]['maxIntensityL']))
+            summaryF.close()
 
     def createSetOfFilteredHoles(self):
-        SOH = SetOfHoles.create(outputPath=self._getPath())#baseName
-        SOHFO = SetOfHoles.create(outputPath=self._getPath(), prefix='FilteredOut')
-        self.outputsToDefine = {'SetOfHolesFiltered': SOH, 'SetOfHolesFilteredOut': SOHFO}
+        SOHR = SetOfHoles.create(outputPath=self._getPath(), prefix='Rejected')#baseName
+        SOHPF = SetOfHoles.create(outputPath=self._getPath(), prefix='Pass')
+        self.outputsToDefine = {'SetOfHolesPassFilter': SOHPF, 'SetOfHolesRejected': SOHR}
         self._defineOutputs(**self.outputsToDefine)
-        for h in self.holes:
-            if h.getHoleId() in self.holespassFilter:
-                self.createOutputStep(SOH, h)
-            else:
-                self.createOutputStepFilteredOut(SOHFO, h)
+        for grid in self.grids:
+            holesRejected = self.rejectedHolesByGrid[grid.getGridId()]
+            holesPAss = self.passHolesByGrid[grid.getGridId()]
+            for h in holesRejected:
+                self.createOutputStepRejected(SOHR, self.dictRejectHoles[h])
+            for h in holesPAss:
+                self.createOutputStepPassFilter(SOHPF, self.dictPassHoles[h])
 			    
-    def createOutputStep(self, SOH, hole):
-        SOH.copyInfo(self.holes)
+    def createOutputStepRejected(self, SOHR, hole):
+        SOHR.copyInfo(self.holes)
         hole2Add_copy = Hole()
         hole2Add_copy.copy(hole, copyId=False)
-        SOH.append(hole2Add_copy)
-        if self.hasAttribute('SetOfHolesFiltered'):
-            SOH.write()
-            outputAttr = getattr(self, 'SetOfHolesFiltered')
-            outputAttr.copy(SOH, copyId=False)
+        SOHR.append(hole2Add_copy)
+        if self.hasAttribute('SetOfHolesRejected'):
+            SOHR.write()
+            outputAttr = getattr(self, 'SetOfHolesRejected')
+            outputAttr.copy(SOHR, copyId=False)
             self._store(outputAttr)
         # STORE SQLITE
-        self._store(SOH)
+        self._store(SOHR)
 
-    def createOutputStepFilteredOut(self, SOHFO, hole):
-        SOHFO.copyInfo(self.holes)
+    def createOutputStepPassFilter(self, SOHPF, hole):
+        SOHPF.copyInfo(self.holes)
         hole2Add_copy = Hole()
         hole2Add_copy.copy(hole, copyId=False)
-        SOHFO.append(hole2Add_copy)
-        if self.hasAttribute('SetOfHolesFilteredOut'):
-            SOHFO.write()
-            outputAttr = getattr(self, 'SetOfHolesFilteredOut')
-            outputAttr.copy(SOHFO, copyId=False)
+        SOHPF.append(hole2Add_copy)
+        if self.hasAttribute('SetOfHolesPassFilter'):
+            SOHPF.write()
+            outputAttr = getattr(self, 'SetOfHolesPassFilter')
+            outputAttr.copy(SOHPF, copyId=False)
             self._store(outputAttr)
         # STORE SQLITE
-        self._store(SOHFO)
+        self._store(SOHPF)
 				    
     def checkSmartscopeConnection(self):
         response = self.pyClient.getDetailsFromParameter('users')

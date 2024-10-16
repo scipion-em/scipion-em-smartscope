@@ -1022,20 +1022,17 @@ class SetOfAtlas(EMSet):
         EMSet.__init__(self,  **kwargs)
         self._filename = String()
 
-
 class SetOfSquares(EMSet):
     ITEM_TYPE = Square
 
     def __init__(self,  **kwargs):
         EMSet.__init__(self,  **kwargs)
 
-
 class SetOfHoles(EMSet):
     ITEM_TYPE = Hole
 
     def __init__(self,  **kwargs):
         EMSet.__init__(self,  **kwargs)
-
 
 class SetOfMoviesSS(SetOfMovies):
     ITEM_TYPE = MovieSS
