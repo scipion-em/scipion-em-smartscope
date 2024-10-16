@@ -166,8 +166,10 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
     def sessionListCollection(self):
         return self.connectionClient.sessionCollection()
 
+
     def sessionOpen(self):
         return self.connectionClient.sessionOpen()
+
 
     def metadataCollection(self):
         self.connectionClient.metadataCollection(self.microscopeList,
@@ -321,6 +323,8 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         SOMSS.append(movie2Add)
         SOMSS.write()#persist on sqlite
 
+
+    # --------------------------- VALIDATION functions -----------------------------------
 
     def checkSmartscopeConnection(self):
         response = self.pyClient.getDetailsFromParameter('users')

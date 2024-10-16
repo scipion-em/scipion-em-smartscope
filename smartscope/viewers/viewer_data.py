@@ -39,13 +39,6 @@ from pyworkflow.protocol.params import IntParam, LabelParam
 import numpy as np
 import matplotlib.pyplot as plt
 
-# class DataViewer_cnb(DataViewer):
-#     _targets = [SetOfLowMagImages]
-#
-#     def _visualize(self, obj, **kwargs):
-#         self._views.append(DataView(obj.getFileName()))
-#         return self._views
-#
 
 class DataViewer_smartscope(DataViewer):
     _targets = [SetOfGrids, SetOfAtlas, SetOfSquares, SetOfHoles, SetOfMoviesSS]

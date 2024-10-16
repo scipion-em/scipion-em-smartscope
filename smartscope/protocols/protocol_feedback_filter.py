@@ -89,10 +89,6 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                       important=True, allowsNull=False,
                       label='Input movies from Smartscope',
                       help='Select a set of movies from Smartscope connection protocol.')
-        # form.addParam('inputMicrographs', params.PointerParam, pointerClass='SetOfMicrographs',
-        #               important=True, allowsNull=False,
-        #               label='Input micrographs before filters',
-        #               help='Select a set of holes from Smartscope connection protocol.')
         form.addParam('micsPassFilter', params.PointerParam, pointerClass='SetOfMicrographs',
                       important=True, allowsNull=False,
                       label='Filtered micrographs',
@@ -138,7 +134,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                         self.countStreamingSteps += 1
 
                         self.fMics = self.micsPassFilter.get()
-                        self.collectSetOfHolesFiltered()
+                        self.collectHoles()
                         self.assignGridHoles()
 
                         self.statistics()
@@ -151,34 +147,44 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                         self.info('Waiting enought micrographs to launch protocol.'
                                   ' triggerMicrograph: {}, micrographsFiltered: {}'.format(self.triggerMicrograph.get(), len(self.micsPassFilter.get())))
 
-    def collectSetOfHolesFiltered(self):
+    def collectHoles(self):
         self.holespassFilter = []
         self.dictMovies = {}
         self.dictHoles = {}
+        self.dictHolesWithMic = {}
         self.dictPassHoles = {}
         self.dictRejectHoles = {}
-        for m in self.movies:
-            self.dictMovies[m.getMicName()] = m.clone()
+
         for hole in self.holes:
             self.dictHoles[hole.getHoleId()] = hole.clone()
+        for m in self.movies:
+            self.dictMovies[m.getMicName()] = m.clone()
+            self.dictHolesWithMic[m.getHoleId()] = self.dictHoles[m.getHoleId()].clone()
         for mic in self.fMics:
             H_ID = self.dictMovies[mic.getMicName()].getHoleId()
             self.dictPassHoles[H_ID] = self.dictHoles[H_ID]
-        self.dictRejectHoles = {key: value.clone() for key, value in self.dictHoles.items() if key not in self.dictPassHoles}
+        self.dictRejectHoles = {key: value.clone() for key, value in self.dictHolesWithMic.items() if key not in self.dictPassHoles}
 
     def assignGridHoles(self):
         '''This function create list of holes based on the behaves of a grids'''
         from collections import defaultdict
         self.totalHolesByGrid_value = defaultdict(list)
+        self.withMicsHolesByGrid_value = defaultdict(list)
         self.passHolesByGrid_value = defaultdict(list)
         self.rejectedHolesByGrid_value = defaultdict(list)
         self.totalHolesByGrid = defaultdict(list)
+        self.withMicsHolesByGrid = defaultdict(list)
         self.passHolesByGrid = defaultdict(list)
         self.rejectedHolesByGrid = defaultdict(list)
         for h in self.dictHoles.values():
             grid_id = h.getGridId()
             self.totalHolesByGrid_value[grid_id].append(h.getSelectorValue())
             self.totalHolesByGrid[grid_id].append(h.getHoleId())
+
+        for h in self.dictHolesWithMic.values():
+            grid_id = h.getGridId()
+            self.withMicsHolesByGrid_value[grid_id].append(h.getSelectorValue())
+            self.withMicsHolesByGrid[grid_id].append(h.getHoleId())
 
         for h in self.dictPassHoles.values():
             grid_id = h.getGridId()
@@ -194,7 +200,63 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                 fi.write(g.getName())
                 fi.write('\n')
 
+    # --------------------------- STATISTICS functions -----------------------------------
     def statistics(self):
+        # DEBUGALBERTO START
+        import os
+        fname = "/home/agarcia/Documents/attachActionDebug.txt"
+        if os.path.exists(fname):
+            os.remove(fname)
+        fjj = open(fname, "a+")
+        fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+        fjj.close()
+        print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+        import time
+        time.sleep(10)
+        self.dictArraysByGrid = {}
+        # DEBUGALBERTO END
+        for grid in self.grids:
+            gridId = grid.getGridId()
+            self.dictArraysByGrid[gridId] = {'totalArrayHoles':  np.array(self.totalHolesByGrid_value[gridId]),
+                                             'withMicsArrayHoles': np.array(self.withMicsHolesByGrid_value[gridId]),
+                                             'passArrayHoles': np.array(self.passHolesByGrid_value[gridId])}
+            minI = min(self.totalHolesByGrid_value[gridId])
+            maxI = max(self.totalHolesByGrid_value[gridId])
+
+            nBins = self.sturgesBinsCalc(len(self.passHolesByGrid_value[gridId]))
+            print('number of bins: {}'.format(nBins))
+
+            empty_bins, empty_bin_ranges = self.checkEmptyBins(minI, maxI, nBins, self.dictArraysByGrid[gridId]['withMicsArrayHoles'])
+            print('empty_bins: {}, empty_bin_ranges: {}'.format(empty_bins, empty_bin_ranges))
+
+
+
+    def checkEmptyBins(self, minI, maxI, bin, array):
+        bins = np.linspace(minI, maxI, bin)
+        histTotal, rangeIntensity = np.histogram(array, bins=bins)
+        histTotal[np.isinf(histTotal)] = 0.0
+        histTotal[np.isnan(histTotal)] = 0.0
+        empty_bins = np.where(histTotal == 0)[0]  # Índices de los bins vacíos
+        empty_bin_ranges = [(bins[i], bins[i + 1]) for i in empty_bins]  # Rango de cada bin vacío
+
+        return empty_bins, empty_bin_ranges
+
+    def sturgesBinsCalc(self, numElementes):
+        import math
+        return int(round(1 + math.log2(numElementes)))
+
+
+
+
+
+
+
+
+
+    # --------------------------- STATISTICS functions -----------------------------------
+
+
+    def statistics2(self):
         self.info('statistics')
         self.listGridsStatistics = {}
 
@@ -250,8 +312,8 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                 p_value, alpha)
 
     def check_data_coverage(self):
+        '''The serie of holes by intensity is representative of al the range of intensities?'''
         pass
-
 
     def postingBack2Smartscope(self):
         for grid in self.grids:
@@ -269,6 +331,9 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                 self.listGridsStatistics[grid.getName()]['minIntensityL'],
                 self.listGridsStatistics[grid.getName()]['maxIntensityL']))
             summaryF.close()
+
+
+    # --------------------------- CREATE OUTPUTS functions -----------------------------------
 
     def createSetOfFilteredHoles(self):
         SOHR = SetOfHoles.create(outputPath=self._getPath(), prefix='Rejected')#baseName
@@ -308,11 +373,14 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             self._store(outputAttr)
         # STORE SQLITE
         self._store(SOHPF)
-				    
+
+    # --------------------------- VALIDATION functions -----------------------------------
+
     def checkSmartscopeConnection(self):
         response = self.pyClient.getDetailsFromParameter('users')
         return response
 
+    # --------------------------- INFO functions -----------------------------------
 
     def _summary(self):
         summary = []
@@ -328,8 +396,6 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 
     def _validate(self):
         errors = []
-        # self._validateThreads(errors)
-
         if Plugin.getVar(
         	    SMARTSCOPE_TOKEN) == 'Read Smartscope documentation to get the token...':
             errors.append('SMARTSCOPE_TOKEN has not been configured, '
@@ -354,5 +420,4 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                 errors.append(
         		    'Error Smartscope connection. Maybe launch Smartscope container...\n\n{}'.format(
         			    response))
-
         return errors
