@@ -199,16 +199,25 @@ class MainPyClient():
             except Exception:
                 pass
 
-    def postParameterFromID(self, route, ID, apiRoute='', data='', devel=False):
+    def postRangeIntensity(self, route, ID, data='', devel=False):
         #https://linuxhint.com/python-requests-put-method/
         #https://stackoverflow.com/questions/31089221/what-is-the-difference-between-put-post-and-patch
-        grayScaleRoute = ''
-        if apiRoute == 'selector':
-            apiRoute = 'selector_viewer/api'
-            grayScaleRoute = 'Graylevel%20selector/save/'
-        else:
-            apiRoute = self.getApiEndPoint()
+        apiRoute = 'selector_viewer/api'
+        grayScaleRoute = 'Graylevel%20selector/save/'
         url = f'{self.getMainEndpoint()}{apiRoute}{route}/{ID}/{grayScaleRoute}'
+        if devel:
+            print(url)
+        r = requests.patch(url, verify=False, headers=self.getHeaders(), data=data)
+        if r.status_code == 200 and devel:
+            print('Element status updated')
+        elif r.status_code != 200:
+            print('Error code: {}'.format(r.status_code))
+
+    def postParameterFromID(self, route, ID, data='', devel=False):
+        #https://linuxhint.com/python-requests-put-method/
+        #https://stackoverflow.com/questions/31089221/what-is-the-difference-between-put-post-and-patch
+        apiRoute = self.getApiEndPoint()
+        url = f'{self.getMainEndpoint()}{apiRoute}{route}/{ID}'
         if devel:
             print(url)
         r = requests.patch(url, verify=False, headers=self.getHeaders(), data=data)
