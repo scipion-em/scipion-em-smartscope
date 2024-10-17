@@ -56,6 +56,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
     _label = 'Feedback filter'
     _devStatus = BETA
     _possibleOutputs = {'SetOfHolesRejected': SetOfHoles, 'SetOfHolesPassFilter': SetOfHoles}
+    percentBins = ['0','10','20', '30', '40', '50']
     def __init__(self, **args):
         ProtImport.__init__(self, **args)
         self.stepsExecutionMode = STEPS_PARALLEL
@@ -96,10 +97,12 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         form.addParam('triggerMicrograph', params.IntParam, default=200,
                       label="Micrographs to launch the protocol",
                       help='Number of micrographs filtered to launch the statistics')
-        form.addParam('binsHist', params.IntParam, default=50,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      label="Number of bins of the Intensity histogram",
-                      help='')
+        form.addParam('emptyBinsPercent', params.EnumParam,
+                      choices=self.percentBins, default=1, display=params.EnumParam.DISPLAY_COMBO,
+                      #expertLevel=params.LEVEL_ADVANCED,
+                      label="Percent empty bins in the histogram",
+                      help="In the histogram of number of holes acquired (with movies), this parameter represent the"
+                            " percent of empty bins allowed to feedback Smartscope (10% by default). Higher less restrictive")
         form.addSection('Streaming')
 
         form.addParam('refreshTime', params.IntParam, default=180,
@@ -128,18 +131,16 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                 rTime = time.time() - self.zeroTime
                 if rTime >= self.refreshTime.get():
                     self.zeroTime = time.time()
-                    self.info('len micsPassFilter: {}'.format(len(self.micsPassFilter.get())))
                     if len(self.micsPassFilter.get()) >= self.triggerMicrograph.get():
-                        self.info('In progres...')
                         self.countStreamingSteps += 1
 
                         self.fMics = self.micsPassFilter.get()
                         self.collectHoles()
                         self.assignGridHoles()
-
                         self.statistics()
+
                         self.postingBack2Smartscope()
-                        self.createSetOfFilteredHoles()
+                        #self.createSetOfFilteredHoles()
                         if not self.fMics.isStreamOpen():
                             self.info('Not more micrographs are expected, set closed')
                             self.finish = True
@@ -202,20 +203,8 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 
     # --------------------------- STATISTICS functions -----------------------------------
     def statistics(self):
-        # DEBUGALBERTO START
-        import os
-        fname = "/home/agarcia/Documents/attachActionDebug.txt"
-        if os.path.exists(fname):
-            os.remove(fname)
-        fjj = open(fname, "a+")
-        fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
-        fjj.close()
-        print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
-        import time
-        time.sleep(10)
-        self.dictArraysByGrid = {}
-        # DEBUGALBERTO END
         for grid in self.grids:
+            self.info('\n################\nGRID: {}'.format(grid.getName()))
             gridId = grid.getGridId()
             self.dictArraysByGrid[gridId] = {'totalArrayHoles':  np.array(self.totalHolesByGrid_value[gridId]),
                                              'withMicsArrayHoles': np.array(self.withMicsHolesByGrid_value[gridId]),
@@ -223,29 +212,77 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             minI = min(self.totalHolesByGrid_value[gridId])
             maxI = max(self.totalHolesByGrid_value[gridId])
 
+            #BINS CALCULLATION
             nBins = self.sturgesBinsCalc(len(self.passHolesByGrid_value[gridId]))
-            print('number of bins: {}'.format(nBins))
+            print('Number of bins estimated: {}'.format(nBins))
 
-            empty_bins, empty_bin_ranges = self.checkEmptyBins(minI, maxI, nBins, self.dictArraysByGrid[gridId]['withMicsArrayHoles'])
-            print('empty_bins: {}, empty_bin_ranges: {}'.format(empty_bins, empty_bin_ranges))
+            #REPRESENTATIVENESS
+            percentEmptyBins_Mics, empty_bin_ranges_Mics = self.representativeness(minI, maxI, nBins, gridId)
+            if percentEmptyBins_Mics > int(self.percentBins[self.emptyBinsPercent.get()]):
+                self.info('{}% of bins empty, <={}% required. We need more holes acquired in this ranges of intensity'
+                          'to calculate the best ranges of intensities to acquire and feedback Smartscope\n: '
+                          'Ranges of empty bins: {}'.format(percentEmptyBins_Mics, self.percentBins[self.emptyBinsPercent.get()], empty_bin_ranges_Mics))
+                continue
+            #NORMAL DISTRIBUTION
+            else:
+                self.info('{}% of bins empty, >{}% required.Ranges of empty bins: {}'.format(
+                    percentEmptyBins_Mics,  self.percentBins[self.emptyBinsPercent.get()], empty_bin_ranges_Mics))
+                mu, sigma = self.normalDistribution(minI, maxI, nBins, gridId)
+                rangeIntensityMin = mu - sigma
+                rangeIntensityMax = mu + sigma
+                self.info('Best range of intensity to collect movies: {} - {}'.format(rangeIntensityMin, rangeIntensityMax))
+                self.listGridsStatistics[grid.getName()]['minIntensityL'] = rangeIntensityMin
+                self.listGridsStatistics[grid.getName()]['maxIntensityL'] = rangeIntensityMax
 
 
-
-    def checkEmptyBins(self, minI, maxI, bin, array):
-        bins = np.linspace(minI, maxI, bin)
+    def checkEmptyBins(self, minI, maxI, nBins, array):
+        bins = np.linspace(minI, maxI, nBins)
         histTotal, rangeIntensity = np.histogram(array, bins=bins)
         histTotal[np.isinf(histTotal)] = 0.0
         histTotal[np.isnan(histTotal)] = 0.0
         empty_bins = np.where(histTotal == 0)[0]  # Índices de los bins vacíos
-        empty_bin_ranges = [(bins[i], bins[i + 1]) for i in empty_bins]  # Rango de cada bin vacío
+        empty_bin_ranges = [(round(bins[i], 1), round(bins[i + 1], 1)) for i in empty_bins]  # Rango de cada bin vacío
+        percentEmptyBins = self.precentEmpty(empty_bins, nBins)
+        return empty_bins, empty_bin_ranges, percentEmptyBins
 
-        return empty_bins, empty_bin_ranges
+    def precentEmpty(self, empty_bins, nBins):
+        return (len(empty_bins) * 100) / nBins
 
     def sturgesBinsCalc(self, numElementes):
         import math
         return int(round(1 + math.log2(numElementes)))
 
+    def representativeness(self, minI, maxI, nBins, gridId ):
+        empty_bins_Mics, empty_bin_ranges_Mics, percentEmptyBins_Mics = self.checkEmptyBins(minI, maxI, nBins,
+                                                                        self.dictArraysByGrid[gridId][ 'withMicsArrayHoles'])
+        empty_bins_total, empty_bin_ranges_total, percentEmptyBins_total = self.checkEmptyBins(minI, maxI, nBins,
+                                                                            self.dictArraysByGrid[gridId]['totalArrayHoles'])
+        self.info('{} bins without holes'.format(len(empty_bins_total)))
+        self.info('{} bins without holes acquired'.format(len(empty_bins_Mics)))
+        matches = list(set(empty_bins_Mics) & set(empty_bins_total))
+        if len(matches) != 0:
+            empty_bins_Mics = [x for x in empty_bins_Mics if x not in matches]
+            empty_bins_total = [x for x in empty_bins_total if x not in matches]
+            empty_bin_ranges_Mics = [empty_bin_ranges_Mics[i] for i in range(len(empty_bin_ranges_Mics)) if i not in matches]
+            empty_bin_ranges_total = [empty_bin_ranges_total[i] for i in range(len(empty_bin_ranges_total)) if i not in matches]
+            percentEmptyBins_Mics = self.precentEmpty(len(empty_bins_Mics), nBins)
+        return percentEmptyBins_Mics, empty_bin_ranges_Mics
 
+
+
+    def normalDistribution(self, minI, maxI, nBins, gridId):
+        '''
+        Calculate the normal distribution of the % holes that pass the filters / holes with movies using the precalculate number of bins
+        '''
+        histHolesMics, rangeIntensity = np.histogram(self.dictArraysByGrid[gridId]['withMicsArrayHoles'], bins=nBins, range=(minI, maxI))
+        histHolesPass, ranges = np.histogram(self.dictArraysByGrid[gridId]['passArrayHoles'], bins=nBins, range=(minI, maxI))
+        assert len(histHolesMics) == len(histHolesPass), "Los histogramas no tienen la misma cantidad de bins"
+        histRatio = np.divide(histHolesPass, histHolesMics, out=np.zeros_like(histHolesPass, dtype=float), where=histHolesMics != 0)
+        histRatio[np.isinf(histRatio)] = 0.0
+        histRatio[np.isnan(histRatio)] = 0.0
+        mu = np.sum(ranges[:-1] * histRatio) / np.sum(histRatio)
+        sigma = np.sqrt(np.sum(histRatio * (ranges[:-1] - mu) ** 2) / np.sum(histRatio))
+        return mu, sigma
 
 
 
