@@ -210,15 +210,21 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
             import time
             time.sleep(10)
             # DEBUGALBERTO END
-            if np.any(ratioHist):  # Verificar si hay algún valor no cero
-                mu = np.mean(ratioHist)
-                sigma = np.std(ratioHist)
-                x_fit = np.linspace(min(ratioHist), max(ratioHist), 100)
-                y_fit = norm.pdf(x_fit, mu, sigma) * (np.max(ratioHist) - np.min(ratioHist)) / (np.max(y_fit) - np.min(y_fit))  # Normalizar
+            non_zero_ratio = ratioHist[ratioHist > 0]
+            mu = np.mean(non_zero_ratio)
+            sigma = np.std(non_zero_ratio)
+            print(mu)
+            print(sigma)
+            x_fit = np.linspace(np.min(listRanges['rangeI']), np.max(listRanges['rangeI']), 100)
+            y_fit = norm.pdf(x_fit, mu,sigma)  # Ajuste de la curva normal
 
-                # Graficar la curva normal
-                ax2.plot(x_fit, y_fit, color='orange', label='Normal Curve', linewidth=2)
-                ax2.fill_betweenx(y_fit, mu - sigma, mu + sigma, color='green', alpha=0.3, label='$\mu \pm \sigma$ Area')
+            # Graficar la curva normal
+            ax2.plot(x_fit, y_fit, color='orange',
+                    label='Normal Curve ($\mu={:.2f}$, $\sigma={:.2f}$)'.format(mu, sigma))
+
+            # Resaltar el área de mu ± sigma
+            ax2.fill_between(x_fit, y_fit, where=((x_fit >= mu - sigma) & (x_fit <= mu + sigma)),
+                            color='green', alpha=0.3, label='$\mu \pm \sigma$ Area')
 
             ax2.set_ylabel('Holes with micrographs (acquired) / Holes with micrographs that pass  the filters')
             ax2.legend(loc='upper right')
