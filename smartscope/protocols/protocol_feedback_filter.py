@@ -159,7 +159,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             self.dictHolesWithMic[m.getHoleId()] = self.dictHoles[m.getHoleId()].clone()
         for mic in self.fMics:
             H_ID = self.dictMovies[mic.getMicName()].getHoleId()
-            self.dictPassHoles[H_ID] = self.dictHoles[H_ID]
+            self.dictPassHoles[H_ID] = self.dictHoles[H_ID].clone()
         self.dictRejectHoles = {key: value.clone() for key, value in self.dictHolesWithMic.items() if key not in self.dictPassHoles}
 
     def assignGridHoles(self):
@@ -189,6 +189,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 
         for grid_id, holes in self.withMicsHolesByGrid.items():
             holesPass = self.passHolesByGrid[grid_id]
+            self.rejectedHolesByGrid_value[grid_id] = [self.dictRejectHoles[hole].getSelectorValue() for hole in holes if hole not in holesPass]
             self.rejectedHolesByGrid[grid_id] = [hole for hole in holes if hole not in holesPass]
 
         with open(os.path.join(self._getExtraPath(),'gridsName.txt'), 'w') as fi:
@@ -285,6 +286,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
     # --------------------------- VIEWER functions -----------------------------------
 
     def prepareViewer(self, gridId, gridName, nBins, minI, maxI):
+        '''Creating files with arrays to let viewer plot it'''
 
         arrayHoles = np.array(self.totalHolesByGrid_value[gridId])
         hist, rangeIntensity = np.histogram(arrayHoles, bins=nBins, range=(minI, maxI))
