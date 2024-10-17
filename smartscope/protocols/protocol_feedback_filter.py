@@ -135,7 +135,6 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                     self.collectHoles()
                     self.assignGridHoles()
                     self.statistics()
-
                     self.postingBack2Smartscope()
                     self.createOutputs()
                     if not self.fMics.isStreamOpen():
@@ -233,6 +232,9 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                 self.listGridsStatistics[grid.getName()]['mu'] = mu
                 self.listGridsStatistics[grid.getName()]['sigma'] = sigma
 
+            #Prepare viewer
+            self.prepareViewer(gridId, grid.getName(), nBins, minI, maxI)
+
     def checkEmptyBins(self, minI, maxI, nBins, array):
         bins = np.linspace(minI, maxI, nBins)
         histTotal, rangeIntensity = np.histogram(array, bins=bins)
@@ -280,6 +282,36 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         sigma = np.sqrt(np.sum(histRatio * (ranges[:-1] - mu) ** 2) / np.sum(histRatio))
         return mu, sigma
 
+    # --------------------------- VIEWER functions -----------------------------------
+
+    def prepareViewer(self, gridId, gridName, nBins, minI, maxI):
+
+        arrayHoles = np.array(self.totalHolesByGrid_value[gridId])
+        hist, rangeIntensity = np.histogram(arrayHoles, bins=nBins, range=(minI, maxI))
+        rangeFile = self._getExtraPath("{}-rangeI-{}.txt".format(gridName, self.countStreamingSteps))
+        np.savetxt(rangeFile, rangeIntensity[:-1].reshape(1, -1), fmt='%.8f', delimiter=' ')
+
+        #Total hole histogram
+        totalHistFile = self._getExtraPath("{}-totalHist-{}.txt".format(gridName, self.countStreamingSteps))
+        np.savetxt(totalHistFile, hist.reshape(1, -1), fmt='%.8f', delimiter=' ')
+
+        #With mics hole histogram
+        arrayHoles = np.array(self.withMicsHolesByGrid_value[gridId])
+        hist, rangeIntensity = np.histogram(arrayHoles, bins=nBins, range=(minI, maxI))
+        withMicsHistFile = self._getExtraPath("{}-withMicslHist-{}.txt".format(gridName, self.countStreamingSteps))
+        np.savetxt(withMicsHistFile, hist.reshape(1, -1), fmt='%.8f', delimiter=' ')
+
+        #Pass hole histogram
+        arrayHoles = np.array(self.passHolesByGrid_value[gridId])
+        hist, rangeIntensity = np.histogram(arrayHoles, bins=nBins, range=(minI, maxI))
+        passHistFile = self._getExtraPath("{}-passHist-{}.txt".format(gridName, self.countStreamingSteps))
+        np.savetxt(passHistFile, hist.reshape(1, -1), fmt='%.8f', delimiter=' ')
+
+        #Rejected hole histogram
+        arrayHoles = np.array(self.rejectedHolesByGrid_value[gridId])
+        hist, rangeIntensity = np.histogram(arrayHoles, bins=nBins, range=(minI, maxI))
+        rejectedHistFile = self._getExtraPath("{}-rejectedHist-{}.txt".format(gridName, self.countStreamingSteps))
+        np.savetxt(rejectedHistFile, hist.reshape(1, -1), fmt='%.8f', delimiter=' ')
 
     # --------------------------- POSTING functions -----------------------------------
     def postingBack2Smartscope(self):
