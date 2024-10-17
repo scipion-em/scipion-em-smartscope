@@ -178,7 +178,6 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             grid_id = h.getGridId()
             self.totalHolesByGrid_value[grid_id].append(h.getSelectorValue())
             self.totalHolesByGrid[grid_id].append(h.getHoleId())
-
         for h in self.dictHolesWithMic.values():
             grid_id = h.getGridId()
             self.withMicsHolesByGrid_value[grid_id].append(h.getSelectorValue())
@@ -188,20 +187,9 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             grid_id = h.getGridId()
             self.passHolesByGrid_value[grid_id].append(h.getSelectorValue())
             self.passHolesByGrid[grid_id].append(h.getHoleId())
-            # DEBUGALBERTO START
-            import os
-            fname = "/home/agarcia/Documents/attachActionDebug.txt"
-            if os.path.exists(fname):
-                os.remove(fname)
-            fjj = open(fname, "a+")
-            fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
-            fjj.close()
-            print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
-            import time
-            time.sleep(10)
-            # DEBUGALBERTO END
-        for grid_id, holes in self.totalHolesByGrid.items():
-            holesPass = self.passHolesByGrid.get(grid_id, [])
+
+        for grid_id, holes in self.withMicsHolesByGrid.items():
+            holesPass = self.passHolesByGrid[grid_id]
             self.rejectedHolesByGrid[grid_id] = [hole for hole in holes if hole not in holesPass]
 
         with open(os.path.join(self._getExtraPath(),'gridsName.txt'), 'w') as fi:
