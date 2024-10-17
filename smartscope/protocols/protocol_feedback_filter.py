@@ -64,7 +64,6 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 
         self.pyClient = MainPyClient(self.token, self.endpoint)
         self.connectionClient = dataCollection(self.pyClient)
-        self.countStreamingSteps = 0
         self.BIN_RANGE = [5, 101]
         self.dictArraysByGrid = {}
         self.listGridsStatistics = {}
@@ -129,8 +128,6 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             if rTime >= self.refreshTime.get():
                 self.zeroTime = time.time()
                 if len(self.micsPassFilter.get()) >= self.triggerMicrograph.get():
-                    self.countStreamingSteps += 1
-
                     self.fMics = self.micsPassFilter.get()
                     self.collectHoles()
                     self.assignGridHoles()
@@ -290,29 +287,29 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 
         arrayHoles = np.array(self.totalHolesByGrid_value[gridId])
         hist, rangeIntensity = np.histogram(arrayHoles, bins=nBins, range=(minI, maxI))
-        rangeFile = self._getExtraPath("{}-rangeI-{}.txt".format(gridName, self.countStreamingSteps))
+        rangeFile = self._getExtraPath("{}-rangeI.txt".format(gridName))
         np.savetxt(rangeFile, rangeIntensity[:-1].reshape(1, -1), fmt='%.8f', delimiter=' ')
 
         #Total hole histogram
-        totalHistFile = self._getExtraPath("{}-totalHist-{}.txt".format(gridName, self.countStreamingSteps))
+        totalHistFile = self._getExtraPath("{}-totalHist.txt".format(gridName))
         np.savetxt(totalHistFile, hist.reshape(1, -1), fmt='%.8f', delimiter=' ')
 
         #With mics hole histogram
         arrayHoles = np.array(self.withMicsHolesByGrid_value[gridId])
         hist, rangeIntensity = np.histogram(arrayHoles, bins=nBins, range=(minI, maxI))
-        withMicsHistFile = self._getExtraPath("{}-withMicslHist-{}.txt".format(gridName, self.countStreamingSteps))
+        withMicsHistFile = self._getExtraPath("{}-withMicsHist.txt".format(gridName))
         np.savetxt(withMicsHistFile, hist.reshape(1, -1), fmt='%.8f', delimiter=' ')
 
         #Pass hole histogram
         arrayHoles = np.array(self.passHolesByGrid_value[gridId])
         hist, rangeIntensity = np.histogram(arrayHoles, bins=nBins, range=(minI, maxI))
-        passHistFile = self._getExtraPath("{}-passHist-{}.txt".format(gridName, self.countStreamingSteps))
+        passHistFile = self._getExtraPath("{}-passHist.txt".format(gridName))
         np.savetxt(passHistFile, hist.reshape(1, -1), fmt='%.8f', delimiter=' ')
 
         #Rejected hole histogram
         arrayHoles = np.array(self.rejectedHolesByGrid_value[gridId])
         hist, rangeIntensity = np.histogram(arrayHoles, bins=nBins, range=(minI, maxI))
-        rejectedHistFile = self._getExtraPath("{}-rejectedHist-{}.txt".format(gridName, self.countStreamingSteps))
+        rejectedHistFile = self._getExtraPath("{}-rejectedHist.txt".format(gridName))
         np.savetxt(rejectedHistFile, hist.reshape(1, -1), fmt='%.8f', delimiter=' ')
 
     # --------------------------- POSTING functions -----------------------------------
