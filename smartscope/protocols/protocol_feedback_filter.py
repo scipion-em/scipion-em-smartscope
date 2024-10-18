@@ -94,14 +94,15 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                             " percent of empty bins allowed to feedback Smartscope (10% by default). Higher less restrictive")
         form.addSection('Streaming')
 
-        form.addParam('refreshTime', params.IntParam, default=180,
+        form.addParam('refreshTime', params.IntParam, default=240,
                       label="Time to refresh data collected (secs) and update the feedback if neccesary")
 
         form.addParallelSection(threads=3, mpi=1)
 
-
-
     def _initialize(self):
+        self.rTime = self.refreshTime.get()
+        if self.rTime < 180:
+            self.rTime = 180
         self.zeroTime = time.time()
         self.finish = False
         self.smartscopeConnectionProtocol = self.getInputProtocol()
@@ -131,7 +132,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 
         while not self.finish:
             rTime = time.time() - self.zeroTime
-            if rTime >= self.refreshTime.get():
+            if rTime >= self.rTime:
                 self.zeroTime = time.time()
                 if len(self.micsPassFilter.get()) >= self.triggerMicrograph.get():
                     self.fMics = self.micsPassFilter.get()

@@ -35,57 +35,115 @@ from pwem.viewers.showj import ORDER, VISIBLE, MODE, RENDER, MODE_MD, ZOOM, SORT
 from pwem.viewers.showj import *
 from pyworkflow.viewer import DESKTOP_TKINTER, WEB_DJANGO, ProtocolViewer
 from smartscope.protocols.protocol_feedback_filter import smartscopeFeedbackFilter
+from smartscope.protocols.protocol_smartscope import smartscopeConnection
 from pyworkflow.protocol.params import IntParam, LabelParam
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import norm
 
-class DataViewer_smartscope(DataViewer):
-    _targets = [SetOfGrids, SetOfAtlas, SetOfSquares, SetOfHoles, SetOfMoviesSS]
-    def _visualize(self, obj, **kwargs):
-        self._views = []
-        if isinstance(obj, SetOfSquares):
-            labels = ('_pngDir _square_id _atlas_id _status _selected _completion_time _area _shape_x _shape_y _sampligRate')
-            self._views.append(ObjectView(self._project,
-                                           obj.strId(),
-                                           obj.getFileName(),
+class DataViewer_smartscope(ProtocolViewer):
+    _targets = [smartscopeConnection]
+    _label = 'viewer feedback holes filter'
+    _environments = [DESKTOP_TKINTER, WEB_DJANGO]
+
+    def _defineParams(self, form):
+        form.addSection(label='Visualization')
+        group = form.addGroup('items')
+        group.addParam('visualizeGrids', LabelParam,
+                       label="Visualize grids",
+                       help="")
+        group.addParam('visualizeAtlas', LabelParam,
+                       label="Visualize atlas",
+                       help="")
+        group.addParam('visualizeSquares', LabelParam,
+                       label="Visualize squares",
+                       help="")
+        group.addParam('visualizeHoles', LabelParam,
+                       label="Visualize holes",
+                       help="")
+        group.addParam('visualizeMovies', LabelParam,
+                       label="Visualize movies",
+                       help="")
+        group2 = form.addGroup('Smartscope app')
+        group2.addParam('browserApp', LabelParam,
+                       label="Open the Smartscope app session",
+                       help="")
+
+    def _getVisualizeDict(self):
+        return {
+                 'visualizeGrids': self._visualizeGrids,
+                 'visualizeAtlas': self._visualizeAtlas,
+                 'visualizeSquares': self._visualizeSquares,
+                 'visualizeHoles': self._visualizeHoles,
+                 'visualizeMovies': self._visualizeMovies,
+                 'browserApp': self._browserApp,
+        }
+
+    def _visualizeGrids(self, e=None):
+        views = []
+        labels = ('_grid_id _status _position _hole_angle _mesh_angle _quality _status _start_time _last_update _mesh_size mesh_material _hole_type')
+        if hasattr(self.protocol, 'Grids'):
+            views.append(ObjectView(self._project,
+                                           self.protocol.Grids.strId(),
+                                           self.protocol.Grids.getFileName(),
+                               viewParams={VISIBLE: labels,
+                                           SORT_BY: labels}))
+            return views
+
+
+    def _visualizeAtlas(self, e=None):
+        views = []
+        labels = ('_pngDir _grid_id _atlas_id _binning_factor _status _completion_time _shape_x _shape_y _sampligRate')
+        if hasattr(self.protocol, 'Atlas'):
+            views.append(ObjectView(self._project,
+                                           self.protocol.Atlas.strId(),
+                                           self.protocol.Atlas.getFileName(),
                                viewParams={VISIBLE: labels,
                                            RENDER: '_pngDir',
                                            SORT_BY: labels}))
-        elif isinstance(obj, SetOfAtlas):
-            labels = ('_pngDir _grid_id _atlas_id _binning_factor _status _completion_time _shape_x _shape_y _sampligRate')
-            self._views.append(ObjectView(self._project,
-                                           obj.strId(),
-                                           obj.getFileName(),
-                               viewParams={VISIBLE: labels,
-                                           RENDER: '_pngDir',
-                                           SORT_BY: labels}))
-        elif isinstance(obj, SetOfGrids):
-            labels = ('_grid_id _status _position _hole_angle _mesh_angle _quality _status _start_time _last_update _mesh_size mesh_material _hole_type')
-            self._views.append(ObjectView(self._project,
-                                           obj.strId(),
-                                           obj.getFileName(),
-                               viewParams={VISIBLE: labels,
-                                           SORT_BY: labels}))
-        elif isinstance(obj, SetOfHoles):
-            labels = ('_pngDir _hole_id _grid_id _status _selected _completion_time _shape_x _shape_y _sampligRate _number _area')
-            self._views.append(ObjectView(self._project,
-                                           obj.strId(),
-                                           obj.getFileName(),
-                               viewParams={VISIBLE: labels,
-                                           RENDER: '_pngDir',
-                                           SORT_BY: labels}))
-        elif isinstance(obj, SetOfMoviesSS):
-            labels = ('_micName _hm_id _hole_id _status _completion_time _samplingRate _shape_x _shape_y')
-            self._views.append(ObjectView(self._project,
-                                           obj.strId(),
-                                           obj.getFileName(),
-                               viewParams={VISIBLE: labels,
-                                           MODE: MODE_MD,
-                                           SORT_BY: labels}))
-        else:
-            self._views.append(DataView(obj.getFileName()))
-        return self._views
+            return views
+
+
+    def _visualizeSquares(self, e=None):
+        views = []
+        labels = ('_pngDir _square_id _atlas_id _status _selected _completion_time _area _shape_x _shape_y _sampligRate')
+        if hasattr(self.protocol, 'Squares'):
+            views.append(ObjectView(self._project,
+                                          self.protocol.Squares.strId(),
+                                          self.protocol.Squares.getFileName(),
+                                          viewParams={VISIBLE: labels,
+                                                      RENDER: '_pngDir',
+                                                      SORT_BY: labels}))
+            return views
+
+
+    def _visualizeHoles(self, e=None):
+        views = []
+        labels = ('_pngDir _hole_id _grid_id _status _selected _completion_time _shape_x _shape_y _sampligRate _number _area')
+        if hasattr(self.protocol, 'Holes'):
+            views.append(ObjectView(self._project,
+                                    self.protocol.Holes.strId(),
+                                    self.protocol.Holes.getFileName(),
+                                    viewParams={VISIBLE: labels,
+                                                RENDER: '_pngDir',
+                                                SORT_BY: labels}))
+            return views
+
+    def _visualizeMovies(self, e=None):
+        views = []
+        labels = ('_micName _hm_id _hole_id _status _completion_time _samplingRate _shape_x _shape_y')
+        if hasattr(self.protocol, 'MoviesSS'):#
+            views.append(ObjectView(self._project,
+                                    self.protocol.MoviesSS.strId(),
+                                    self.protocol.MoviesSS.getFileName(),
+                                    viewParams={VISIBLE: labels,
+                                                MODE: MODE_MD,
+                                                SORT_BY: labels}))
+            return views
+
+    def _browserApp(self, e=None):
+        pass
+
 
 class SmartscopeFilterFeedbackViewer(ProtocolViewer):
     """
@@ -110,14 +168,12 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
                        help="Visualize the histograms of intensity per holes. The last serie"
                             " is scattered and the first (the older) and the last (newest) 5 gaussian reconstructions")
 
-
     def _getVisualizeDict(self):
         return {
                  'visualizeFilteredOutHoles': self._visualizeFilteredOut,
                  'visualizeFilteredHoles': self._visualizeFilteredHoles,
                  'visualizeHistograms': self._visualizeHistograms,
                 }
-
 
     def _visualizeFilteredHoles(self, e=None):
         views = []
@@ -144,7 +200,6 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
                                                       RENDER: '_pngDir',
                                                       SORT_BY: labels}))
             return views
-
 
     def _visualizeHistograms(self, e=None):
         import os
