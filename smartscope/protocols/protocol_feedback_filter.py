@@ -415,7 +415,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         	    'SMARTSCOPE_DATA_SESSION_PATH has not been configured, '
         	    'please visit https://github.com/scipion-em/scipion-em-smartscope#configuration \n')
 
-        if self.getInputProtocol() == 'False':
+        if self.getInputProtocol() == False:
             errors.append('Protocol imnported is not the SmartscopeConnection one')
         response = self.checkSmartscopeConnection()
         try:
