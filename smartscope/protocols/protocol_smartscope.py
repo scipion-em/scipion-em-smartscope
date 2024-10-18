@@ -333,7 +333,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         sessions = self.pyClient.getRouteFromID('sessions', '', '')
         for s in sessions:
             s['session_id'] == self.sessionId
-            group = s['group']#TODO it needs a number no the name or ID
+            group = s['group']#TODO it needs a number no the name or IDgrgr
             break
         gridId = self.pyClient.getRouteFromID('grids', 'session', self.sessionId, dev=False)[0]['grid_id']
 
