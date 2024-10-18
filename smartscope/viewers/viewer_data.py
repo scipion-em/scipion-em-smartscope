@@ -39,7 +39,7 @@ from smartscope.protocols.protocol_smartscope import smartscopeConnection
 from pyworkflow.protocol.params import IntParam, LabelParam
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.stats import norm
+import webbrowser
 
 class DataViewer_smartscope(ProtocolViewer):
     _targets = [smartscopeConnection]
@@ -142,7 +142,10 @@ class DataViewer_smartscope(ProtocolViewer):
             return views
 
     def _browserApp(self, e=None):
-        pass
+        with open(os.path.join(self.protocol._getExtraPath(), 'URLsmartscopeSession.txt'), 'r') as fi:
+            urlsmartscope = fi.read()
+        webbrowser.open(urlsmartscope)
+
 
 
 class SmartscopeFilterFeedbackViewer(ProtocolViewer):

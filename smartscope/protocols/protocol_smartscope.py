@@ -188,6 +188,9 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             "\t{} Sessions: {}\n".format(len(self.sessionList), SessionNames))
         summaryF.close()
 
+        self.setSessionURL()
+
+
 
     def screeningCollection(self):
         self.outputsToDefine = {'Grids': self.SOG,
@@ -226,6 +229,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             "\t{}\tSquares \n".format(len(self.SOS)) +
             "\t{}\tHoles \n".format(len(self.SOH)))
         summaryF2.close()
+
 
 
     def importMoviesSS(self, inputMovies):
@@ -288,6 +292,8 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                       'See the output of the protocol')
 
 
+
+
     def addMovieSS(self, SOMSS, movieImport, movieSS, inputMovies):
         SOMSS.setStreamState(SOMSS.STREAM_OPEN)
         movieImport.setSamplingRate(movieSS['pixel_size'])
@@ -323,7 +329,17 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         SOMSS.append(movie2Add)
         SOMSS.write()#persist on sqlite
 
+    def setSessionURL(self):
+        sessions = self.pyClient.getRouteFromID('sessions', '', '')
+        for s in sessions:
+            s['session_id'] == self.sessionId
+            group = s['group']#TODO it needs a number no the name or ID
+            break
+        gridId = self.pyClient.getRouteFromID('grids', 'session', self.sessionId, dev=False)[0]['grid_id']
 
+        URLSmartscope = '{}smartscope/browse/?group={}&session_id={}&grid_id={}'.format(Plugin.getVar(SMARTSCOPE_LOCALHOST), group, self.sessionId, gridId)
+        with open(os.path.join(self._getExtraPath(),'URLsmartscopeSession.txt'), 'w') as fi:
+            fi.write(URLSmartscope)
     # --------------------------- VALIDATION functions -----------------------------------
 
     def checkSmartscopeConnection(self):
