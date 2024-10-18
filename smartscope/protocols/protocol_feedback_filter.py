@@ -132,7 +132,6 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                     self.collectHoles()
                     self.assignGridHoles()
                     self.statistics()
-                    self.postingBack2Smartscope()
                     self.createOutputs()
                     if not self.fMics.isStreamOpen():
                         self.info('Not more micrographs are expected, set closed')
@@ -213,14 +212,14 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             #REPRESENTATIVENESS
             percentEmptyBins_Mics, empty_bin_ranges_Mics = self.representativeness(minI, maxI, nBins, gridId)
             if percentEmptyBins_Mics > int(self.percentBins[self.emptyBinsPercent.get()]):
-                self.info('{}% of bins empty, <={}% required. We need more holes acquired in this ranges of intensity'
-                          'to calculate the best ranges of intensities to acquire and feedback Smartscope\n: '
-                          'Ranges of empty bins: {}'.format(percentEmptyBins_Mics, self.percentBins[self.emptyBinsPercent.get()], empty_bin_ranges_Mics))
+                self.info('{}% of bins empty > {}% allowed. We need more holes acquired in this ranges of intensity'
+                          ' to calculate the best ranges of intensities to acquire and feedback Smartscope\n'
+                          'Ranges of empty bins: {}'.format(round(percentEmptyBins_Mics, 1), self.percentBins[self.emptyBinsPercent.get()], empty_bin_ranges_Mics))
                 continue
             #NORMAL DISTRIBUTION
             else:
-                self.info('{}% of bins empty, >={}% required.\nRanges of empty bins: {}'.format(
-                    percentEmptyBins_Mics,  self.percentBins[self.emptyBinsPercent.get()], empty_bin_ranges_Mics))
+                self.info('{}% of bins empty <= {}% configured.\nRanges of empty bins: {}'.format(
+                    round(percentEmptyBins_Mics, 1),  self.percentBins[self.emptyBinsPercent.get()], empty_bin_ranges_Mics))
                 mu, sigma = self.normalDistribution(minI, maxI, nBins, gridId)
                 rangeIntensityMin = round((mu - sigma),1)
                 rangeIntensityMax = round((mu + sigma), 1)
@@ -230,6 +229,8 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                 self.listGridsStatistics[grid.getName()]['mu'] = mu
                 self.listGridsStatistics[grid.getName()]['sigma'] = sigma
 
+            #Posting Smartscope
+            self.postingBack2Smartscope()
             #Prepare viewer
             self.prepareViewer(gridId, grid.getName(), nBins, minI, maxI)
 
