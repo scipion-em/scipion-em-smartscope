@@ -34,10 +34,11 @@ to Smartscope to take decission about the acquisition
 from pyworkflow.utils import Message
 from pyworkflow import BETA, UPDATED, NEW, PROD
 from pwem.protocols.protocol_import.base import ProtImport
-from pyworkflow.protocol import ProtStreamingBase
+from pyworkflow.protocol import ProtStreamingBase, getUpdatedProtocol
 from smartscope import Plugin
 from pyworkflow.protocol import params, STEPS_PARALLEL
 from ..objects.dataCollection import *
+from . import smartscopeConnection
 
 #external imports
 import time
@@ -75,19 +76,9 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         """
         # You need a params to belong to a section:
         form.addSection(label=Message.LABEL_INPUT)
-        form.addParam('inputGrids', params.PointerParam, pointerClass='SetOfGrids',
-                      important=True, allowsNull=False,
-                      label='Input grids from Smartscope',
-                      help='Select a set of grids from Smartscope connection protocol.')
-        form.addParam('inputHoles', params.PointerParam, pointerClass='SetOfHoles',
-                      important=True, allowsNull=False,
-                      label='Input holes from Smartscope',
-                      help='Select a set of holes from Smartscope connection protocol.')
-        form.addParam('inputMovies', params.PointerParam,
-                      pointerClass='SetOfMoviesSS',
-                      important=True, allowsNull=False,
-                      label='Input movies from Smartscope',
-                      help='Select a set of movies from Smartscope connection protocol.')
+        form.addParam('inputProtocol', params.PointerParam,
+                      pointerClass='EMProtocol', label="Input Smartscope connection protocols", important=True,
+                      help="Smartscope connection protocol")
         form.addParam('micsPassFilter', params.PointerParam, pointerClass='SetOfMicrographs',
                       important=True, allowsNull=False,
                       label='Filtered micrographs',
@@ -108,12 +99,27 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 
         form.addParallelSection(threads=3, mpi=1)
 
+
+
     def _initialize(self):
-        self.movies = self.inputMovies.get()
-        self.holes = self.inputHoles.get()
-        self.grids = self.inputGrids.get()
         self.zeroTime = time.time()
         self.finish = False
+        self.smartscopeConnectionProtocol = self.getInputProtocol()
+        updatedProt = getUpdatedProtocol(self.smartscopeConnectionProtocol)
+        if hasattr(updatedProt, 'Grids'):
+            self.grids = updatedProt.Grids
+        if hasattr(updatedProt, 'Holes'):
+            self.holes = updatedProt.Holes
+        if hasattr(updatedProt, 'MoveiesSS'):
+            self.movies = updatedProt.MoveiesSS
+
+    def getInputProtocol(self):
+        prot = self.inputProtocol.get()
+        prot.setProject(self.getProject())
+        if isinstance(prot, smartscopeConnection):
+            return prot
+        else:
+            return False
 
     def stepsGeneratorStep(self):
         """
@@ -379,6 +385,8 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         return response
 
 
+
+
     # --------------------------- INFO functions -----------------------------------
     def _summary(self):
         summary = []
@@ -407,6 +415,8 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         	    'SMARTSCOPE_DATA_SESSION_PATH has not been configured, '
         	    'please visit https://github.com/scipion-em/scipion-em-smartscope#configuration \n')
 
+        if self.getInputProtocol() == 'False':
+            errors.append('Protocol imnported is not the SmartscopeConnection one')
         response = self.checkSmartscopeConnection()
         try:
             response[0]['username']
