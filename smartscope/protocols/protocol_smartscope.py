@@ -132,11 +132,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
 
     def _initialize(self):
-        listS = self.connectionClient.sessionCollection()
-        for s in listS:
-            if s.getSession() == self.sessionName.get():
-                self.sessionId = s.getSessionId()
-
         self.acquisition = Acquisition()
         self.microscopeList = [] #list of microscope Scipion object
         self.detectorList = [] #list of detector Scipion object
@@ -162,20 +157,22 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         self.reStartTime = time.time()
         self.ListMoviesImported = []
 
-
     def sessionListCollection(self):
         return self.connectionClient.sessionCollection()
 
-
     def sessionOpen(self):
         return self.connectionClient.sessionOpen()
-
 
     def metadataCollection(self):
         self.connectionClient.metadataCollection(self.microscopeList,
                                                  self.detectorList,
                                                  self.sessionList,
                                                  self.acquisition)
+        for session in self.sessionList:
+            if session.getSession() == self.sessionName.get():
+                self.sessionId = session.getSessionId()
+                self.sessionDate = session.getDate()
+                self.groupName = session.getGroup()
         MicroNames = ',  '.join([x.getName() for x in self.microscopeList])
         DetectorNames = ',  '.join([x.getName() for x in self.detectorList])
         SessionNames = ',  '.join([x.getSession() for x in self.sessionList])
@@ -189,8 +186,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         summaryF.close()
 
         self.setSessionURL()
-
-
 
     def screeningCollection(self):
         self.outputsToDefine = {'Grids': self.SOG,
@@ -210,7 +205,9 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                                                   self.sessionId,
                                                   self.sessionName,
                                                   self.SOG, self.SOA,
-                                                  self.SOS, self.SOH)
+                                                  self.SOS, self.SOH,
+                                                  self.groupName,
+                                                  self.sessionDate)
         # STORE SQLITE
         self.SOG.write()
         self.SOA.write()
@@ -229,8 +226,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             "\t{}\tSquares \n".format(len(self.SOS)) +
             "\t{}\tHoles \n".format(len(self.SOH)))
         summaryF2.close()
-
-
 
     def importMoviesSS(self, inputMovies):
         moviesToAdd = []
@@ -270,7 +265,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                     for mAPI in moviesToAdd:
                         if mAPI['frames'] == os.path.basename(mImport.getFileName()):
                             imported = True
-                            self.addMovieSS(SOMSS, mImport, mAPI, inputMovies)
+                            self.addMovieSS(SOMSS, mImport, mAPI)
                             break
                     if imported == False:
                         notImportedMovies.append(mImport)
@@ -291,10 +286,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             self.info('All movies from the Smartscope API were imported. '
                       'See the output of the protocol')
 
-
-
-
-    def addMovieSS(self, SOMSS, movieImport, movieSS, inputMovies):
+    def addMovieSS(self, SOMSS, movieImport, movieSS):
         SOMSS.setStreamState(SOMSS.STREAM_OPEN)
         movieImport.setSamplingRate(movieSS['pixel_size'])
         movie2Add = MovieSS()
@@ -340,12 +332,11 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         URLSmartscope = '{}smartscope/browse/?group={}&session_id={}&grid_id={}'.format(Plugin.getVar(SMARTSCOPE_LOCALHOST), group, self.sessionId, gridId)
         with open(os.path.join(self._getExtraPath(),'URLsmartscopeSession.txt'), 'w') as fi:
             fi.write(URLSmartscope)
-    # --------------------------- VALIDATION functions -----------------------------------
 
+    # --------------------------- VALIDATION functions -----------------------------------
     def checkSmartscopeConnection(self):
         response = self.pyClient.getDetailsFromParameter('users')
         return response
-
 
     # --------------------------- INFO functions -----------------------------------
     def _summary(self):

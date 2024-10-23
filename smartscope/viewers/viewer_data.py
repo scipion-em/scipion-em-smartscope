@@ -48,7 +48,7 @@ class DataViewer_smartscope(ProtocolViewer):
 
     def _defineParams(self, form):
         form.addSection(label='Visualization')
-        group = form.addGroup('items')
+        group = form.addGroup('Outputs to view')
         group.addParam('visualizeGrids', LabelParam,
                        label="Visualize grids",
                        help="")
