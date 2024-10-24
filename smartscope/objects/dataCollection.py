@@ -131,18 +131,6 @@ class dataCollection():
         grid = self.pyClient.getRouteFromID('grids', 'session', sessionId, dev=False)
         if grid != []:print('Number grid in the sesison: {}'.format(len(grid)))
         objId = len(setOfGrids)
-        # DEBUGALBERTO START
-        import os
-        fname = "/home/agarcia/Documents/attachActionDebug.txt"
-        if os.path.exists(fname):
-            os.remove(fname)
-        fjj = open(fname, "a+")
-        fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
-        fjj.close()
-        print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
-        import time
-        time.sleep(10)
-        # DEBUGALBERTO END
         for g in grid:
             gr = Grid()
             gr.setGridId(g['grid_id'])
