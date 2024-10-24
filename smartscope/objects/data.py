@@ -254,7 +254,6 @@ class Grid(EMObject):
         self._rawDir = String()
         self._pngDir = String()
 
-        
     def setGridId(self, id):
         self._grid_id.set(id)
     def setPosition(self, position):
@@ -285,18 +284,15 @@ class Grid(EMObject):
         self._meshMaterial.set(MeshMaterial)
     def setParamsId(self, ParamsId):
         self._params_id.set(ParamsId)
+    def setRawDir(self,  rawDir):
+        self._rawDir.set(rawDir)
 
-    def setRawDir(self, dataPath, sessionDir):
-        gridRelativePath = str(self._position) + '_' + str(self._name)
-        self._rawDir.set(os.path.join(str(dataPath),
-                                    str(sessionDir),
-                                    gridRelativePath,
-                                    'raw'))
-    def setPNGDir(self, dataPath, sessionDir):
+    def setPNGDir(self, dataPath, sessionDir, groupName):
         gridRelativePath = str(self._position) + '_' + str(self._name)
         self._pngDir.set(os.path.join(str(dataPath),
                                     str(sessionDir),
-                                    gridRelativePath,
+                                    str(groupName),
+                                      gridRelativePath,
                                     'pngs'))
 
     def getGridId(self):
@@ -329,7 +325,6 @@ class Grid(EMObject):
         return self._meshMaterial.get()
     def getParamsId(self):
         return self._params_id.get()
-
     def getRawDir(self):
         return self._rawDir
     def getPngDir(self):

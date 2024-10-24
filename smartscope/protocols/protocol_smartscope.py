@@ -132,15 +132,10 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
 
     def _initialize(self):
-        listS = self.connectionClient.sessionCollection()
-        for s in listS:
-            if s.getSession() == self.sessionName.get():
-                self.sessionId = s.getSessionId()
-
         self.acquisition = Acquisition()
-        self.microscopeList = [] #list of microscope Scipion object
-        self.detectorList = [] #list of detector Scipion object
-        self.sessionList = []#list of sessions Scipion object
+        self.microscopeDict = {}
+        self.detectorDict = {}
+        self.sessionDict = {}
         if self.Grids is None:
             self.SOG = SetOfGrids.create(outputPath=self._getPath())
         else:
@@ -162,7 +157,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         self.reStartTime = time.time()
         self.ListMoviesImported = []
 
-
     def sessionListCollection(self):
         return self.connectionClient.sessionCollection()
 
@@ -170,22 +164,31 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         return self.connectionClient.sessionOpen()
 
     def metadataCollection(self):
-        self.connectionClient.metadataCollection(self.microscopeList,
-                                                 self.detectorList,
-                                                 self.sessionList,
+        self.connectionClient.metadataCollection(self.microscopeDict,
+                                                 self.detectorDict,
+                                                 self.sessionDict,
                                                  self.acquisition)
-        MicroNames = ',  '.join([x.getName() for x in self.microscopeList])
-        DetectorNames = ',  '.join([x.getName() for x in self.detectorList])
-        SessionNames = ',  '.join([x.getSession() for x in self.sessionList])
+        for key, session in self.sessionDict.items():
+            if session.getSession() == self.sessionName.get():
+                self.sessionId = session.getSessionId()
+                self.sessionDate = session.getDate()
+                self.groupName = session.getGroup()
+                microscopeName = self.microscopeDict[session.getMicroscopeId()].getName()
+                detectorName = self.detectorDict[session.getDetectorId()].getName()
+                group = session.getGroup()
+
+        self.sessionId
         # SUMMARY INFO
         summaryF = self._getExtraPath("summary.txt")
         summaryF = open(summaryF, "w")
         summaryF.write("Smartscope Screening\n\n" +
-            "\t{} Microscopes: {}\n".format(len(self.microscopeList), MicroNames) +
-            "\t{} Detectors: {}\n".format(len(self.detectorList), DetectorNames) +
-            "\t{} Sessions: {}\n".format(len(self.sessionList), SessionNames))
+            "\tMicroscope: {}\n".format(microscopeName) +
+            "\tDetectors: {}\n".format(detectorName) +
+            "\tGroup: {}\n".format(group) +
+            "\tSession: {}\n".format(self.sessionName.get()))
         summaryF.close()
 
+        self.setSessionURL()
 
     def screeningCollection(self):
         self.outputsToDefine = {'Grids': self.SOG,
@@ -205,7 +208,9 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                                                   self.sessionId,
                                                   self.sessionName,
                                                   self.SOG, self.SOA,
-                                                  self.SOS, self.SOH)
+                                                  self.SOS, self.SOH,
+                                                  self.groupName,
+                                                  self.sessionDate)
         # STORE SQLITE
         self.SOG.write()
         self.SOA.write()
@@ -224,7 +229,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             "\t{}\tSquares \n".format(len(self.SOS)) +
             "\t{}\tHoles \n".format(len(self.SOH)))
         summaryF2.close()
-
 
     def importMoviesSS(self, inputMovies):
         moviesToAdd = []
@@ -264,7 +268,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                     for mAPI in moviesToAdd:
                         if mAPI['frames'] == os.path.basename(mImport.getFileName()):
                             imported = True
-                            self.addMovieSS(SOMSS, mImport, mAPI, inputMovies)
+                            self.addMovieSS(SOMSS, mImport, mAPI)
                             break
                     if imported == False:
                         notImportedMovies.append(mImport)
@@ -285,8 +289,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             self.info('All movies from the Smartscope API were imported. '
                       'See the output of the protocol')
 
-
-    def addMovieSS(self, SOMSS, movieImport, movieSS, inputMovies):
+    def addMovieSS(self, SOMSS, movieImport, movieSS):
         SOMSS.setStreamState(SOMSS.STREAM_OPEN)
         movieImport.setSamplingRate(movieSS['pixel_size'])
         movie2Add = MovieSS()
@@ -321,11 +324,16 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         SOMSS.append(movie2Add)
         SOMSS.write()#persist on sqlite
 
+    def setSessionURL(self):
+        gridId = self.pyClient.getRouteFromID('grids', 'session', self.sessionId, dev=False)[0]['grid_id']
+        URLSmartscopeGrid = self.pyClient.getURLFromGrid(gridId)
+        with open(os.path.join(self._getExtraPath(),'URLsmartscopeSession.txt'), 'w') as fi:
+            fi.write(URLSmartscopeGrid)
 
+    # --------------------------- VALIDATION functions -----------------------------------
     def checkSmartscopeConnection(self):
         response = self.pyClient.getDetailsFromParameter('users')
         return response
-
 
     # --------------------------- INFO functions -----------------------------------
     def _summary(self):

@@ -35,64 +35,118 @@ from pwem.viewers.showj import ORDER, VISIBLE, MODE, RENDER, MODE_MD, ZOOM, SORT
 from pwem.viewers.showj import *
 from pyworkflow.viewer import DESKTOP_TKINTER, WEB_DJANGO, ProtocolViewer
 from smartscope.protocols.protocol_feedback_filter import smartscopeFeedbackFilter
+from smartscope.protocols.protocol_smartscope import smartscopeConnection
 from pyworkflow.protocol.params import IntParam, LabelParam
 import numpy as np
 import matplotlib.pyplot as plt
+import webbrowser
 
-# class DataViewer_cnb(DataViewer):
-#     _targets = [SetOfLowMagImages]
-#
-#     def _visualize(self, obj, **kwargs):
-#         self._views.append(DataView(obj.getFileName()))
-#         return self._views
-#
+class DataViewer_smartscope(ProtocolViewer):
+    _targets = [smartscopeConnection]
+    _label = 'viewer feedback holes filter'
+    _environments = [DESKTOP_TKINTER, WEB_DJANGO]
 
-class DataViewer_smartscope(DataViewer):
-    _targets = [SetOfGrids, SetOfAtlas, SetOfSquares, SetOfHoles, SetOfMoviesSS]
-    def _visualize(self, obj, **kwargs):
-        self._views = []
-        if isinstance(obj, SetOfSquares):
-            labels = ('_pngDir _square_id _atlas_id _status _selected _completion_time _area _shape_x _shape_y _sampligRate')
-            self._views.append(ObjectView(self._project,
-                                           obj.strId(),
-                                           obj.getFileName(),
+    def _defineParams(self, form):
+        form.addSection(label='Visualization')
+        group = form.addGroup('Outputs to view')
+        group.addParam('visualizeGrids', LabelParam,
+                       label="Visualize grids",
+                       help="")
+        group.addParam('visualizeAtlas', LabelParam,
+                       label="Visualize atlas",
+                       help="")
+        group.addParam('visualizeSquares', LabelParam,
+                       label="Visualize squares",
+                       help="")
+        group.addParam('visualizeHoles', LabelParam,
+                       label="Visualize holes",
+                       help="")
+        group.addParam('visualizeMovies', LabelParam,
+                       label="Visualize movies",
+                       help="")
+        group2 = form.addGroup('Smartscope app')
+        group2.addParam('browserApp', LabelParam,
+                       label="Open the Smartscope app session",
+                       help="")
+
+    def _getVisualizeDict(self):
+        return {
+                 'visualizeGrids': self._visualizeGrids,
+                 'visualizeAtlas': self._visualizeAtlas,
+                 'visualizeSquares': self._visualizeSquares,
+                 'visualizeHoles': self._visualizeHoles,
+                 'visualizeMovies': self._visualizeMovies,
+                 'browserApp': self._browserApp,
+        }
+
+    def _visualizeGrids(self, e=None):
+        views = []
+        labels = ('_grid_id _status _position _hole_angle _mesh_angle _quality _status _start_time _last_update _mesh_size mesh_material _hole_type')
+        if hasattr(self.protocol, 'Grids'):
+            views.append(ObjectView(self._project,
+                                           self.protocol.Grids.strId(),
+                                           self.protocol.Grids.getFileName(),
+                               viewParams={VISIBLE: labels,
+                                           SORT_BY: labels}))
+            return views
+
+
+    def _visualizeAtlas(self, e=None):
+        views = []
+        labels = ('_pngDir _grid_id _atlas_id _binning_factor _status _completion_time _shape_x _shape_y _sampligRate')
+        if hasattr(self.protocol, 'Atlas'):
+            views.append(ObjectView(self._project,
+                                           self.protocol.Atlas.strId(),
+                                           self.protocol.Atlas.getFileName(),
                                viewParams={VISIBLE: labels,
                                            RENDER: '_pngDir',
                                            SORT_BY: labels}))
-        elif isinstance(obj, SetOfAtlas):
-            labels = ('_pngDir _grid_id _atlas_id _binning_factor _status _completion_time _shape_x _shape_y _sampligRate')
-            self._views.append(ObjectView(self._project,
-                                           obj.strId(),
-                                           obj.getFileName(),
-                               viewParams={VISIBLE: labels,
-                                           RENDER: '_pngDir',
-                                           SORT_BY: labels}))
-        elif isinstance(obj, SetOfGrids):
-            labels = ('_grid_id _status _position _hole_angle _mesh_angle _quality _status _start_time _last_update _mesh_size mesh_material _hole_type')
-            self._views.append(ObjectView(self._project,
-                                           obj.strId(),
-                                           obj.getFileName(),
-                               viewParams={VISIBLE: labels,
-                                           SORT_BY: labels}))
-        elif isinstance(obj, SetOfHoles):
-            labels = ('_pngDir _hole_id _grid_id _status _selected _completion_time _shape_x _shape_y _sampligRate _number _area')
-            self._views.append(ObjectView(self._project,
-                                           obj.strId(),
-                                           obj.getFileName(),
-                               viewParams={VISIBLE: labels,
-                                           RENDER: '_pngDir',
-                                           SORT_BY: labels}))
-        elif isinstance(obj, SetOfMoviesSS):
-            labels = ('_micName _hm_id _hole_id _status _completion_time _samplingRate _shape_x _shape_y')
-            self._views.append(ObjectView(self._project,
-                                           obj.strId(),
-                                           obj.getFileName(),
-                               viewParams={VISIBLE: labels,
-                                           MODE: MODE_MD,
-                                           SORT_BY: labels}))
-        else:
-            self._views.append(DataView(obj.getFileName()))
-        return self._views
+            return views
+
+
+    def _visualizeSquares(self, e=None):
+        views = []
+        labels = ('_pngDir _square_id _atlas_id _status _selected _completion_time _area _shape_x _shape_y _sampligRate')
+        if hasattr(self.protocol, 'Squares'):
+            views.append(ObjectView(self._project,
+                                          self.protocol.Squares.strId(),
+                                          self.protocol.Squares.getFileName(),
+                                          viewParams={VISIBLE: labels,
+                                                      RENDER: '_pngDir',
+                                                      SORT_BY: labels}))
+            return views
+
+
+    def _visualizeHoles(self, e=None):
+        views = []
+        labels = ('_pngDir _hole_id _grid_id _status _selected _completion_time _shape_x _shape_y _sampligRate _number _area')
+        if hasattr(self.protocol, 'Holes'):
+            views.append(ObjectView(self._project,
+                                    self.protocol.Holes.strId(),
+                                    self.protocol.Holes.getFileName(),
+                                    viewParams={VISIBLE: labels,
+                                                RENDER: '_pngDir',
+                                                SORT_BY: labels}))
+            return views
+
+    def _visualizeMovies(self, e=None):
+        views = []
+        labels = ('_micName _hm_id _hole_id _status _completion_time _samplingRate _shape_x _shape_y')
+        if hasattr(self.protocol, 'MoviesSS'):#
+            views.append(ObjectView(self._project,
+                                    self.protocol.MoviesSS.strId(),
+                                    self.protocol.MoviesSS.getFileName(),
+                                    viewParams={VISIBLE: labels,
+                                                MODE: MODE_MD,
+                                                SORT_BY: labels}))
+            return views
+
+    def _browserApp(self, e=None):
+        with open(os.path.join(self.protocol._getExtraPath(), 'URLsmartscopeSession.txt'), 'r') as fi:
+            urlsmartscope = fi.read()
+        webbrowser.open(urlsmartscope)
+
+
 
 class SmartscopeFilterFeedbackViewer(ProtocolViewer):
     """
@@ -117,14 +171,12 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
                        help="Visualize the histograms of intensity per holes. The last serie"
                             " is scattered and the first (the older) and the last (newest) 5 gaussian reconstructions")
 
-
     def _getVisualizeDict(self):
         return {
                  'visualizeFilteredOutHoles': self._visualizeFilteredOut,
                  'visualizeFilteredHoles': self._visualizeFilteredHoles,
                  'visualizeHistograms': self._visualizeHistograms,
                 }
-
 
     def _visualizeFilteredHoles(self, e=None):
         views = []
@@ -152,7 +204,6 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
                                                       SORT_BY: labels}))
             return views
 
-
     def _visualizeHistograms(self, e=None):
         import os
         def muSigma(intensityRange, coefHoles):
@@ -163,73 +214,57 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
         with open(os.path.join(self.protocol._getExtraPath(),'gridsName.txt'), 'r') as fi:
             gridsList = [line.strip() for line in fi]
         for grid in gridsList:
-            if True:
-                listRangesFiles = []
-                listHistFiles = []
-                listRanges = []
-                listHist = []
-                files = os.listdir(self.protocol._getExtraPath())
+            dictFiles = {}
+            files = os.listdir(self.protocol._getExtraPath())
 
-                for f in files:
-                    if f.find('{}-rangeI'.format(grid)) != -1:
-                        listRangesFiles.append(f)
-                    elif f.find('{}-histRatio'.format(grid)) != -1:
-                        listHistFiles.append(f)
+            for f in files:
+                if f.find('{}-rangeI'.format(grid)) != -1:
+                    dictFiles['rangeI'] = f
+                elif f.find('{}-totalHist'.format(grid)) != -1:
+                    dictFiles['totalHist'] = f
+                elif f.find('{}-withMicsHist'.format(grid)) != -1:
+                    dictFiles['withMicsHist'] = f
+                elif f.find('{}-passHist'.format(grid)) != -1:
+                    dictFiles['passHist'] = f
+                elif f.find('{}-rejectedHist'.format(grid)) != -1:
+                    dictFiles['rejectedHist'] = f
+            listRanges = {'rangeI': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['rangeI']), dtype=np.float),
+            'totalHist': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['totalHist']), dtype=np.float),
+            'withMicsHist': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['withMicsHist']), dtype=np.float),
+            'passHist': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['passHist']), dtype=np.float),
+            'rejectedHist': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['rejectedHist']), dtype=np.float)}
 
-                def extraer_numero(rango):
-                    return int(rango.split('-')[2].split('.')[0])
 
-                listRangesFiles = sorted(listRangesFiles, key=extraer_numero)[::-1]
-                listHistFiles = sorted(listHistFiles, key=extraer_numero)[::-1] #the first the newer
-                for f in listRangesFiles:
-                    listRanges.append(np.loadtxt(os.path.join(self.protocol._getExtraPath(), f), dtype=np.float))
-                for f in listHistFiles:
-                    listHist.append(np.loadtxt(os.path.join(self.protocol._getExtraPath(), f), dtype=np.float))#TODO no carga datos del fichero
+            #PLOT 1#####################
+            nBins = len(listRanges['rangeI'])
+            bin_width = (listRanges['rangeI'][-1] - listRanges['rangeI'][0]) / nBins
+            bin_edges = np.linspace(listRanges['rangeI'][0], listRanges['rangeI'][-1], nBins + 1)
+            x_positions = (bin_edges[:-1] + bin_edges[1:]) / 2
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10), sharex=True)
+            fig.canvas.manager.set_window_title('Histograms holes smartscope')
+            ax1.bar(x_positions, listRanges['totalHist'], color='black', edgecolor='black', width=bin_width * 0.95,linewidth=2, label='Total holes', alpha=0.2)
+            ax1.bar(x_positions, listRanges['withMicsHist'], color='blue', edgecolor='blue', width=bin_width * 0.95,linewidth=2,  label='Holes with mics', alpha=0.2)
+            ax1.bar(x_positions, listRanges['passHist'], color='green', edgecolor='green', width=bin_width * 0.95, linewidth=2, label='Holes pass filters', alpha=0.2)
+            ax1.set_xlabel('Intensity Range')
+            ax1.set_ylabel('Number of Holes')
+            ax1.set_title('Histogram holes behave')
+            ax1.legend(loc='upper right')
+            plt.xticks(np.round(bin_edges).astype(int) , rotation=45, ha='right')  # Rotate labels for better readability
+            ax1.set_xticks(np.round(bin_edges).astype(int) )  # Apply to ax1
+            ax1.set_xticklabels([f'{edge:.2f}' for edge in bin_edges], rotation=45, ha='right')
 
-                mu = []
-                sigma = []
-                if len(listRangesFiles) > 0:
-                    for index, _ in enumerate(listRangesFiles):
-                        if len(listHist) > 0:
-                            m, s = muSigma(listRanges[index], listHist[index])
-                            mu.append(m)
-                            sigma.append(s)
+            #PLOT 2#####################
+            ratioHist = np.divide(listRanges['passHist'], listRanges['withMicsHist'], out=np.zeros_like(listRanges['withMicsHist'], dtype=float),
+                                  where=(listRanges['passHist'] != 0))
+            ax2.bar(x_positions, ratioHist, color='orange', edgecolor='orange', linewidth=2, width=bin_width * 0.95,
+                    label='Holes with micrographs Mics / Holess pass filters', alpha=0.2)
+            ax2.set_ylabel('Holes with micrographs / Holes with micrographs pass filters')
+            ax2.legend(loc='upper right')
+            ax2.set_xticks(np.round(bin_edges).astype(int))  # Apply to ax2
+            ax2.set_xticklabels([f'{edge:.2f}' for edge in np.round(bin_edges).astype(int)], rotation=45, ha='right')
+            plt.xlabel('Intensity Range')
 
-                # Crear figura y ejes
-                fig, ax1 = plt.subplots(figsize=(12, 8))
-                # Calcular el ancho de los bins
-                bin_widths = int((listRanges[0][1] - listRanges[0][0])) #truncated number
 
-                # Configuración del primer eje (izquierdo) para los puntos
-                color = 'tab:blue'
-                ax1.set_xlabel('Holes Intensity')
-                ax1.set_ylabel('total holes / good holes')
-                ax1.bar(listRanges[0], listHist[0], label='Coef good holes (Last update)', color='midnightblue', width=bin_widths, alpha=0.8, edgecolor='black')
-                ax1.tick_params(axis='y')
-                ax1.legend(loc='upper left')
-                ax1.set_ylim(0, 1)
-                ax1.grid(True)
+            plt.tight_layout()
 
-                # Crear el segundo eje (derecho) para la distribución normal
-                ax2 = ax1.twinx()
-                color = 'black'
-                ax2.set_ylabel('Gaussian Distribution', color=color)
-
-                numSerie2 = 0
-                colors = ['midnightblue', 'mediumblue', 'slateblue', 'mediumpurple']
-                order = ['Last', 'Second to last', 'Third to last', 'Fourth to last']
-                for _ in listRanges[:4]:
-                    x_fit = np.linspace(np.min(listRanges[numSerie2]), np.max(listRanges[numSerie2]), 100)
-                    y_fit1 = np.exp(-(x_fit - mu[numSerie2]) ** 2 / (2 * sigma[numSerie2] ** 2)) / (sigma[numSerie2] * np.sqrt(2 * np.pi))
-                    ax2.plot(x_fit, y_fit1, label=f'{order[numSerie2]} ($\mu$={mu[numSerie2]:.2f}, $\sigma$={sigma[numSerie2]:.2f})',
-                             color=colors[numSerie2])
-
-                    ax2.tick_params(axis='y', labelcolor=color)
-                    ax2.legend(loc='upper right')
-                    numSerie2 += 1
-                ax2.fill_between(x_fit, 0, y_fit1, where=((x_fit >= mu[0] - sigma[0]) & (x_fit <= mu[0] + sigma[0])),
-                                 color='green', alpha=0.3, label=f'Rango $\mu \pm \sigma$')
-                ax2.set_ylim(0, max(y_fit1) * 1.1)
-
-                plt.title('GRID: {}  Intensity - total holes / good holes'.format(grid))
-                plt.show()
+            plt.show()

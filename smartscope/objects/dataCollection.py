@@ -32,8 +32,8 @@ Divided by metadata collection (user, group, hooletype, meshsize,
  meshmaterial, microscope, detectors,  sessions) and screening collection
  (grid, atlas, squares, holes, highmag)
 '''
-import os.path
-
+from os.path import join, dirname
+from os.path import isfile
 from ..objects.data import *
 from ..pyclient.basic import *
 from pwem.objects.data import Acquisition
@@ -42,6 +42,8 @@ import time
 class dataCollection():
     def __init__(self, pyClient):
         self.pyClient = pyClient
+        self.holeUnacquired =  join(dirname(__file__), 'holeUnacquired.png')
+        self.squareUnacquired =  join(dirname(__file__), 'squareUnacquired.png')
 
     def sessionCollection(self):
         sessionList = []
@@ -60,12 +62,17 @@ class dataCollection():
         return sessionList
 
     def sessionOpen(self):
-        grid = self.pyClient.getDetailsFromParameter('grids', status='started', sortByLast=True, dev=True)
+        grid = self.pyClient.getDetailsFromParameter('grids', status='started', sortByLast=True)
         for g in grid:
             if g['status'] == 'started':
-                return g['session_id']
+                started =  g['session_id']
+        grid = self.pyClient.getDetailsFromParameter('grids', status='complete', sortByLast=True)
+        for g in grid:
+            if g['status'] == 'complete':
+                complete =  g['session_id']
+        return started, complete
 
-    def metadataCollection(self, microscopeList, detectorList, sessionList, acquisition):
+    def metadataCollection(self, microscopeDict, detectorDict, sessionDict, acquisition):
         microscopes = self.pyClient.getDetailsFromParameter('microscopes')
         for m in microscopes:
             micro = Microscope()
@@ -82,11 +89,9 @@ class dataCollection():
             micro.setSerialemPORT(m['serialem_PORT'])
             micro.setWindowsPath(m['windows_path'])
             micro.setScopePath(m['scope_path'])
-
-            microscopeList.append(micro)
+            microscopeDict[m['microscope_id']] = micro
             acquisition.setVoltage(micro.getVoltage())
             acquisition.setSphericalAberration(micro.getSphericalabberation())
-
 
         detector = self.pyClient.getDetailsFromParameter('detectors')
         for d in detector:
@@ -105,7 +110,7 @@ class dataCollection():
             det.setGainRot(d['gain_rot'])
             det.setGainFlip(d['gain_flip'])
             det.setEnergyFilter(d['energy_filter'])
-            detectorList.append(det)
+            detectorDict[d['id']] = det
 
         Sessions = self.pyClient.getDetailsFromParameter('sessions')
         for s in Sessions:
@@ -118,14 +123,26 @@ class dataCollection():
             ses.setGroup(s['group'])
             ses.setMicroscopeId(s['microscope_id'])
             ses.setDetectorId(s['detector_id'])
-            sessionList.append(ses)
+            sessionDict[s['session_id']] = ses
 
     def screeningCollection(self, dataPath, sessionId, sessionName, setOfGrids, setOfAtlas,
-                            setOfSquares, setOfHoles):
+                            setOfSquares, setOfHoles, groupName, sessionDate):
         print('sessionName: {}'.format(sessionName))
         grid = self.pyClient.getRouteFromID('grids', 'session', sessionId, dev=False)
         if grid != []:print('Number grid in the sesison: {}'.format(len(grid)))
         objId = len(setOfGrids)
+        # DEBUGALBERTO START
+        import os
+        fname = "/home/agarcia/Documents/attachActionDebug.txt"
+        if os.path.exists(fname):
+            os.remove(fname)
+        fjj = open(fname, "a+")
+        fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+        fjj.close()
+        print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+        import time
+        time.sleep(10)
+        # DEBUGALBERTO END
         for g in grid:
             gr = Grid()
             gr.setGridId(g['grid_id'])
@@ -143,16 +160,14 @@ class dataCollection():
             gr.setMeshSize(g['meshSize'])
             gr.setMeshMaterial(g['meshMaterial'])
             gr.setParamsId(g['params_id'])
-            gr.setRawDir(dataPath, self.sessionWorkingDir(sessionName))
-            gr.setPNGDir(dataPath, self.sessionWorkingDir(sessionName))
+            pathGrid = join(dataPath, groupName, '{}_{}'.format(sessionDate, str(sessionName)), '{}_{}'.format(gr.getPosition(), gr.getName()))
             gr.setObjId(objId)
             objId += 1
             setOfGrids.append(gr)
-
-
             startAtlas = time.time()
             atlas = self.pyClient.getRouteFromID('atlas', 'grid', gr.getGridId())
             print('request Atlas time: {}s'.format(time.time() - startAtlas))
+
             if atlas != []: print(
                 '\tNumber atlas in the grid{}: {}'.format(gr.getName(), len(atlas)))
             for a in atlas:
@@ -170,25 +185,17 @@ class dataCollection():
                 at.setStatus(a['status'])
                 at.setCompletionTime(a['completion_time'])
                 at.setGridId(a['grid_id'])
-                # at.setFileName(os.path.join(str(gr.getRawDir()),
-                #                             str(at.getAtlasName() + '.mrc')))
-                at.setPngDir(os.path.join(str(gr.getPngDir()),
-                                          str(at.getAtlasName() + '.png')))
-                at.setFileName(os.path.join(str(gr.getPngDir()),
-                                          str(at.getAtlasName() + '.png')))
-                print('Atlas filename: {}'.format(at.getFileName()))
+                at.setPngDir(join(pathGrid, 'pngs', str(a['name'] + '.png')))
+                at.setFileName(join(pathGrid, 'raw', a['name'] + '.mrc'))
                 setOfAtlas.append(at)
                 setOfAtlas.update(at)
                 setOfAtlas.write()
-
                 startSquares = time.time()
                 squares = self.pyClient.getRouteFromID('squares', 'atlas', at.getAtlasId())
                 print('request Atlas time: {}s'.format(
                     time.time() - startSquares))
-
                 if squares != []: print(
                     '\t\tNumber squares in the atlas: {}'.format(len(squares)))
-
                 for s in squares:
                     sq = Square()
                     sq.setSquareId(s['square_id'])
@@ -203,21 +210,21 @@ class dataCollection():
                     sq.setArea(s['area'])
                     sq.setGridId(s['grid_id'])
                     sq.setAtlasId(s['atlas_id'])
-                    sq.setFileName(os.path.join(str(gr.getRawDir()),
-                                                str(sq.getName() + '.mrc')))
-                    sq.setPngDir(os.path.join(str(gr.getPngDir()),
-                                              str(sq.getName() + '.png')))
-
+                    pathPNG = os.path.join(pathGrid, 'pngs', s['name'] + '.png')
+                    if not isfile(pathPNG):
+                        sq.setPngDir(self.squareUnacquired)
+                    else:
+                        sq.setPngDir(pathPNG)
+                    sq.setFileName(os.path.join(pathGrid, 'raw', s['name'] + '.mrc'))
                     setOfSquares.append(sq)
                     setOfSquares.update(sq)
                     setOfSquares.write()
-
                     holes = self.pyClient.getRouteFromID('holes', 'square', sq.getSquareId(), endpoint='scipion_plugin')
+
                     if holes != []:
                         #print('square name: {}'.format(sq.getName()))
                         print('\t\t\tNumber holes in the square{}: {}'.format(
                             sq.getName(), len(holes)))
-
                     for h in holes:
                         ho = Hole()
                         ho.setHoleId(h['hole_id'])
@@ -235,11 +242,13 @@ class dataCollection():
                         ho.setBisType(h['bis_type'])
                         ho.setGridId(h['grid_id'])
                         ho.setSquareId(h['square_id'])
-                        fileName = os.path.join(str(gr.getRawDir()),
-                                                str(ho.getName() + '.mrc'))
-                        ho.setFileName(fileName)
-                        ho.setPngDir(os.path.join(str(gr.getPngDir()),
-                                                  str(ho.getName() + '.png')))
+                        pathPNG = os.path.join(pathGrid, 'pngs', h['name'] + '.png')
+                        if not isfile(pathPNG):
+                            ho.setPngDir(self.holeUnacquired)
+                        else:
+                            ho.setPngDir(pathPNG)
+                        ho.setFileName(os.path.join(pathGrid, 'raw', h['name'] + '.mrc'))
+
                         #holeDetail = self.pyClient.getDetailFromItem('holes', h['hole_id'])
                         finder = h['finders'][0]
                         ho.setFinderName(finder['method_name'])
@@ -247,12 +256,10 @@ class dataCollection():
                         ho.setSelectorName(selectors['method_name'])
                         ho.setSelectorLabel(selectors['label'])
                         ho.setSelectorValue(selectors['value'])
-
                         #hm = self.pyClient.getRouteFromID('highmag', 'hole', h['hole_id'], detailed=False)#could be several hm for one hole
-
                         setOfHoles.append(ho)
                         setOfHoles.update(ho)
-                        setOfHoles.write()
+                    setOfHoles.write()
 
     def windowsPath(self, sessionId):
         session = self.pyClient.getRouteFromID('sessions', 'session', sessionId)
