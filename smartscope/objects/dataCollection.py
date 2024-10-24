@@ -43,6 +43,7 @@ class dataCollection():
     def __init__(self, pyClient):
         self.pyClient = pyClient
         self.holeUnacquired =  join(dirname(__file__), 'holeUnacquired.png')
+        self.squareUnacquired =  join(dirname(__file__), 'squareUnacquired.png')
 
     def sessionCollection(self):
         sessionList = []
@@ -210,6 +211,8 @@ class dataCollection():
                     sq.setGridId(s['grid_id'])
                     sq.setAtlasId(s['atlas_id'])
                     sq.setPngDir(os.path.join(pathGrid, 'pngs', s['name'] + '.png'))
+                    if not isfile(pathPNG):
+                        sq.setPngDir(self.squareUnacquired)
                     sq.setFileName(os.path.join(pathGrid, 'raw', s['name'] + '.mrc'))
                     setOfSquares.append(sq)
                     setOfSquares.update(sq)
