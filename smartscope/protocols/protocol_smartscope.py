@@ -133,9 +133,9 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
     def _initialize(self):
         self.acquisition = Acquisition()
-        self.microscopeList = [] #list of microscope Scipion object
-        self.detectorList = [] #list of detector Scipion object
-        self.sessionList = []#list of sessions Scipion object
+        self.microscopeDict = {}
+        self.detectorDict = {}
+        self.sessionDict = {}
         if self.Grids is None:
             self.SOG = SetOfGrids.create(outputPath=self._getPath())
         else:
@@ -164,25 +164,28 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         return self.connectionClient.sessionOpen()
 
     def metadataCollection(self):
-        self.connectionClient.metadataCollection(self.microscopeList,
-                                                 self.detectorList,
-                                                 self.sessionList,
+        self.connectionClient.metadataCollection(self.microscopeDict,
+                                                 self.detectorDict,
+                                                 self.sessionDict,
                                                  self.acquisition)
-        for session in self.sessionList:
+        for key, session in self.sessionDict.items():
             if session.getSession() == self.sessionName.get():
                 self.sessionId = session.getSessionId()
                 self.sessionDate = session.getDate()
                 self.groupName = session.getGroup()
-        MicroNames = ',  '.join([x.getName() for x in self.microscopeList])
-        DetectorNames = ',  '.join([x.getName() for x in self.detectorList])
-        SessionNames = ',  '.join([x.getSession() for x in self.sessionList])
+                microscopeName = self.microscopeDict[session.getMicroscopeId()].getName()
+                detectorName = self.detectorDict[session.getDetectorId()].getName()
+                group = session.getGroup()
+
+        self.sessionId
         # SUMMARY INFO
         summaryF = self._getExtraPath("summary.txt")
         summaryF = open(summaryF, "w")
         summaryF.write("Smartscope Screening\n\n" +
-            "\t{} Microscopes: {}\n".format(len(self.microscopeList), MicroNames) +
-            "\t{} Detectors: {}\n".format(len(self.detectorList), DetectorNames) +
-            "\t{} Sessions: {}\n".format(len(self.sessionList), SessionNames))
+            "\tMicroscope: {}\n".format(microscopeName) +
+            "\tDetectors: {}\n".format(detectorName) +
+            "\tGroup: {}\n".format(group) +
+            "\tSession: {}\n".format(self.sessionName.get()))
         summaryF.close()
 
         self.setSessionURL()

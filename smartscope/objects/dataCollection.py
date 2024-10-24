@@ -60,12 +60,18 @@ class dataCollection():
         return sessionList
 
     def sessionOpen(self):
-        grid = self.pyClient.getDetailsFromParameter('grids', status='started', sortByLast=True, dev=True)
+        grid = self.pyClient.getDetailsFromParameter('grids', status='started', sortByLast=True)
         for g in grid:
             if g['status'] == 'started':
-                return g['session_id']
+                started =  g['session_id']
+        grid = self.pyClient.getDetailsFromParameter('grids', status='complete', sortByLast=True)
+        for g in grid:
+            if g['status'] == 'complete':
+                complete =  g['session_id']
+        return started, complete
 
-    def metadataCollection(self, microscopeList, detectorList, sessionList, acquisition):
+
+    def metadataCollection(self, microscopeDict, detectorDict, sessionDict, acquisition):
         microscopes = self.pyClient.getDetailsFromParameter('microscopes')
         for m in microscopes:
             micro = Microscope()
@@ -82,11 +88,9 @@ class dataCollection():
             micro.setSerialemPORT(m['serialem_PORT'])
             micro.setWindowsPath(m['windows_path'])
             micro.setScopePath(m['scope_path'])
-
-            microscopeList.append(micro)
+            microscopeDict[m['microscope_id']] = micro
             acquisition.setVoltage(micro.getVoltage())
             acquisition.setSphericalAberration(micro.getSphericalabberation())
-
 
         detector = self.pyClient.getDetailsFromParameter('detectors')
         for d in detector:
@@ -105,7 +109,7 @@ class dataCollection():
             det.setGainRot(d['gain_rot'])
             det.setGainFlip(d['gain_flip'])
             det.setEnergyFilter(d['energy_filter'])
-            detectorList.append(det)
+            detectorDict[d['id']] = det
 
         Sessions = self.pyClient.getDetailsFromParameter('sessions')
         for s in Sessions:
@@ -118,7 +122,7 @@ class dataCollection():
             ses.setGroup(s['group'])
             ses.setMicroscopeId(s['microscope_id'])
             ses.setDetectorId(s['detector_id'])
-            sessionList.append(ses)
+            sessionDict[s['session_id']] = ses
 
     def screeningCollection(self, dataPath, sessionId, sessionName, setOfGrids, setOfAtlas,
                             setOfSquares, setOfHoles, groupName, sessionDate):
