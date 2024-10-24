@@ -248,6 +248,7 @@ class dataCollection():
                         else:
                             ho.setPngDir(pathPNG)
                         ho.setFileName(os.path.join(pathGrid, 'raw', h['name'] + '.mrc'))
+
                         #holeDetail = self.pyClient.getDetailFromItem('holes', h['hole_id'])
                         finder = h['finders'][0]
                         ho.setFinderName(finder['method_name'])
@@ -258,7 +259,11 @@ class dataCollection():
                         #hm = self.pyClient.getRouteFromID('highmag', 'hole', h['hole_id'], detailed=False)#could be several hm for one hole
                         setOfHoles.append(ho)
                         setOfHoles.update(ho)
-                        setOfHoles.write()
+                    setOfHoles.write()
+
+
+
+
 
     def windowsPath(self, sessionId):
         session = self.pyClient.getRouteFromID('sessions', 'session', sessionId)
