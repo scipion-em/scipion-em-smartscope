@@ -144,7 +144,7 @@ class dataCollection():
             gr.setMeshSize(g['meshSize'])
             gr.setMeshMaterial(g['meshMaterial'])
             gr.setParamsId(g['params_id'])
-            pathGrid = join(dataPath, groupName, '{}_{}'.format(sessionDate, str(sessionName)), gr.getName())
+            pathGrid = join(dataPath, groupName, '{}_{}'.format(sessionDate, str(sessionName)), '{}_{}'.format(gr.getPosition(), gr.getName()))
             gr.setObjId(objId)
             objId += 1
             setOfGrids.append(gr)

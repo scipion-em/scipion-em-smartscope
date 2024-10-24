@@ -135,6 +135,22 @@ class MainPyClient():
         resp_jason = resp.json()
         return resp_jason
 
+    def getURLFromGrid(self, gridID, dev=True):
+        '''
+        route: element you request for
+        id: identification of the requested element
+        detailed: True if ou want a detailed response
+
+        return: the response, json format
+        '''
+        grid = 'grids'
+        getReportUrl = 'get_report_url'
+        request = f'{self.getMainEndpoint()}{self.getApiEndPoint()}{grid}/{gridID}/{getReportUrl}'
+        if dev==True: print(f'Requested url: {request}')
+        resp = requests.get(request, headers=self.getHeaders(), verify=False)
+        return resp
+
+
     def getRouteFromName(self, route, from_name, name, detailed=False, selected=False, completed=False, dev=False):
         '''
         route: element you request for
@@ -244,7 +260,7 @@ if __name__ == "__main__":
     pyClient = MainPyClient('cf566e4846930c9097db38acdd4775001609f831',    ' http://localhost:48000/',)
     #pyClient.postParameterFromID(apiRoute='selector', route='', ID='1jQKnk6kZGeJWbDfduWIkeEPODfkPB',
     #                                  data={"low_limit": 100.0, "high_limit": 400.0})
-
+    r = pyClient.getURLFromGrid('6FRO30_3uT8U2W539noHcC4J3i6onI')
     # metadataSession = {'microscopes': None,'detectors': None, 'sessions': None}
     # for key, value in metadataSession.items():
     #     metadataSession[key] = pyClient.getDetailsFromParameter(key)

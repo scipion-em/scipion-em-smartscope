@@ -322,16 +322,10 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         SOMSS.write()#persist on sqlite
 
     def setSessionURL(self):
-        sessions = self.pyClient.getRouteFromID('sessions', '', '')
-        for s in sessions:
-            s['session_id'] == self.sessionId
-            group = s['group']#TODO it needs a number no the name or IDgrgr
-            break
         gridId = self.pyClient.getRouteFromID('grids', 'session', self.sessionId, dev=False)[0]['grid_id']
-
-        URLSmartscope = '{}smartscope/browse/?group={}&session_id={}&grid_id={}'.format(Plugin.getVar(SMARTSCOPE_LOCALHOST), group, self.sessionId, gridId)
+        URLSmartscopeGrid = self.pyClient.getURLFromGrid(gridId)
         with open(os.path.join(self._getExtraPath(),'URLsmartscopeSession.txt'), 'w') as fi:
-            fi.write(URLSmartscope)
+            fi.write(URLSmartscopeGrid)
 
     # --------------------------- VALIDATION functions -----------------------------------
     def checkSmartscopeConnection(self):
