@@ -210,9 +210,11 @@ class dataCollection():
                     sq.setArea(s['area'])
                     sq.setGridId(s['grid_id'])
                     sq.setAtlasId(s['atlas_id'])
-                    sq.setPngDir(os.path.join(pathGrid, 'pngs', s['name'] + '.png'))
+                    pathPNG = os.path.join(pathGrid, 'pngs', s['name'] + '.png')
                     if not isfile(pathPNG):
                         sq.setPngDir(self.squareUnacquired)
+                    else:
+                        sq.setPngDir(pathPNG)
                     sq.setFileName(os.path.join(pathGrid, 'raw', s['name'] + '.mrc'))
                     setOfSquares.append(sq)
                     setOfSquares.update(sq)
@@ -241,9 +243,10 @@ class dataCollection():
                         ho.setGridId(h['grid_id'])
                         ho.setSquareId(h['square_id'])
                         pathPNG = os.path.join(pathGrid, 'pngs', h['name'] + '.png')
-                        ho.setPngDir(pathPNG)
                         if not isfile(pathPNG):
                             ho.setPngDir(self.holeUnacquired)
+                        else:
+                            ho.setPngDir(pathPNG)
                         ho.setFileName(os.path.join(pathGrid, 'raw', h['name'] + '.mrc'))
                         #holeDetail = self.pyClient.getDetailFromItem('holes', h['hole_id'])
                         finder = h['finders'][0]
