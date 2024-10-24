@@ -148,8 +148,23 @@ class MainPyClient():
         request = f'{self.getMainEndpoint()}{self.getApiEndPoint()}{grid}/{gridID}/{getReportUrl}'
         if dev==True: print(f'Requested url: {request}')
         resp = requests.get(request, headers=self.getHeaders(), verify=False)
-        return resp
+        return resp.json()
 
+    def getRangeOfIntensityGrid(self, gridID, dev=True):
+        '''
+        route: element you request for
+        id: identification of the requested element
+        detailed: True if ou want a detailed response
+
+        return: the response, json format
+        '''
+        apiRoute = 'selector_viewer/api'
+        selector = 'Graylevel%20selector'
+        getLimits = 'getlimits'
+        request = f'{self.getMainEndpoint()}{apiRoute}/{gridID}/{selector}/{getLimits}'
+        if dev==True: print(f'Requested url: {request}')
+        resp = requests.get(request, headers=self.getHeaders(), verify=False)
+        return resp.json()
 
     def getRouteFromName(self, route, from_name, name, detailed=False, selected=False, completed=False, dev=False):
         '''
@@ -258,9 +273,9 @@ def correctEndpointFormat(url):
 
 if __name__ == "__main__":
     pyClient = MainPyClient('cf566e4846930c9097db38acdd4775001609f831',    ' http://localhost:48000/',)
-    #pyClient.postParameterFromID(apiRoute='selector', route='', ID='1jQKnk6kZGeJWbDfduWIkeEPODfkPB',
-    #                                  data={"low_limit": 100.0, "high_limit": 400.0})
-    r = pyClient.getURLFromGrid('6FRO30_3uT8U2W539noHcC4J3i6onI')
+    pyClient.postRangeIntensity(route='', ID='6FRO30_3uT8U2W539noHcC4J3i6onI', data={"low_limit": 100.0, "high_limit": 400.0}, devel=True)
+    #url = pyClient.getURLFromGrid('6FRO30_3uT8U2W539noHcC4J3i6onI')
+    limits = pyClient.getRangeOfIntensityGrid('6FRO30_3uT8U2W539noHcC4J3i6onI')
     # metadataSession = {'microscopes': None,'detectors': None, 'sessions': None}
     # for key, value in metadataSession.items():
     #     metadataSession[key] = pyClient.getDetailsFromParameter(key)

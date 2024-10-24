@@ -32,7 +32,7 @@ Divided by metadata collection (user, group, hooletype, meshsize,
  meshmaterial, microscope, detectors,  sessions) and screening collection
  (grid, atlas, squares, holes, highmag)
 '''
-from os.path import join
+from os.path import join, dirname
 from os.path import isfile
 from ..objects.data import *
 from ..pyclient.basic import *
@@ -42,6 +42,7 @@ import time
 class dataCollection():
     def __init__(self, pyClient):
         self.pyClient = pyClient
+        self.holeUnacquired =  join(dirname(__file__), 'holeUnacquired.png')
 
     def sessionCollection(self):
         sessionList = []
@@ -69,7 +70,6 @@ class dataCollection():
             if g['status'] == 'complete':
                 complete =  g['session_id']
         return started, complete
-
 
     def metadataCollection(self, microscopeDict, detectorDict, sessionDict, acquisition):
         microscopes = self.pyClient.getDetailsFromParameter('microscopes')
@@ -130,7 +130,18 @@ class dataCollection():
         grid = self.pyClient.getRouteFromID('grids', 'session', sessionId, dev=False)
         if grid != []:print('Number grid in the sesison: {}'.format(len(grid)))
         objId = len(setOfGrids)
-
+        # DEBUGALBERTO START
+        import os
+        fname = "/home/agarcia/Documents/attachActionDebug.txt"
+        if os.path.exists(fname):
+            os.remove(fname)
+        fjj = open(fname, "a+")
+        fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+        fjj.close()
+        print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+        import time
+        time.sleep(10)
+        # DEBUGALBERTO END
         for g in grid:
             gr = Grid()
             gr.setGridId(g['grid_id'])
@@ -226,7 +237,10 @@ class dataCollection():
                         ho.setBisType(h['bis_type'])
                         ho.setGridId(h['grid_id'])
                         ho.setSquareId(h['square_id'])
-                        ho.setPngDir(os.path.join(pathGrid, 'pngs', h['name'] + '.png'))
+                        pathPNG = os.path.join(pathGrid, 'pngs', h['name'] + '.png')
+                        ho.setPngDir(pathPNG)
+                        if not isfile(pathPNG):
+                            ho.setPngDir(self.holeUnacquired)
                         ho.setFileName(os.path.join(pathGrid, 'raw', h['name'] + '.mrc'))
                         #holeDetail = self.pyClient.getDetailFromItem('holes', h['hole_id'])
                         finder = h['finders'][0]

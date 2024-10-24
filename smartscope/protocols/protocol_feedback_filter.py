@@ -323,21 +323,34 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
     # --------------------------- POSTING functions -----------------------------------
     def postingBack2Smartscope(self):
         for grid in self.grids:
+
+            gridID = grid.getGridId()
+            currentMinRange, currentMaxRange = self.pyClient.getRangeOfIntensityGrid(gridID)
+            self.info('ranges before feedback: {} - {}'.format(currentMinRange, currentMaxRange))
             minI = self.listGridsStatistics[grid.getName()]['minIntensityL']
             maxI = self.listGridsStatistics[grid.getName()]['maxIntensityL']
-            self.pyClient.postRangeIntensity(route='', ID=grid.getGridId(), data={"low_limit": minI, "high_limit": maxI})
-            #collect current range of intensity /selector_viewer/api/<grid_id>/<selector>/getlimits/ TODO
-            # SUMMARY INFO
-            summaryF = self._getExtraPath("summary.txt")
-            summaryF = open(summaryF, "w")
-            summaryF.write('\nGRID: {}\n'.format(grid.getName()))
-            summaryF.write('Median value: {}\nStandard deviation: {}\nIntensity range with holes to acquire: {} - {}'.format(
-                round(self.listGridsStatistics[grid.getName()]['mu'],1),
-                round(self.listGridsStatistics[grid.getName()]['sigma'],1),
-                self.listGridsStatistics[grid.getName()]['minIntensityL'],
-                self.listGridsStatistics[grid.getName()]['maxIntensityL']))
-            summaryF.close()
-
+            self.pyClient.postRangeIntensity(route='', ID=gridID, data={"low_limit": minI, "high_limit": maxI})
+            time.sleep(10) #wait until Smartscope manage the posting
+            currentMinRange, currentMaxRange = self.pyClient.getRangeOfIntensityGrid(gridID)
+            if currentMinRange == minI and currentMaxRange == maxI:
+                # SUMMARY INFO
+                summaryF = self._getExtraPath("summary.txt")
+                summaryF = open(summaryF, "w")
+                summaryF.write('\nGRID: {}\n'.format(grid.getName()))
+                summaryF.write('Median value: {}\nStandard deviation: {}\nIntensity range with holes to acquire: {} - {}'.format(
+                    round(self.listGridsStatistics[grid.getName()]['mu'],1),
+                    round(self.listGridsStatistics[grid.getName()]['sigma'],1),
+                    self.listGridsStatistics[grid.getName()]['minIntensityL'],
+                    self.listGridsStatistics[grid.getName()]['maxIntensityL']))
+                summaryF.close()
+            else:
+                self.error('could not configure the range of intensities in Smartscope')
+                summaryF = self._getExtraPath("summary.txt")
+                summaryF = open(summaryF, "w")
+                summaryF.write('\nGRID: {}\n'.format(grid.getName()))
+                summaryF.write('Could not configure in Smartscope the range of intensities calculated {}-{} '.format(
+                                     self.listGridsStatistics[grid.getName()]['minIntensityL'],
+                                            self.listGridsStatistics[grid.getName()]['maxIntensityL']))
 
     # --------------------------- CREATE OUTPUTS functions -----------------------------------
     def createOutputs(self):
