@@ -261,10 +261,6 @@ class dataCollection():
                         setOfHoles.update(ho)
                     setOfHoles.write()
 
-
-
-
-
     def windowsPath(self, sessionId):
         session = self.pyClient.getRouteFromID('sessions', 'session', sessionId)
         microscopeId = session[0]['microscope_id']
