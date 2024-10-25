@@ -230,7 +230,15 @@ class dataCollection():
                         ho.setBisType(h['bis_type'])
                         ho.setGridId(h['grid_id'])
                         ho.setSquareId(h['square_id'])
-                        pathPNG = os.path.join(pathGrid, 'pngs', h['name'] + '.png')
+                        if h['bis_type'] == 'center':
+                            pathPNG = os.path.join(pathGrid, 'pngs', h['name'] + '.png')
+                        elif h['bis_group'] != None:
+                            bisGroup = h['bis_group'].split('_')[1]
+                            nameL = h['name'].rsplit(str(h['number']), 1)
+                            name = bisGroup.join(nameL)
+                            pathPNG = os.path.join(pathGrid, 'pngs', name + '.png')
+                        else:#hole no grouped by bis
+                            pathPNG = ''
                         if not isfile(pathPNG):
                             ho.setPngDir(self.holeUnacquired)
                         else:
