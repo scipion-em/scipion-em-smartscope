@@ -159,11 +159,11 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
     def _defineParams(self, form):
         form.addSection(label='Visualization')
         group = form.addGroup('Holes')
-        group.addParam('visualizeFilteredOutHoles', LabelParam,
-                       label="Visualize filtered out holes",
+        group.addParam('visualizePassFilteredHoles', LabelParam,
+                       label="Visualize pass filter holes",
                        help="")
-        group.addParam('visualizeFilteredHoles', LabelParam,
-                       label="Visualize filtered holes",
+        group.addParam('visualizeRejectedHoles', LabelParam,
+                       label="Visualize rejected holes by filters",
                        help="")
         group2 = form.addGroup('Statistics')
         group2.addParam('visualizeHistograms', LabelParam,
@@ -173,32 +173,32 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
 
     def _getVisualizeDict(self):
         return {
-                 'visualizeFilteredOutHoles': self._visualizeFilteredOut,
-                 'visualizeFilteredHoles': self._visualizeFilteredHoles,
+                 'visualizePassFilteredHoles': self._visualizePassFilteredHoles,
+                 'visualizeRejectedHoles': self._visualizeRejectedHoles,
                  'visualizeHistograms': self._visualizeHistograms,
                 }
 
-    def _visualizeFilteredHoles(self, e=None):
+    def _visualizePassFilteredHoles(self, e=None):
         views = []
-        if hasattr(self.protocol, 'SetOfHolesFiltered'):
+        if hasattr(self.protocol, 'SetOfHolesPassFilter'):
             labels = (
                 '_pngDir _hole_id _grid_id _status _selected _completion_time _shape_x _shape_y _sampligRate _number _area')
             views.append(ObjectView(self._project,
-                                    self.protocol.SetOfHolesFiltered.strId(),
-                                    self.protocol.SetOfHolesFiltered.getFileName(),
+                                    self.protocol.SetOfHolesPassFilter.strId(),
+                                    self.protocol.SetOfHolesPassFilter.getFileName(),
                                     viewParams={VISIBLE: labels,
                                                 RENDER: '_pngDir',
                                                 SORT_BY: labels}))
             return views
 
-    def _visualizeFilteredOut(self, e=None):
+    def _visualizeRejectedHoles(self, e=None):
         views = []
-        if hasattr(self.protocol, 'SetOfHolesFilteredOut'):
+        if hasattr(self.protocol, 'SetOfHolesRejected'):
             labels = (
                 '_pngDir _hole_id _grid_id _status _selected _completion_time _shape_x _shape_y _sampligRate _number _area')
             views.append(ObjectView(self._project,
-                                          self.protocol.SetOfHolesFilteredOut.strId(),
-                                          self.protocol.SetOfHolesFilteredOut.getFileName(),
+                                          self.protocol.SetOfHolesRejected.strId(),
+                                          self.protocol.SetOfHolesRejected.getFileName(),
                                           viewParams={VISIBLE: labels,
                                                       RENDER: '_pngDir',
                                                       SORT_BY: labels}))
