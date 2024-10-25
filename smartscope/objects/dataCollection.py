@@ -211,7 +211,7 @@ class dataCollection():
 
                     if holes != []:
                         #print('square name: {}'.format(sq.getName()))
-                        print('\t\t\tNumber holes in the square{}: {}'.format(
+                        print('\t\t\tNumber holes in the square {}: {}'.format(
                             sq.getName(), len(holes)))
                     for h in holes:
                         ho = Hole()

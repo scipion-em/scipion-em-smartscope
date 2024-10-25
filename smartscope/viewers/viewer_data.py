@@ -206,11 +206,6 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
 
     def _visualizeHistograms(self, e=None):
         import os
-        def muSigma(intensityRange, coefHoles):
-            mu = np.sum(intensityRange * coefHoles) / np.sum(coefHoles)
-            sigma = np.sqrt(np.sum(coefHoles * (intensityRange - mu) ** 2) / np.sum(coefHoles))
-            return mu, sigma
-
         with open(os.path.join(self.protocol._getExtraPath(),'gridsName.txt'), 'r') as fi:
             gridsList = [line.strip() for line in fi]
         for grid in gridsList:
@@ -228,11 +223,11 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
                     dictFiles['passHist'] = f
                 elif f.find('{}-rejectedHist'.format(grid)) != -1:
                     dictFiles['rejectedHist'] = f
-            listRanges = {'rangeI': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['rangeI']), dtype=np.float),
-            'totalHist': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['totalHist']), dtype=np.float),
-            'withMicsHist': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['withMicsHist']), dtype=np.float),
-            'passHist': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['passHist']), dtype=np.float),
-            'rejectedHist': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['rejectedHist']), dtype=np.float)}
+            listRanges = {'rangeI': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['rangeI'])),
+            'totalHist': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['totalHist'])),
+            'withMicsHist': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['withMicsHist'])),
+            'passHist': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['passHist'])),
+            'rejectedHist': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['rejectedHist']))}
 
 
             #PLOT 1#####################

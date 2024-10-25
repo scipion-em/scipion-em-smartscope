@@ -165,10 +165,10 @@ class MainPyClient():
         if devel==True: print(f'Requested url: {request}')
         resp = requests.get(request, headers=self.getHeaders(), verify=False)
         if resp.status_code == 200 and devel:
-            print('Element status updated')
+            return True, resp.json()
         elif resp.status_code != 200:
             print('Error code: {}'.format(resp.status_code))
-        return resp.json()
+            return False, '', ''
 
     def getRouteFromName(self, route, from_name, name, detailed=False, selected=False, completed=False, dev=False):
         '''
@@ -277,7 +277,7 @@ def correctEndpointFormat(url):
 
 if __name__ == "__main__":
     pyClient = MainPyClient('cf566e4846930c9097db38acdd4775001609f831',    ' http://localhost:48000/',)
-    #pyClient.postRangeIntensity(route='', ID='6FRO30_3uT8U2W539noHcC4J3i6onI', data={"low_limit": 100.0, "high_limit": 400.0}, devel=True)
+    pyClient.postRangeIntensity(route='', ID='6FRO30_3uT8U2W539noHcC4J3i6onI', data={"low_limit": 100.0, "high_limit": 400.0}, devel=True)
     #url = pyClient.getURLFromGrid('6FRO30_3uT8U2W539noHcC4J3i6onI')
     limits = pyClient.getRangeOfIntensityGrid('6FRO30_3uT8U2W539noHcC4J3i6onI', devel=True)
     # metadataSession = {'microscopes': None,'detectors': None, 'sessions': None}

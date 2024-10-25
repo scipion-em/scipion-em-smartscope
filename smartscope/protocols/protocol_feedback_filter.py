@@ -205,6 +205,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         for grid in self.grids:
             self.listGridsStatistics[grid.getName()] = {}
             self.info('\n################\nGRID: {}\n################\n'.format(grid.getName()))
+            self.info('Calcullating statistics...')
             gridId = grid.getGridId()
             self.dictArraysByGrid[gridId] = {'totalArrayHoles':  np.array(self.totalHolesByGrid_value[gridId]),
                                              'withMicsArrayHoles': np.array(self.withMicsHolesByGrid_value[gridId]),
@@ -292,6 +293,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 
     def prepareViewer(self, gridId, gridName, nBins, minI, maxI):
         '''Creating files with arrays to let viewer plot it'''
+        self.info('Preparing viewer ...')
 
         arrayHoles = np.array(self.totalHolesByGrid_value[gridId])
         hist, rangeIntensity = np.histogram(arrayHoles, bins=nBins, range=(minI, maxI))
@@ -323,26 +325,39 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
     # --------------------------- POSTING functions -----------------------------------
     def postingBack2Smartscope(self):
         for grid in self.grids:
-
+            self.info('Posting Back to Smartscope ...')
+            # DEBUGALBERTO START
+            import os
+            fname = "/home/agarcia/Documents/attachActionDebug.txt"
+            if os.path.exists(fname):
+                os.remove(fname)
+            fjj = open(fname, "a+")
+            fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+            fjj.close()
+            print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+            import time
+            time.sleep(10)
+            # DEBUGALBERTO END
             gridID = grid.getGridId()
-            currentMinRange, currentMaxRange = self.pyClient.getRangeOfIntensityGrid(gridID)
-            self.info('ranges before feedback: {} - {}'.format(currentMinRange, currentMaxRange))
+            status, currentMinRange, currentMaxRange = self.pyClient.getRangeOfIntensityGrid(gridID)
+            if status:
+                self.info('ranges before feedback: {} - {}'.format(currentMinRange, currentMaxRange))
             minI = self.listGridsStatistics[grid.getName()]['minIntensityL']
             maxI = self.listGridsStatistics[grid.getName()]['maxIntensityL']
             self.pyClient.postRangeIntensity(route='', ID=gridID, data={"low_limit": minI, "high_limit": maxI})
             time.sleep(10) #wait until Smartscope manage the posting
-            currentMinRange, currentMaxRange = self.pyClient.getRangeOfIntensityGrid(gridID)
-            if currentMinRange == minI and currentMaxRange == maxI:
-                # SUMMARY INFO
-                summaryF = self._getExtraPath("summary.txt")
-                summaryF = open(summaryF, "w")
-                summaryF.write('\nGRID: {}\n'.format(grid.getName()))
-                summaryF.write('Median value: {}\nStandard deviation: {}\nIntensity range with holes to acquire: {} - {}'.format(
-                    round(self.listGridsStatistics[grid.getName()]['mu'],1),
-                    round(self.listGridsStatistics[grid.getName()]['sigma'],1),
-                    self.listGridsStatistics[grid.getName()]['minIntensityL'],
-                    self.listGridsStatistics[grid.getName()]['maxIntensityL']))
-                summaryF.close()
+            status, currentMinRange, currentMaxRange = self.pyClient.getRangeOfIntensityGrid(gridID)
+            if status and currentMinRange == minI and currentMaxRange == maxI:
+                    # SUMMARY INFO
+                    summaryF = self._getExtraPath("summary.txt")
+                    summaryF = open(summaryF, "w")
+                    summaryF.write('\nGRID: {}\n'.format(grid.getName()))
+                    summaryF.write('Median value: {}\nStandard deviation: {}\nIntensity range with holes to acquire: {} - {}'.format(
+                        round(self.listGridsStatistics[grid.getName()]['mu'],1),
+                        round(self.listGridsStatistics[grid.getName()]['sigma'],1),
+                        self.listGridsStatistics[grid.getName()]['minIntensityL'],
+                        self.listGridsStatistics[grid.getName()]['maxIntensityL']))
+                    summaryF.close()
             else:
                 self.error('could not configure the range of intensities in Smartscope')
                 summaryF = self._getExtraPath("summary.txt")
@@ -354,6 +369,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 
     # --------------------------- CREATE OUTPUTS functions -----------------------------------
     def createOutputs(self):
+        self.info('Generating outputs ...')
         SOHR = SetOfHoles.create(outputPath=self._getPath(), prefix='Rejected')#baseName
         SOHPF = SetOfHoles.create(outputPath=self._getPath(), prefix='Pass')
         self.outputsToDefine = {'SetOfHolesPassFilter': SOHPF, 'SetOfHolesRejected': SOHR}
