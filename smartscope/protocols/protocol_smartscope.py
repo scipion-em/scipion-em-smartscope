@@ -25,6 +25,7 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
+from http.cookiejar import debug
 
 from pyworkflow.utils import Message
 from pyworkflow import BETA, UPDATED, NEW, PROD
@@ -168,8 +169,11 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                                                  self.detectorDict,
                                                  self.sessionDict,
                                                  self.acquisition)
+        microscopeName= ''
+        detectorName = ''
+        group = ''
         for key, session in self.sessionDict.items():
-            if session.getSession() == self.sessionName.get():
+            if session.getSession() == self.sessionName.get().split(' ')[0]:
                 self.sessionId = session.getSessionId()
                 self.sessionDate = session.getDate()
                 self.groupName = session.getGroup()
@@ -177,7 +181,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                 detectorName = self.detectorDict[session.getDetectorId()].getName()
                 group = session.getGroup()
 
-        self.sessionId
         # SUMMARY INFO
         summaryF = self._getExtraPath("summary.txt")
         summaryF = open(summaryF, "w")
@@ -185,7 +188,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             "\tMicroscope: {}\n".format(microscopeName) +
             "\tDetectors: {}\n".format(detectorName) +
             "\tGroup: {}\n".format(group) +
-            "\tSession: {}\n".format(self.sessionName.get()))
+            "\tSession: {}\n".format( self.sessionName.get().split(' ')[0]))
         summaryF.close()
 
         self.setSessionURL()
