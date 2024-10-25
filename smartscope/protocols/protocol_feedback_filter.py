@@ -112,7 +112,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         if hasattr(updatedProt, 'Holes'):
             self.holes = updatedProt.Holes
         if hasattr(updatedProt, 'MoviesSS'):
-            self.movies = updatedProt.MoveiesSS
+            self.movies = updatedProt.MoviesSS
 
     def getInputProtocol(self):
         prot = self.inputProtocol.get()
