@@ -29,7 +29,8 @@ class smartscopeWizard(Wizard):
             sList.append(['{}-{}-{}\t{}{}'.format(
                                             date.strftime("%Y"),
                                             date.strftime("%M"),
-                                            date.strftime("%d"),s.getSession(),
+                                            date.strftime("%d"),
+                                            s.getSession(),
                                             live), s.getSession()])
             live = ''
 
@@ -41,7 +42,9 @@ class smartscopeWizard(Wizard):
         "Select the session (sorted by date)")
         try:
             OutStr = dlg.values[0].get()
-            OutStr = OutStr.replace('  *last session started*', '')
+            OutStr = OutStr.replace('  *last started*', '')
+            OutStr = OutStr.replace('  *last complete*', '')
+
             name = OutStr[OutStr.find('\t')+1:]
             for s in sList:
                 if name in s[0]:

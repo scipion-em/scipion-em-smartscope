@@ -173,7 +173,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         detectorName = ''
         group = ''
         for key, session in self.sessionDict.items():
-            if session.getSession() == self.sessionName.get().split(' ')[0]:
+            if session.getSession() == self.sessionName.get():
                 self.sessionId = session.getSessionId()
                 self.sessionDate = session.getDate()
                 self.groupName = session.getGroup()
@@ -188,7 +188,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             "\tMicroscope: {}\n".format(microscopeName) +
             "\tDetectors: {}\n".format(detectorName) +
             "\tGroup: {}\n".format(group) +
-            "\tSession: {}\n".format( self.sessionName.get().split(' ')[0]))
+            "\tSession: {}\n".format( self.sessionName.get()))
         summaryF.close()
 
         self.setSessionURL()
