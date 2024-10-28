@@ -207,7 +207,7 @@
         "inputProtocol": "60.",
         "triggerMicrograph": 100,
         "emptyBinsPercent": 1,
-        "refreshTime": 240,
+        "refreshTime": 600,
         "hostName": "localhost",
         "numberOfThreads": 3,
         "numberOfMpi": 1,
