@@ -271,7 +271,7 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
             ratioHist = np.divide(listRanges['passHist'], listRanges['withMicsHist'], out=np.zeros_like(listRanges['withMicsHist'], dtype=float),
                                   where=(listRanges['passHist'] != 0))
             barHist = ax2.bar(x_positions, ratioHist, color='indigo', edgecolor='indigo', linewidth=2, width=bin_width * 0.95,
-                    label='Holes with micrographs Mics / Holess pass filters', alpha=0.2)
+                    label='Holes with micrographs / Holess pass filters', alpha=0.2)
             ax2.set_ylabel('Holes with micrographs / Holes with micrographs pass filters')
             ax2.legend(loc='upper right')
             ax2.set_ylim(0, 1)
