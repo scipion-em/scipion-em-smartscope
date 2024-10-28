@@ -91,8 +91,8 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                            'The wizard provide a list of all sessions sorted by date.')
 
         form.addSection('Streaming')
-        form.addParam('refreshTime', params.IntParam, default=120,
-                      label="Time to refresh Smartscope data (secs)")
+        form.addParam('refreshTime', params.IntParam, default=420,
+                      label="Time to refresh Smartscope data (secs)",help='Time to refresh Smartscope data, by default 420s (7mins)')
         form.addParam('TotalTime', params.IntParam, default=86400,
                       label="Time to finish Smartscope (secs)",
                       help='Time from the begining ot the protocol to '
