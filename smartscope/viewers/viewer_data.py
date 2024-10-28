@@ -238,27 +238,56 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
             fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10), sharex=True)
             fig.canvas.manager.set_window_title('Histograms holes smartscope')
             ax1.bar(x_positions, listRanges['totalHist'], color='black', edgecolor='black', width=bin_width * 0.95,linewidth=2, label='Total holes', alpha=0.2)
-            ax1.bar(x_positions, listRanges['withMicsHist'], color='blue', edgecolor='blue', width=bin_width * 0.95,linewidth=2,  label='Holes with mics', alpha=0.2)
-            ax1.bar(x_positions, listRanges['passHist'], color='green', edgecolor='green', width=bin_width * 0.95, linewidth=2, label='Holes pass filters', alpha=0.2)
-            ax1.set_xlabel('Intensity Range')
+            bars_with_mics = ax1.bar(x_positions, listRanges['withMicsHist'], color='blue', edgecolor='blue', width=bin_width * 0.95,linewidth=2,  label='Holes with mics', alpha=0.2)
+            bars_pass = ax1.bar(x_positions, listRanges['passHist'], color='green', edgecolor='green', width=bin_width * 0.95, linewidth=2, label='Holes pass filters', alpha=0.2)
             ax1.set_ylabel('Number of Holes')
             ax1.set_title('Histogram holes behave')
             ax1.legend(loc='upper right')
             plt.xticks(np.round(bin_edges).astype(int) , rotation=45, ha='right')  # Rotate labels for better readability
             ax1.set_xticks(np.round(bin_edges).astype(int) )  # Apply to ax1
             ax1.set_xticklabels([f'{edge:.2f}' for edge in bin_edges], rotation=45, ha='right')
+            # Etiquetas de texto para los valores de cada barra en ax1
+            for bar in  bars_with_mics:
+                height = bar.get_height()  # Altura de la barra (valor)
+                if height > 0:  # Mostrar solo si el valor es positivo
+                    ax1.text(
+                        bar.get_x() + bar.get_width() / 2,  # Posición x del texto
+                        height,  # Posición y del texto (encima de la barra)
+                        f'{height:.0f}',  # Texto que muestra el valor, con dos decimales
+                        ha='center', va='bottom', fontsize=8, color='blue'
+                    )
+            for bar in bars_pass:
+                height = bar.get_height()  # Altura de la barra (valor)
+                if height > 0:  # Mostrar solo si el valor es positivo
+                    ax1.text(
+                        bar.get_x() + bar.get_width() / 2,  # Posición x del texto
+                        height,  # Posición y del texto (encima de la barra)
+                        f'{height:.0f}',  # Texto que muestra el valor, con dos decimales
+                        ha='center', va='bottom', fontsize=8, color='green'
+                    )
+
 
             #PLOT 2#####################
             ratioHist = np.divide(listRanges['passHist'], listRanges['withMicsHist'], out=np.zeros_like(listRanges['withMicsHist'], dtype=float),
                                   where=(listRanges['passHist'] != 0))
-            ax2.bar(x_positions, ratioHist, color='orange', edgecolor='orange', linewidth=2, width=bin_width * 0.95,
+            barHist = ax2.bar(x_positions, ratioHist, color='indigo', edgecolor='indigo', linewidth=2, width=bin_width * 0.95,
                     label='Holes with micrographs Mics / Holess pass filters', alpha=0.2)
             ax2.set_ylabel('Holes with micrographs / Holes with micrographs pass filters')
             ax2.legend(loc='upper right')
-            ax2.set_xticks(np.round(bin_edges).astype(int))  # Apply to ax2
-            ax2.set_xticklabels([f'{edge:.2f}' for edge in np.round(bin_edges).astype(int)], rotation=45, ha='right')
+            ax2.set_ylim(0, 1)
+            ax2.set_xticks(np.round(bin_edges).astype(int))
+            ax2.set_xticklabels([str(int(edge)) for edge in bin_edges], rotation=0, ha='center')
             plt.xlabel('Intensity Range')
 
+            for bar in barHist:
+                height = bar.get_height()  # Altura de la barra (valor)
+                if height > 0:  # Mostrar solo si el valor es positivo
+                    ax2.text(
+                        bar.get_x() + bar.get_width() / 2,  # Posición x del texto
+                        height,  # Posición y del texto (encima de la barra)
+                        f'{(height * 100):.0f}%',  # Texto que muestra el valor, con dos decimales
+                        ha='center', va='bottom', fontsize=8, color='indigo'
+                    )
 
             plt.tight_layout()
 

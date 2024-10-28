@@ -237,14 +237,11 @@ class dataCollection():
                             nameL = h['name'].rsplit(str(h['number']), 1)
                             name = bisGroup.join(nameL)
                             pathPNG = os.path.join(pathGrid, 'pngs', name + '.png')
-                        else:#hole no grouped by bis
-                            pathPNG = ''
-                        if not isfile(pathPNG):
-                            ho.setPngDir(self.holeUnacquired)
-                        else:
+                        if isfile(pathPNG):
                             ho.setPngDir(pathPNG)
+                        else:
+                            ho.setPngDir(self.holeUnacquired)
                         ho.setFileName(os.path.join(pathGrid, 'raw', h['name'] + '.mrc'))
-
                         #holeDetail = self.pyClient.getDetailFromItem('holes', h['hole_id'])
                         finder = h['finders'][0]
                         ho.setFinderName(finder['method_name'])

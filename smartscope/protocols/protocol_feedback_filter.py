@@ -326,18 +326,6 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
     def postingBack2Smartscope(self):
         for grid in self.grids:
             self.info('Posting Back to Smartscope ...')
-            # DEBUGALBERTO START
-            import os
-            fname = "/home/agarcia/Documents/attachActionDebug.txt"
-            if os.path.exists(fname):
-                os.remove(fname)
-            fjj = open(fname, "a+")
-            fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
-            fjj.close()
-            print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
-            import time
-            time.sleep(10)
-            # DEBUGALBERTO END
             gridID = grid.getGridId()
             status, currentMinRange, currentMaxRange = self.pyClient.getRangeOfIntensityGrid(gridID)
             if status:
@@ -376,11 +364,12 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         self._defineOutputs(**self.outputsToDefine)
         for grid in self.grids:
             holesRejected = self.rejectedHolesByGrid[grid.getGridId()]
-            holesPAss = self.passHolesByGrid[grid.getGridId()]
+            holesPass = self.passHolesByGrid[grid.getGridId()]
+            for h in holesPass:
+                self.createOutputStepPassFilter(SOHPF, self.dictPassHoles[h])
             for h in holesRejected:
                 self.createOutputStepRejected(SOHR, self.dictRejectHoles[h])
-            for h in holesPAss:
-                self.createOutputStepPassFilter(SOHPF, self.dictPassHoles[h])
+
 			    
     def createOutputStepRejected(self, SOHR, hole):
         SOHR.copyInfo(self.holes)
