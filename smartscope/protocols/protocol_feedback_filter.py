@@ -163,12 +163,14 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             self.dictHoles[hole.getHoleId()] = hole.clone()
         for m in self.movies:
             self.dictMovies[m.getMicName()] = m.clone()
-            self.dictHolesWithMic[m.getHoleId()] = self.dictHoles[m.getHoleId()].clone()
+            self.dictHolesWithMic[m.getHoleId()] = self.dictHoles[m.getHoleId()].clone() #Multishot: overwrite same information
         for mic in self.fMics:
             H_ID = self.dictMovies[mic.getMicName()].getHoleId()
-            self.dictPassHoles[H_ID] = self.dictHoles[H_ID].clone()
-        self.dictRejectHoles = {key: value.clone() for key, value in self.dictHolesWithMic.items() if key not in self.dictPassHoles}
-
+            if H_ID in self.dictPassHoles:
+                self.dictPassHoles[H_ID]['moviesPass'] = self.dictPassHoles[H_ID]['moviesPass'] + 1
+            else:
+                self.dictPassHoles[H_ID] = {'Hole': self.dictHoles[H_ID].clone(), 'moviesPass': 1}
+        self.dictRejectHoles = {key: value.clone() for key, value in self.dictHolesWithMic.items() if not key in self.dictPassHoles.keys()}
 
     def assignGridHoles(self):
         '''This function create list of holes based on the behaves of a grids'''
@@ -192,9 +194,9 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             self.withMicsHolesByGrid[grid_id].append(h.getHoleId())
 
         for h in self.dictPassHoles.values():
-            grid_id = h.getGridId()
-            self.passHolesByGrid_value[grid_id].append(h.getSelectorValue())
-            self.passHolesByGrid[grid_id].append(h.getHoleId())
+            grid_id = h['Hole'].getGridId()
+            self.passHolesByGrid_value[grid_id].append(h['Hole'].getSelectorValue())
+            self.passHolesByGrid[grid_id].append(h['Hole'].getHoleId())
 
         for grid_id, holes in self.withMicsHolesByGrid.items():
             holesPass = self.passHolesByGrid[grid_id]
@@ -372,7 +374,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             holesRejected = self.rejectedHolesByGrid[grid.getGridId()]
             holesPass = self.passHolesByGrid[grid.getGridId()]
             for h in holesPass:
-                self.createOutputStepPassFilter(SOHPF, self.dictPassHoles[h])
+                self.createOutputStepPassFilter(SOHPF, self.dictPassHoles[h]['Hole'])
             for h in holesRejected:
                 self.createOutputStepRejected(SOHR, self.dictRejectHoles[h])
 
