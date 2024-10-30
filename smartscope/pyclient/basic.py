@@ -234,12 +234,12 @@ class MainPyClient():
             except Exception:
                 pass
 
-    def postRangeIntensity(self, route, ID, data='', devel=False):
+    def postRangeIntensity(self, ID, data='', devel=False):
         #https://linuxhint.com/python-requests-put-method/
         #https://stackoverflow.com/questions/31089221/what-is-the-difference-between-put-post-and-patch
         apiRoute = 'selector_viewer/api'
         grayScaleRoute = 'Graylevel%20selector/save/'
-        url = f'{self.getMainEndpoint()}{apiRoute}{route}/{ID}/{grayScaleRoute}'
+        url = f'{self.getMainEndpoint()}{apiRoute}/{ID}/{grayScaleRoute}'
         if devel:
             print(url)
         r = requests.patch(url, verify=False, headers=self.getHeaders(), data=data)
@@ -276,10 +276,17 @@ def correctEndpointFormat(url):
 
 
 if __name__ == "__main__":
+    #grid j = 1jCzmOdx1ZaxaBbMhqut7B9mcTeKQr
+    #grid testMario1 = 6FRO30_3uT8U2W539noHcC4J3i6onI
+
     pyClient = MainPyClient('cf566e4846930c9097db38acdd4775001609f831',    ' http://localhost:48000/',)
-    pyClient.postRangeIntensity(route='', ID='6FRO30_3uT8U2W539noHcC4J3i6onI', data={"low_limit": 100.0, "high_limit": 400.0}, devel=True)
+    #pyClient.postRangeIntensity(route='', ID='6FRO30_3uT8U2W539noHcC4J3i6onI', data={"low_limit": 100.0, "high_limit": 400.0}, devel=True)
     #url = pyClient.getURLFromGrid('6FRO30_3uT8U2W539noHcC4J3i6onI')
-    limits = pyClient.getRangeOfIntensityGrid('6FRO30_3uT8U2W539noHcC4J3i6onI', devel=True)
+    limits = pyClient.getRangeOfIntensityGrid('1jCzmOdx1ZaxaBbMhqut7B9mcTeKQr', devel=True)
+    print(limits)
+    pyClient.postRangeIntensity(ID='1jCzmOdx1ZaxaBbMhqut7B9mcTeKQr', data={"low_limit": 100.0, "high_limit": 400.0}, devel=True)
+    limits = pyClient.getRangeOfIntensityGrid('1jCzmOdx1ZaxaBbMhqut7B9mcTeKQr', devel=True)
+    print(limits)
     # metadataSession = {'microscopes': None,'detectors': None, 'sessions': None}
     # for key, value in metadataSession.items():
     #     metadataSession[key] = pyClient.getDetailsFromParameter(key)

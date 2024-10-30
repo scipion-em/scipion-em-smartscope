@@ -105,6 +105,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             self.rTime = 180
         self.zeroTime = time.time()
         self.finish = False
+        self.runningPrevious = False
         self.smartscopeConnectionProtocol = self.getInputProtocol()
         updatedProt = getUpdatedProtocol(self.smartscopeConnectionProtocol)
         if hasattr(updatedProt, 'Grids'):
@@ -129,32 +130,35 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         call the self._insertFunctionStep method.
         """
         self._initialize()
-
         while not self.finish:
             rTime = time.time() - self.zeroTime
             if rTime >= self.rTime:
-                self.zeroTime = time.time()
-                if len(self.micsPassFilter.get()) >= self.triggerMicrograph.get():
-                    self.fMics = self.micsPassFilter.get()
-                    self.collectHoles()
-                    self.assignGridHoles()
-                    self.statistics()
-                    self.createOutputs()
-                    if not self.fMics.isStreamOpen():
-                        self.info('Not more micrographs are expected, set closed')
-                        self.finish = True
-                else:
-                    self.info('Waiting enought micrographs to launch protocol.'
-                              ' triggerMicrograph: {}, micrographsFiltered: {}'.format(self.triggerMicrograph.get(), len(self.micsPassFilter.get())))
+                if self.runningPrevious == False:
+                    self.zeroTime = time.time()
+                    if len(self.micsPassFilter.get()) >= self.triggerMicrograph.get():
+                        self.runningPrevious = True
+                        self.fMics = self.micsPassFilter.get()
+                        self.collectHoles()
+                        self.assignGridHoles()
+                        self.statistics()
+                        self.createOutputs()
+                        if not self.fMics.isStreamOpen():
+                            self.info('Not more micrographs are expected, set closed')
+                            self.finish = True
+                        else:
+                            self.runningPrevious = False
+                    else:
+                        self.info('Waiting enought micrographs to launch protocol.'
+                                  ' triggerMicrograph: {}, micrographsFiltered: {}'.format(self.triggerMicrograph.get(), len(self.micsPassFilter.get())))
 
     def collectHoles(self):
+        self.info('\n-Collectiong holes...')
         self.holespassFilter = []
         self.dictMovies = {}
         self.dictHoles = {}
         self.dictHolesWithMic = {}
         self.dictPassHoles = {}
         self.dictRejectHoles = {}
-
         for hole in self.holes:
             self.dictHoles[hole.getHoleId()] = hole.clone()
         for m in self.movies:
@@ -165,8 +169,10 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             self.dictPassHoles[H_ID] = self.dictHoles[H_ID].clone()
         self.dictRejectHoles = {key: value.clone() for key, value in self.dictHolesWithMic.items() if key not in self.dictPassHoles}
 
+
     def assignGridHoles(self):
         '''This function create list of holes based on the behaves of a grids'''
+        self.info('\n-Assigning holes...')
         from collections import defaultdict
         self.totalHolesByGrid_value = defaultdict(list)
         self.withMicsHolesByGrid_value = defaultdict(list)
@@ -202,10 +208,10 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 
     # --------------------------- STATISTICS functions -----------------------------------
     def statistics(self):
+        self.info('\n-Calculating statistics...')
         for grid in self.grids:
             self.listGridsStatistics[grid.getName()] = {}
             self.info('\n################\nGRID: {}\n################\n'.format(grid.getName()))
-            self.info('Calcullating statistics...')
             gridId = grid.getGridId()
             self.dictArraysByGrid[gridId] = {'totalArrayHoles':  np.array(self.totalHolesByGrid_value[gridId]),
                                              'withMicsArrayHoles': np.array(self.withMicsHolesByGrid_value[gridId]),
@@ -269,9 +275,9 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         matches = list(set(empty_bins_Mics) & set(empty_bins_total))
         if len(matches) != 0:
             empty_bins_Mics = [x for x in empty_bins_Mics if x not in matches]
-            empty_bins_total = [x for x in empty_bins_total if x not in matches]
+            #empty_bins_total = [x for x in empty_bins_total if x not in matches]
             empty_bin_ranges_Mics = [empty_bin_ranges_Mics[i] for i in range(len(empty_bin_ranges_Mics)) if i not in matches]
-            empty_bin_ranges_total = [empty_bin_ranges_total[i] for i in range(len(empty_bin_ranges_total)) if i not in matches]
+            #empty_bin_ranges_total = [empty_bin_ranges_total[i] for i in range(len(empty_bin_ranges_total)) if i not in matches]
             percentEmptyBins_Mics = self.precentEmpty(len(empty_bins_Mics), nBins)
         return percentEmptyBins_Mics, empty_bin_ranges_Mics
 
@@ -281,7 +287,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         '''
         histHolesMics, rangeIntensity = np.histogram(self.dictArraysByGrid[gridId]['withMicsArrayHoles'], bins=nBins, range=(minI, maxI))
         histHolesPass, ranges = np.histogram(self.dictArraysByGrid[gridId]['passArrayHoles'], bins=nBins, range=(minI, maxI))
-        assert len(histHolesMics) == len(histHolesPass), "Los histogramas no tienen la misma cantidad de bins"
+        assert len(histHolesMics) == len(histHolesPass), "The histograms have no the same bins number"
         histRatio = np.divide(histHolesPass, histHolesMics, out=np.zeros_like(histHolesPass, dtype=float), where=histHolesMics != 0)
         histRatio[np.isinf(histRatio)] = 0.0
         histRatio[np.isnan(histRatio)] = 0.0
@@ -325,14 +331,14 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
     # --------------------------- POSTING functions -----------------------------------
     def postingBack2Smartscope(self):
         for grid in self.grids:
-            self.info('Posting Back to Smartscope ...')
+            self.info('\n -Posting Back to Smartscope ...')
             gridID = grid.getGridId()
             status, currentMinRange, currentMaxRange = self.pyClient.getRangeOfIntensityGrid(gridID)
             if status:
                 self.info('ranges before feedback: {} - {}'.format(currentMinRange, currentMaxRange))
             minI = self.listGridsStatistics[grid.getName()]['minIntensityL']
             maxI = self.listGridsStatistics[grid.getName()]['maxIntensityL']
-            self.pyClient.postRangeIntensity(route='', ID=gridID, data={"low_limit": minI, "high_limit": maxI})
+            self.pyClient.postRangeIntensity(ID=gridID, data={"low_limit": minI, "high_limit": maxI})
             time.sleep(10) #wait until Smartscope manage the posting
             status, currentMinRange, currentMaxRange = self.pyClient.getRangeOfIntensityGrid(gridID)
             if status and currentMinRange == minI and currentMaxRange == maxI:
@@ -357,7 +363,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 
     # --------------------------- CREATE OUTPUTS functions -----------------------------------
     def createOutputs(self):
-        self.info('Generating outputs ...')
+        self.info('\n-Generating outputs ...')
         SOHR = SetOfHoles.create(outputPath=self._getPath(), prefix='Rejected')#baseName
         SOHPF = SetOfHoles.create(outputPath=self._getPath(), prefix='Pass')
         self.outputsToDefine = {'SetOfHolesPassFilter': SOHPF, 'SetOfHolesRejected': SOHR}

@@ -99,7 +99,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                            'the end of the acquisicion. By default 1 day (86400 secs)')
         form.addParallelSection(threads=3, mpi=1)
 
-
     # --------------------------- STEPS functions ------------------------------
     def stepsGeneratorStep(self):
         """
@@ -108,7 +107,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         call the self._insertFunctionStep method.
         """
         self._initialize()
-
         while True:
             delayInit = int(time.time() - self.startTime)
             self.info('TotalTime: {} delayInit: {}'.format(self.TotalTime,
@@ -130,7 +128,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                 break
 
             time.sleep(self.refreshTime)
-
 
     def _initialize(self):
         self.acquisition = Acquisition()
