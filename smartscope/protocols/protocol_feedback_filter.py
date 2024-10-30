@@ -55,6 +55,8 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
     _devStatus = BETA
     _possibleOutputs = {'SetOfHolesRejected': SetOfHoles, 'SetOfHolesPassFilter': SetOfHoles}
     percentBins = ['0','10','20', '30', '40', '50']
+    percentShots = ['1','25','50', '75', '100']
+
     def __init__(self, **args):
         ProtImport.__init__(self, **args)
         self.stepsExecutionMode = STEPS_PARALLEL
@@ -92,6 +94,11 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                       label="Percent empty bins in the histogram",
                       help="In the histogram of number of holes acquired (with movies), this parameter represent the"
                             " percent of empty bins allowed to feedback Smartscope (10% by default). Higher less restrictive")
+        form.addParam('multishotThreshold', params.EnumParam,
+                      choices=self.percentShots, default=4, display=params.EnumParam.DISPLAY_COMBO,
+                      #expertLevel=params.LEVEL_ADVANCED,
+                      label="Percentage of quality-filtered shots",
+                      help="Percent of shots with micrographs that pass the filters for each hole")
         form.addSection('Streaming')
 
         form.addParam('refreshTime', params.IntParam, default=240,
