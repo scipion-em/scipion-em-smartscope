@@ -230,6 +230,7 @@ class dataCollection():
                         ho.setBisType(h['bis_type'])
                         ho.setGridId(h['grid_id'])
                         ho.setSquareId(h['square_id'])
+                        #ho.setShots(h['shots_number']) #TODO when available on API
                         if h['bis_type'] == 'center':
                             pathPNG = os.path.join(pathGrid, 'pngs', h['name'] + '.png')
                         elif h['bis_group'] != None:

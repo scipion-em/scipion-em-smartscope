@@ -648,6 +648,7 @@ class Hole(Image):
         self._bis_type = String()
         self._grid_id = String()
         self._square_id = String()
+        self._shots_number = Integer()
         # DETAILED
         self._finder_name = String()
         self._x = Integer()
@@ -711,6 +712,9 @@ class Hole(Image):
 
     def setSquareId(self, id):
         self._square_id.set(id)
+
+    def setShots(self, shots):
+        self._shots_number.set(shots)
 
     # DETAILED
     def setFinderName(self, finder):
@@ -803,6 +807,9 @@ class Hole(Image):
 
     def getSquareId(self):
         return self._square_id.get()
+
+    def getShots(self):
+        return self._shots_number.get()
 
     # DETAILED
     def getFinderName(self):

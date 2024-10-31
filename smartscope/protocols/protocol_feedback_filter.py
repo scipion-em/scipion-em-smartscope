@@ -95,7 +95,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                       help="In the histogram of number of holes acquired (with movies), this parameter represent the"
                             " percent of empty bins allowed to feedback Smartscope (10% by default). Higher less restrictive")
         form.addParam('multishotThreshold', params.EnumParam,
-                      choices=self.percentShots, default=4, display=params.EnumParam.DISPLAY_COMBO,
+                      choices=self.percentShots, default=1, display=params.EnumParam.DISPLAY_COMBO,
                       #expertLevel=params.LEVEL_ADVANCED,
                       label="Percentage of quality-filtered shots",
                       help="Percent of shots with micrographs that pass the filters for each hole")
@@ -164,8 +164,10 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         self.dictMovies = {}
         self.dictHoles = {}
         self.dictHolesWithMic = {}
+        self.dictPassHolesInitial = {}
         self.dictPassHoles = {}
         self.dictRejectHoles = {}
+
         for hole in self.holes:
             self.dictHoles[hole.getHoleId()] = hole.clone()
         for m in self.movies:
@@ -173,11 +175,21 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             self.dictHolesWithMic[m.getHoleId()] = self.dictHoles[m.getHoleId()].clone() #Multishot: overwrite same information
         for mic in self.fMics:
             H_ID = self.dictMovies[mic.getMicName()].getHoleId()
-            if H_ID in self.dictPassHoles:
-                self.dictPassHoles[H_ID]['moviesPass'] = self.dictPassHoles[H_ID]['moviesPass'] + 1
+            if H_ID in self.dictPassHolesInitial:
+                self.dictPassHolesInitial[H_ID]['moviesPass'] = self.dictPassHolesInitial[H_ID]['moviesPass'] + 1
             else:
-                self.dictPassHoles[H_ID] = {'Hole': self.dictHoles[H_ID].clone(), 'moviesPass': 1}
+                self.dictPassHolesInitial[H_ID] = {'Hole': self.dictHoles[H_ID].clone(), 'moviesPass': 1, 'shots': 3}
+                #self.dictPassHolesInitial[H_ID] = {'Hole': self.dictHoles[H_ID].clone(), 'moviesPass': 1, 'shots': self.dictHoles[H_ID].getShots()} # TODO: when multishot available API
+
+        for holeID, value in self.dictPassHolesInitial.items():
+            if self.checkPassByshotsPercent(value['moviesPass'], value['shots']):
+                self.dictPassHoles[holeID] = {'Hole': value['Hole'].clone(), 'moviesPass': value['moviesPass'], 'shots': value['shots']}
+                if value['moviesPass'] > 1:
+                    print(holeID)
+                    print(value['moviesPass'])
+
         self.dictRejectHoles = {key: value.clone() for key, value in self.dictHolesWithMic.items() if not key in self.dictPassHoles.keys()}
+
 
     def assignGridHoles(self):
         '''This function create list of holes based on the behaves of a grids'''
@@ -214,6 +226,11 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             for g in self.grids:
                 fi.write(g.getName())
                 fi.write('\n')
+
+
+    def checkPassByshotsPercent(self, moviesPass, shots):
+        shotsPercent = (moviesPass * 100) / shots
+        return int(self.percentShots[self.multishotThreshold.get()]) < shotsPercent
 
     # --------------------------- STATISTICS functions -----------------------------------
     def statistics(self):
