@@ -1,5 +1,0 @@
-scipion-pyworkflow
-scipion-em
-requests
-scipion-em-xmipp
-Pathlib

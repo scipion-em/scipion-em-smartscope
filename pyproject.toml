@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scipion-em-smartscope"
+dynamic = ["version"]
+dependencies = [
+                "scipion-pyworkflow",
+                "scipion-em",
+                "requests",
+                "scipion-em-xmipp",
+                "Pathlib"
+]
+
+authors = [
+    {name = "Alberto Garcia Mena", email = "pconesa@cnb.csic.es"},
+    {name = "Daniel Marchan ", email = "damarchan@cnb.csic.es"},
+
+]
+description = "Plugin to use Smartscope within the Scipion framework"
+readme = "README.rst"
+requires-python = ">=3.6"
+keywords = ["scipion electron-microscopy cryo-em structural-biology image-processing scipion-3.0 Smartscope"]
+license = {text = "GNU General Public License v3 (GPLv3)"}
+
+[project.urls]
+Homepage = "https://github.com/scipion-em/scipion-em-smartscope"
+Issues = "https://github.com/scipion-em/scipion-em-smartscope/issues"
+
+[tool.setuptools.dynamic]
+version = {attr = "smartscope.__version__"}
+
+[project.entry-points."pyworkflow.plugin"]
+smartscope = "smartscope"
