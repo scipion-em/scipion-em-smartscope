@@ -215,7 +215,7 @@ class dataCollection():
                             sq.getName(), len(holes)))
                     for h in holes:
                         ho = Hole()
-                        ho.setHoleId(h['hole_id'])
+                        ho.setHoleId(h['hole_id']) #TODO parece que aveces no se genera ese campo de hole_id, square_id, grid_id
                         ho.setName(h['name'])
                         ho.setNumber(h['number'])
                         ho.setSamplingRate(h['pixel_size'])

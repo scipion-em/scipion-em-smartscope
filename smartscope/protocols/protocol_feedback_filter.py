@@ -54,7 +54,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
     _label = 'Feedback filter'
     _devStatus = BETA
     _possibleOutputs = {'SetOfHolesRejected': SetOfHoles, 'SetOfHolesPassFilter': SetOfHoles}
-    percentBins = ['0','10','20', '30', '40', '50']
+    percentBins = ['0','10','20', '30', '40', '50', '60', '70']
     percentShots = ['1','25','50', '75', '100']
 
     def __init__(self, **args):
@@ -190,7 +190,6 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 
         self.dictRejectHoles = {key: value.clone() for key, value in self.dictHolesWithMic.items() if not key in self.dictPassHoles.keys()}
 
-
     def assignGridHoles(self):
         '''This function create list of holes based on the behaves of a grids'''
         self.info('\n-Assigning holes...')
@@ -226,7 +225,6 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             for g in self.grids:
                 fi.write(g.getName())
                 fi.write('\n')
-
 
     def checkPassByshotsPercent(self, moviesPass, shots):
         shotsPercent = (moviesPass * 100) / shots
@@ -322,7 +320,6 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         return mu, sigma
 
     # --------------------------- VIEWER functions -----------------------------------
-
     def prepareViewer(self, gridId, gridName, nBins, minI, maxI):
         '''Creating files with arrays to let viewer plot it'''
         self.info('Preparing viewer ...')
@@ -402,7 +399,6 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             for h in holesRejected:
                 self.createOutputStepRejected(SOHR, self.dictRejectHoles[h])
 
-			    
     def createOutputStepRejected(self, SOHR, hole):
         SOHR.copyInfo(self.holes)
         hole2Add_copy = Hole()

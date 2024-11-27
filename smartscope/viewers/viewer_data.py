@@ -119,7 +119,7 @@ class DataViewer_smartscope(ProtocolViewer):
 
     def _visualizeHoles(self, e=None):
         views = []
-        labels = ('_pngDir _hole_id _grid_id _status _selected _completion_time _shape_x _shape_y _sampligRate _number _area')
+        labels = ('_pngDir _hole_id _grid_id _selector_value _status _selected _completion_time _shape_x _shape_y _sampligRate _number _area')
         if hasattr(self.protocol, 'Holes'):
             views.append(ObjectView(self._project,
                                     self.protocol.Holes.strId(),
@@ -182,7 +182,7 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
         views = []
         if hasattr(self.protocol, 'SetOfHolesPassFilter'):
             labels = (
-                '_pngDir _hole_id _grid_id _status _selected _completion_time _shape_x _shape_y _sampligRate _number _area')
+                '_pngDir _bis_type _hole_id _grid_id _selector_value _status _selected _shape_x _shape_y _sampligRate _number _area')
             views.append(ObjectView(self._project,
                                     self.protocol.SetOfHolesPassFilter.strId(),
                                     self.protocol.SetOfHolesPassFilter.getFileName(),
@@ -195,7 +195,7 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
         views = []
         if hasattr(self.protocol, 'SetOfHolesRejected'):
             labels = (
-                '_pngDir _hole_id _grid_id _status _selected _completion_time _shape_x _shape_y _sampligRate _number _area')
+                '_pngDir _bis_type _hole_id _grid_id _selector_value _status _selected _shape_x _shape_y _sampligRate _number _area')
             views.append(ObjectView(self._project,
                                           self.protocol.SetOfHolesRejected.strId(),
                                           self.protocol.SetOfHolesRejected.getFileName(),
@@ -246,23 +246,23 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
             plt.xticks(np.round(bin_edges).astype(int) , rotation=45, ha='right')  # Rotate labels for better readability
             ax1.set_xticks(np.round(bin_edges).astype(int) )  # Apply to ax1
             ax1.set_xticklabels([f'{edge:.2f}' for edge in bin_edges], rotation=45, ha='right')
-            # Etiquetas de texto para los valores de cada barra en ax1
+
             for bar in  bars_with_mics:
-                height = bar.get_height()  # Altura de la barra (valor)
-                if height > 0:  # Mostrar solo si el valor es positivo
+                height = bar.get_height()
+                if height > 0:
                     ax1.text(
-                        bar.get_x() + bar.get_width() / 2,  # Posición x del texto
-                        height,  # Posición y del texto (encima de la barra)
-                        f'{height:.0f}',  # Texto que muestra el valor, con dos decimales
+                        bar.get_x() + bar.get_width() / 2,
+                        height,
+                        f'{height:.0f}',
                         ha='center', va='bottom', fontsize=8, color='blue'
                     )
             for bar in bars_pass:
-                height = bar.get_height()  # Altura de la barra (valor)
-                if height > 0:  # Mostrar solo si el valor es positivo
+                height = bar.get_height()
+                if height > 0:
                     ax1.text(
-                        bar.get_x() + bar.get_width() / 2,  # Posición x del texto
-                        height,  # Posición y del texto (encima de la barra)
-                        f'{height:.0f}',  # Texto que muestra el valor, con dos decimales
+                        bar.get_x() + bar.get_width() / 2,
+                        height,
+                        f'{height:.0f}',
                         ha='center', va='bottom', fontsize=8, color='green'
                     )
 
@@ -280,12 +280,12 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
             plt.xlabel('Intensity Range')
 
             for bar in barHist:
-                height = bar.get_height()  # Altura de la barra (valor)
-                if height > 0:  # Mostrar solo si el valor es positivo
+                height = bar.get_height()
+                if height > 0:
                     ax2.text(
-                        bar.get_x() + bar.get_width() / 2,  # Posición x del texto
-                        height,  # Posición y del texto (encima de la barra)
-                        f'{(height * 100):.0f}%',  # Texto que muestra el valor, con dos decimales
+                        bar.get_x() + bar.get_width() / 2,
+                        height,
+                        f'{(height * 100):.0f}%',
                         ha='center', va='bottom', fontsize=8, color='indigo'
                     )
 
