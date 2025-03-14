@@ -127,8 +127,11 @@ class dataCollection():
 
     def screeningCollection(self, dataPath, sessionId, sessionName, setOfGrids, setOfAtlas,
                             setOfSquares, setOfHoles, groupName, sessionDate):
+
         print('sessionName: {}'.format(sessionName))
+        timeGrid = time.time()
         grid = self.pyClient.getRouteFromID('grids', 'session', sessionId, dev=False)
+        print('---- Request Grid time: {}s'.format(round(time.time() - timeGrid), 1))
         if grid != []:print('Number grid in the sesison: {}'.format(len(grid)))
         objId = len(setOfGrids)
         for g in grid:
@@ -154,7 +157,7 @@ class dataCollection():
             setOfGrids.append(gr)
             startAtlas = time.time()
             atlas = self.pyClient.getRouteFromID('atlas', 'grid', gr.getGridId())
-            print('request Atlas time: {}s'.format(time.time() - startAtlas))
+            print('---- Request Atlas time: {}s'.format(round(time.time() - startAtlas), 1))
 
             if atlas != []: print(
                 '\tNumber atlas in the grid{}: {}'.format(gr.getName(), len(atlas)))
@@ -180,7 +183,7 @@ class dataCollection():
                 setOfAtlas.write()
                 startSquares = time.time()
                 squares = self.pyClient.getRouteFromID('squares', 'atlas', at.getAtlasId())
-                print('request Atlas time: {}s'.format(
+                print('request Square time: {}s'.format(
                     time.time() - startSquares))
                 if squares != []: print(
                     '\t\tNumber squares in the atlas: {}'.format(len(squares)))
@@ -207,8 +210,9 @@ class dataCollection():
                     setOfSquares.append(sq)
                     setOfSquares.update(sq)
                     setOfSquares.write()
-                    holes = self.pyClient.getRouteFromID('holes', 'square', sq.getSquareId(), endpoint='scipion_plugin')
-
+                    startHoles = time.time()
+                    holes = self.pyClient.getRouteFromID('holes', 'square', sq.getSquareId(), endpoint='scipion_plugin', dev=True)
+                    print('---- Request Holes time: {}s'.format(round(time.time() - startHoles), 1))
                     if holes != []:
                         #print('square name: {}'.format(sq.getName()))
                         print('\t\t\tNumber holes in the square {}: {}'.format(
@@ -230,7 +234,7 @@ class dataCollection():
                         ho.setBisType(h['bis_type'])
                         ho.setGridId(h['grid_id'])
                         ho.setSquareId(h['square_id'])
-                        #ho.setShots(h['shots_number']) #TODO when available on API
+                        ho.setShots(h['targets_in_hole'])
                         if h['bis_type'] == 'center':
                             pathPNG = os.path.join(pathGrid, 'pngs', h['name'] + '.png')
                         elif h['bis_group'] != None:

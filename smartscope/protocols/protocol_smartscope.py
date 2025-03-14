@@ -25,8 +25,6 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-from http.cookiejar import debug
-
 from pyworkflow.utils import Message
 from pyworkflow import BETA, UPDATED, NEW, PROD
 from pwem.protocols.protocol_import.base import ProtImport
@@ -62,7 +60,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         self.Grids = None
         self.Holes = None
         self.MoviesSS = None
-        self.stepsExecutionMode = STEPS_PARALLEL # Defining that the protocol contain parallel steps
 
         self.token = Plugin.getVar(SMARTSCOPE_TOKEN)
         self.endpoint = Plugin.getVar(SMARTSCOPE_LOCALHOST)

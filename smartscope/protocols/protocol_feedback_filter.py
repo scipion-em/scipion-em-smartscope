@@ -59,8 +59,6 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 
     def __init__(self, **args):
         ProtImport.__init__(self, **args)
-        self.stepsExecutionMode = STEPS_PARALLEL
-
         self.token = Plugin.getVar(SMARTSCOPE_TOKEN)
         self.endpoint = Plugin.getVar(SMARTSCOPE_LOCALHOST)
         self.dataPath = Plugin.getVar(SMARTSCOPE_DATA_SESSION_PATH)
@@ -136,7 +134,19 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         It should check its input and when ready conditions are met
         call the self._insertFunctionStep method.
         """
+        self.time0 = time.time()
         self._initialize()
+        # DEBUGALBERTO START
+        import os
+        fname = "/home/agarcia/Documents/attachActionDebug.txt"
+        if os.path.exists(fname):
+            os.remove(fname)
+        fjj = open(fname, "a+")
+        fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+        fjj.close()
+        print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+        time.sleep(15)
+        # DEBUGALBERTO END
         while not self.finish:
             rTime = time.time() - self.zeroTime
             if rTime >= self.rTime:
@@ -145,10 +155,15 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                     if len(self.micsPassFilter.get()) >= self.triggerMicrograph.get():
                         self.runningPrevious = True
                         self.fMics = self.micsPassFilter.get()
+                        self.timeMainSteps = time.time()
                         self.collectHoles()
+                        self.timeCollect = time.time()
                         self.assignGridHoles()
+                        self.timeAssign = time.time()
                         self.statistics()
+                        self.timeStatistics = time.time()
                         self.createOutputs()
+                        self.timeOutput = time.time()
                         if not self.fMics.isStreamOpen():
                             self.info('Not more micrographs are expected, set closed')
                             self.finish = True
@@ -157,6 +172,11 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                     else:
                         self.info('Waiting enought micrographs to launch protocol.'
                                   ' triggerMicrograph: {}, micrographsFiltered: {}'.format(self.triggerMicrograph.get(), len(self.micsPassFilter.get())))
+            print(f'Collect Time: {round(self.timeCollect - self.timeMainSteps, 0)} s')
+            print(f'Assign Time: {round(self.timeAssign - self.timeCollect, 0)} s')
+            print(f'Statistics Time: {round(self.timeStatistics - self.timeAssign, 0)} s')
+            print(f'Output Time: {round(self.timeOutput - self.timeStatistics, 0)} s')
+            print(f'Total Time: {round(self.timeOutput - self.time0, 0)} s')
 
     def collectHoles(self):
         self.info('\n-Collectiong holes...')
@@ -178,8 +198,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             if H_ID in self.dictPassHolesInitial:
                 self.dictPassHolesInitial[H_ID]['moviesPass'] = self.dictPassHolesInitial[H_ID]['moviesPass'] + 1
             else:
-                self.dictPassHolesInitial[H_ID] = {'Hole': self.dictHoles[H_ID].clone(), 'moviesPass': 1, 'shots': 3}
-                #self.dictPassHolesInitial[H_ID] = {'Hole': self.dictHoles[H_ID].clone(), 'moviesPass': 1, 'shots': self.dictHoles[H_ID].getShots()} # TODO: when multishot available API
+                self.dictPassHolesInitial[H_ID] = {'Hole': self.dictHoles[H_ID].clone(), 'moviesPass': 1, 'shots': self.dictHoles[H_ID].getShots()}
 
         for holeID, value in self.dictPassHolesInitial.items():
             if self.checkPassByshotsPercent(value['moviesPass'], value['shots']):
@@ -229,6 +248,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
     def checkPassByshotsPercent(self, moviesPass, shots):
         shotsPercent = (moviesPass * 100) / shots
         return int(self.percentShots[self.multishotThreshold.get()]) < shotsPercent
+
 
     # --------------------------- STATISTICS functions -----------------------------------
     def statistics(self):
@@ -319,6 +339,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         sigma = np.sqrt(np.sum(histRatio * (ranges[:-1] - mu) ** 2) / np.sum(histRatio))
         return mu, sigma
 
+
     # --------------------------- VIEWER functions -----------------------------------
     def prepareViewer(self, gridId, gridName, nBins, minI, maxI):
         '''Creating files with arrays to let viewer plot it'''
@@ -351,6 +372,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         rejectedHistFile = self._getExtraPath("{}-rejectedHist.txt".format(gridName))
         np.savetxt(rejectedHistFile, hist.reshape(1, -1), fmt='%.8f', delimiter=' ')
 
+
     # --------------------------- POSTING functions -----------------------------------
     def postingBack2Smartscope(self):
         for grid in self.grids:
@@ -365,16 +387,16 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             time.sleep(10) #wait until Smartscope manage the posting
             status, currentMinRange, currentMaxRange = self.pyClient.getRangeOfIntensityGrid(gridID)
             if status and currentMinRange == minI and currentMaxRange == maxI:
-                    # SUMMARY INFO
-                    summaryF = self._getExtraPath("summary.txt")
-                    summaryF = open(summaryF, "w")
-                    summaryF.write('\nGRID: {}\n'.format(grid.getName()))
-                    summaryF.write('Median value: {}\nStandard deviation: {}\nIntensity range with holes to acquire: {} - {}'.format(
-                        round(self.listGridsStatistics[grid.getName()]['mu'],1),
-                        round(self.listGridsStatistics[grid.getName()]['sigma'],1),
-                        self.listGridsStatistics[grid.getName()]['minIntensityL'],
-                        self.listGridsStatistics[grid.getName()]['maxIntensityL']))
-                    summaryF.close()
+                # SUMMARY INFO
+                summaryF = self._getExtraPath("summary.txt")
+                summaryF = open(summaryF, "w")
+                summaryF.write('\nGRID: {}\n'.format(grid.getName()))
+                summaryF.write('Median value: {}\nStandard deviation: {}\nIntensity range with holes to acquire: {} - {}'.format(
+                    round(self.listGridsStatistics[grid.getName()]['mu'],1),
+                    round(self.listGridsStatistics[grid.getName()]['sigma'],1),
+                    self.listGridsStatistics[grid.getName()]['minIntensityL'],
+                    self.listGridsStatistics[grid.getName()]['maxIntensityL']))
+                summaryF.close()
             else:
                 self.error('could not configure the range of intensities in Smartscope')
                 summaryF = self._getExtraPath("summary.txt")
@@ -383,6 +405,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                 summaryF.write('Could not configure in Smartscope the range of intensities calculated {}-{} '.format(
                                      self.listGridsStatistics[grid.getName()]['minIntensityL'],
                                             self.listGridsStatistics[grid.getName()]['maxIntensityL']))
+
 
     # --------------------------- CREATE OUTPUTS functions -----------------------------------
     def createOutputs(self):
@@ -430,8 +453,6 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
     def checkSmartscopeConnection(self):
         response = self.pyClient.getDetailsFromParameter('users')
         return response
-
-
 
 
     # --------------------------- INFO functions -----------------------------------
