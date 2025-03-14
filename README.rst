@@ -21,7 +21,7 @@ Developer's version:
 
    .. code-block::
 
-      scipion installp -p /path/to/scipion-em-smartscope --devel
+      scipion3 installp -p /path/to/scipion-em-smartscope --devel
 
 Configuration
 ---------------
