@@ -85,18 +85,13 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                       help='Select a set of micrographs filtered by any protocol.')
         form.addParam('triggerMicrograph', params.IntParam, default=200,
                       label="Micrographs to launch the protocol",
-                      help='Number of micrographs filtered to launch the statistics')
+                      help='Number of micrographs that pass the filters to launch the statistics')
         form.addParam('emptyBinsPercent', params.EnumParam,
                       choices=self.percentBins, default=1, display=params.EnumParam.DISPLAY_COMBO,
                       #expertLevel=params.LEVEL_ADVANCED,
                       label="Percent empty bins in the histogram",
                       help="In the histogram of number of holes acquired (with movies), this parameter represent the"
                             " percent of empty bins allowed to feedback Smartscope (10% by default). Higher less restrictive")
-        form.addParam('multishotThreshold', params.EnumParam,
-                      choices=self.percentShots, default=1, display=params.EnumParam.DISPLAY_COMBO,
-                      #expertLevel=params.LEVEL_ADVANCED,
-                      label="Percentage of quality-filtered shots",
-                      help="Percent of shots with micrographs that pass the filters for each hole")
         form.addSection('Streaming')
 
         form.addParam('refreshTime', params.IntParam, default=240,
@@ -106,8 +101,8 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 
     def _initialize(self):
         self.rTime = self.refreshTime.get()
-        if self.rTime < 180:
-            self.rTime = 180
+        # if self.rTime < 180: #TODO uncomnent
+        #     self.rTime = 180
         self.zeroTime = time.time()
         self.finish = False
         self.runningPrevious = False
@@ -164,6 +159,11 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                         self.timeStatistics = time.time()
                         self.createOutputs()
                         self.timeOutput = time.time()
+                        print(f'Collect Time: {round(self.timeCollect - self.timeMainSteps, 0)} s')
+                        print(f'Assign Time: {round(self.timeAssign - self.timeCollect, 0)} s')
+                        print(f'Statistics Time: {round(self.timeStatistics - self.timeAssign, 0)} s')
+                        print(f'Output Time: {round(self.timeOutput - self.timeStatistics, 0)} s')
+                        print(f'Total Time: {round(self.timeOutput - self.time0, 0)} s')
                         if not self.fMics.isStreamOpen():
                             self.info('Not more micrographs are expected, set closed')
                             self.finish = True
@@ -172,42 +172,44 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                     else:
                         self.info('Waiting enought micrographs to launch protocol.'
                                   ' triggerMicrograph: {}, micrographsFiltered: {}'.format(self.triggerMicrograph.get(), len(self.micsPassFilter.get())))
-            print(f'Collect Time: {round(self.timeCollect - self.timeMainSteps, 0)} s')
-            print(f'Assign Time: {round(self.timeAssign - self.timeCollect, 0)} s')
-            print(f'Statistics Time: {round(self.timeStatistics - self.timeAssign, 0)} s')
-            print(f'Output Time: {round(self.timeOutput - self.timeStatistics, 0)} s')
-            print(f'Total Time: {round(self.timeOutput - self.time0, 0)} s')
+
+
 
     def collectHoles(self):
         self.info('\n-Collectiong holes...')
-        self.holespassFilter = []
         self.dictMovies = {}
         self.dictHoles = {}
         self.dictHolesWithMic = {}
-        self.dictPassHolesInitial = {}
         self.dictPassHoles = {}
         self.dictRejectHoles = {}
-
+        sessionshots = self.collectSessionShots()
         for hole in self.holes:
-            self.dictHoles[hole.getHoleId()] = hole.clone()
+            holeC = hole.clone()
+            self.dictHoles[hole.getHoleId()] = {'Hole':  holeC, 'GridID': holeC.getGridId(), 'Shots': sessionshots, 'Acquired': 0, 'Pass': 0, 'Rejected': 0, 'Intensity': holeC.getSelectorValue()}
+
         for m in self.movies:
             self.dictMovies[m.getMicName()] = m.clone()
-            self.dictHolesWithMic[m.getHoleId()] = self.dictHoles[m.getHoleId()].clone() #Multishot: overwrite same information
+            if m.getHoleId() not in self.dictHolesWithMic:
+                self.dictHolesWithMic[m.getHoleId()] = self.dictHoles[m.getHoleId()]['Hole'].clone()
+            self.dictHoles[m.getHoleId()]['Acquired'] += 1
+
         for mic in self.fMics:
             H_ID = self.dictMovies[mic.getMicName()].getHoleId()
-            if H_ID in self.dictPassHolesInitial:
-                self.dictPassHolesInitial[H_ID]['moviesPass'] = self.dictPassHolesInitial[H_ID]['moviesPass'] + 1
-            else:
-                self.dictPassHolesInitial[H_ID] = {'Hole': self.dictHoles[H_ID].clone(), 'moviesPass': 1, 'shots': self.dictHoles[H_ID].getShots()}
-
-        for holeID, value in self.dictPassHolesInitial.items():
-            if self.checkPassByshotsPercent(value['moviesPass'], value['shots']):
-                self.dictPassHoles[holeID] = {'Hole': value['Hole'].clone(), 'moviesPass': value['moviesPass'], 'shots': value['shots']}
-                if value['moviesPass'] > 1:
-                    print(holeID)
-                    print(value['moviesPass'])
+            self.dictHoles[H_ID]['Pass'] += 1
+            self.dictHoles[H_ID]['Rejected'] = self.dictHoles[H_ID]['Acquired'] - self.dictHoles[H_ID]['Pass']
+            if H_ID not in self.dictPassHoles:
+                self.dictPassHoles[H_ID] = {'Hole': self.dictHoles[H_ID]['Hole'].clone()}
 
         self.dictRejectHoles = {key: value.clone() for key, value in self.dictHolesWithMic.items() if not key in self.dictPassHoles.keys()}
+
+
+    def collectSessionShots(self):
+        #Assign number of shots for the holes not acquired
+        #We assume that all holes in the same session have the same shots per hole
+        for hole in self.holes:
+            shots = hole.getShots()
+            if shots != 0:
+                return shots
 
     def assignGridHoles(self):
         '''This function create list of holes based on the behaves of a grids'''
@@ -221,34 +223,37 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         self.withMicsHolesByGrid = defaultdict(list)
         self.passHolesByGrid = defaultdict(list)
         self.rejectedHolesByGrid = defaultdict(list)
-        for h in self.dictHoles.values():
-            grid_id = h.getGridId()
-            self.totalHolesByGrid_value[grid_id].append(h.getSelectorValue())
-            self.totalHolesByGrid[grid_id].append(h.getHoleId())
-        for h in self.dictHolesWithMic.values():
-            grid_id = h.getGridId()
-            self.withMicsHolesByGrid_value[grid_id].append(h.getSelectorValue())
-            self.withMicsHolesByGrid[grid_id].append(h.getHoleId())
 
-        for h in self.dictPassHoles.values():
-            grid_id = h['Hole'].getGridId()
-            self.passHolesByGrid_value[grid_id].append(h['Hole'].getSelectorValue())
-            self.passHolesByGrid[grid_id].append(h['Hole'].getHoleId())
+        self.totalMicssByGrid = defaultdict(list) #TODO it does not consider the multishot, the hole does not know about how many shots it will have
+        self.acquiredMicssByGrid = defaultdict(list)
+        self.passMicsByGrid = defaultdict(list)
+        self.rejectedMicssByGrid = defaultdict(list)
 
-        for grid_id, holes in self.withMicsHolesByGrid.items():
-            holesPass = self.passHolesByGrid[grid_id]
-            self.rejectedHolesByGrid_value[grid_id] = [self.dictRejectHoles[hole].getSelectorValue() for hole in holes if hole not in holesPass]
-            self.rejectedHolesByGrid[grid_id] = [hole for hole in holes if hole not in holesPass]
+        for holeID, hole_data in self.dictHoles.items():
+            h = hole_data['Hole']
+            shots = hole_data['Shots']
+            acqs = hole_data['Acquired']
+            passF = hole_data['Pass']
+            reject = hole_data['Rejected']
+            intensity = hole_data['Intensity']
+            grid_id = h.getGridId()
+
+            for s in range(shots):
+                self.totalMicssByGrid[grid_id].append(intensity)
+            if acqs != 0:
+                for a in range(acqs):
+                    self.acquiredMicssByGrid[grid_id].append(intensity)
+            if passF != 0:
+                for a in range(passF):
+                    self.passMicsByGrid[grid_id].append(intensity)
+            if reject != 0:
+                for a in range(reject):
+                    self.rejectedMicssByGrid[grid_id].append(intensity)
 
         with open(os.path.join(self._getExtraPath(),'gridsName.txt'), 'w') as fi:
             for g in self.grids:
                 fi.write(g.getName())
                 fi.write('\n')
-
-    def checkPassByshotsPercent(self, moviesPass, shots):
-        shotsPercent = (moviesPass * 100) / shots
-        return int(self.percentShots[self.multishotThreshold.get()]) < shotsPercent
-
 
     # --------------------------- STATISTICS functions -----------------------------------
     def statistics(self):
@@ -257,14 +262,14 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             self.listGridsStatistics[grid.getName()] = {}
             self.info('\n################\nGRID: {}\n################\n'.format(grid.getName()))
             gridId = grid.getGridId()
-            self.dictArraysByGrid[gridId] = {'totalArrayHoles':  np.array(self.totalHolesByGrid_value[gridId]),
-                                             'withMicsArrayHoles': np.array(self.withMicsHolesByGrid_value[gridId]),
-                                             'passArrayHoles': np.array(self.passHolesByGrid_value[gridId])}
-            minI = min(self.totalHolesByGrid_value[gridId])
-            maxI = max(self.totalHolesByGrid_value[gridId])
+            self.dictArraysByGrid[gridId] = {'totalArrayMics':  np.array(self.totalMicssByGrid[gridId]),
+                                             'acquiredMics': np.array(self.acquiredMicssByGrid[gridId]),
+                                             'passArrayMics': np.array(self.passMicsByGrid[gridId])}
+            minI = min(self.totalMicssByGrid[gridId])
+            maxI = max(self.totalMicssByGrid[gridId])
 
             #BINS CALCULLATION
-            nBins = self.sturgesBinsCalc(len(self.passHolesByGrid_value[gridId]))
+            nBins = self.sturgesBinsCalc(len(self.passMicsByGrid[gridId]))
             print('Number of bins estimated: {}'.format(nBins))
 
             #REPRESENTATIVENESS
@@ -288,7 +293,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                 self.listGridsStatistics[grid.getName()]['sigma'] = sigma
 
             #Posting Smartscope
-            self.postingBack2Smartscope()
+            #self.postingBack2Smartscope()
             #Prepare viewer
             self.prepareViewer(gridId, grid.getName(), nBins, minI, maxI)
 
@@ -311,9 +316,9 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 
     def representativeness(self, minI, maxI, nBins, gridId ):
         empty_bins_Mics, empty_bin_ranges_Mics, percentEmptyBins_Mics = self.checkEmptyBins(minI, maxI, nBins,
-                                                                        self.dictArraysByGrid[gridId][ 'withMicsArrayHoles'])
+                                                                        self.dictArraysByGrid[gridId][ 'acquiredMics'])
         empty_bins_total, empty_bin_ranges_total, percentEmptyBins_total = self.checkEmptyBins(minI, maxI, nBins,
-                                                                            self.dictArraysByGrid[gridId]['totalArrayHoles'])
+                                                                            self.dictArraysByGrid[gridId]['totalArrayMics'])
         self.info('{} bins without holes'.format(len(empty_bins_total)))
         self.info('{} bins without acquired holes '.format(len(empty_bins_Mics)))
         matches = list(set(empty_bins_Mics) & set(empty_bins_total))
@@ -329,8 +334,8 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         '''
         Calculate the normal distribution of the % holes that pass the filters / holes with movies using the precalculate number of bins
         '''
-        histHolesMics, rangeIntensity = np.histogram(self.dictArraysByGrid[gridId]['withMicsArrayHoles'], bins=nBins, range=(minI, maxI))
-        histHolesPass, ranges = np.histogram(self.dictArraysByGrid[gridId]['passArrayHoles'], bins=nBins, range=(minI, maxI))
+        histHolesMics, rangeIntensity = np.histogram(self.dictArraysByGrid[gridId]['acquiredMics'], bins=nBins, range=(minI, maxI))
+        histHolesPass, ranges = np.histogram(self.dictArraysByGrid[gridId]['passArrayMics'], bins=nBins, range=(minI, maxI))
         assert len(histHolesMics) == len(histHolesPass), "The histograms have no the same bins number"
         histRatio = np.divide(histHolesPass, histHolesMics, out=np.zeros_like(histHolesPass, dtype=float), where=histHolesMics != 0)
         histRatio[np.isinf(histRatio)] = 0.0
@@ -345,7 +350,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         '''Creating files with arrays to let viewer plot it'''
         self.info('Preparing viewer ...')
 
-        arrayHoles = np.array(self.totalHolesByGrid_value[gridId])
+        arrayHoles = np.array(self.totalMicssByGrid[gridId])
         hist, rangeIntensity = np.histogram(arrayHoles, bins=nBins, range=(minI, maxI))
         rangeFile = self._getExtraPath("{}-rangeI.txt".format(gridName))
         np.savetxt(rangeFile, rangeIntensity[:-1].reshape(1, -1), fmt='%.8f', delimiter=' ')
@@ -355,19 +360,19 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         np.savetxt(totalHistFile, hist.reshape(1, -1), fmt='%.8f', delimiter=' ')
 
         #With mics hole histogram
-        arrayHoles = np.array(self.withMicsHolesByGrid_value[gridId])
+        arrayHoles = np.array(self.acquiredMicssByGrid[gridId])
         hist, rangeIntensity = np.histogram(arrayHoles, bins=nBins, range=(minI, maxI))
         withMicsHistFile = self._getExtraPath("{}-withMicsHist.txt".format(gridName))
         np.savetxt(withMicsHistFile, hist.reshape(1, -1), fmt='%.8f', delimiter=' ')
 
         #Pass hole histogram
-        arrayHoles = np.array(self.passHolesByGrid_value[gridId])
+        arrayHoles = np.array(self.passMicsByGrid[gridId])
         hist, rangeIntensity = np.histogram(arrayHoles, bins=nBins, range=(minI, maxI))
         passHistFile = self._getExtraPath("{}-passHist.txt".format(gridName))
         np.savetxt(passHistFile, hist.reshape(1, -1), fmt='%.8f', delimiter=' ')
 
         #Rejected hole histogram
-        arrayHoles = np.array(self.rejectedHolesByGrid_value[gridId])
+        arrayHoles = np.array(self.rejectedMicssByGrid[gridId])
         hist, rangeIntensity = np.histogram(arrayHoles, bins=nBins, range=(minI, maxI))
         rejectedHistFile = self._getExtraPath("{}-rejectedHist.txt".format(gridName))
         np.savetxt(rejectedHistFile, hist.reshape(1, -1), fmt='%.8f', delimiter=' ')
@@ -415,12 +420,12 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         self.outputsToDefine = {'SetOfHolesPassFilter': SOHPF, 'SetOfHolesRejected': SOHR}
         self._defineOutputs(**self.outputsToDefine)
         for grid in self.grids:
-            holesRejected = self.rejectedHolesByGrid[grid.getGridId()]
-            holesPass = self.passHolesByGrid[grid.getGridId()]
-            for h in holesPass:
-                self.createOutputStepPassFilter(SOHPF, self.dictPassHoles[h]['Hole'])
-            for h in holesRejected:
-                self.createOutputStepRejected(SOHR, self.dictRejectHoles[h])
+            holesRejected = self.rejectedMicssByGrid[grid.getGridId()]
+            holesPass = self.passMicsByGrid[grid.getGridId()]
+            for h in self.dictPassHoles:
+                self.createOutputStepPassFilter(SOHPF,self.dictPassHoles[h]['Hole'])
+            for h in self.dictRejectHoles:
+                self.createOutputStepRejected(SOHR,self.dictRejectHoles[h]['Hole'])
 
     def createOutputStepRejected(self, SOHR, hole):
         SOHR.copyInfo(self.holes)

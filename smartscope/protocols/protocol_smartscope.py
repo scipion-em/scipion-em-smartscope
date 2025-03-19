@@ -288,7 +288,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
     def addMovieSS(self, SOMSS, movieImport, movieSS):
         SOMSS.setStreamState(SOMSS.STREAM_OPEN)
-        movieImport.setSamplingRate(movieSS['pixel_size'])
         movie2Add = MovieSS()
         movie2Add.copy(movieImport)
 

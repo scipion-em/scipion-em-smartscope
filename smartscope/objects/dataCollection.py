@@ -212,7 +212,7 @@ class dataCollection():
                     setOfSquares.write()
                     startHoles = time.time()
                     holes = self.pyClient.getRouteFromID('holes', 'square', sq.getSquareId(), endpoint='scipion_plugin', dev=True)
-                    print('---- Request Holes time: {}s'.format(round(time.time() - startHoles), 1))
+                    #print('---- Request Holes time: {}s'.format(round(time.time() - startHoles), 1))
                     if holes != []:
                         #print('square name: {}'.format(sq.getName()))
                         print('\t\t\tNumber holes in the square {}: {}'.format(

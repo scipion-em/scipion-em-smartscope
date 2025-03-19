@@ -94,9 +94,10 @@ class MainPyClient():
         else:
             completed = ''
         request = f'{self.getMainEndpoint()}{self.getApiEndPoint()}{route}{endpoint}/?{roude_id}{id}&{selected}&{completed}'
-        if dev==True: print(f'Requested url: {request}')
+        if dev==True:
+            print(f'Requested url: {request}')
         resp = requests.get(request, headers=self.getHeaders(), verify=False)
-        if route=='highmags':print(request)
+        if route=='highmags' and dev==True:print(request)
         resp_jason = resp.json()
         try:
             page_response = resp_jason['results']
