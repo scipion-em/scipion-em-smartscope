@@ -125,16 +125,12 @@ class dataCollection():
             ses.setDetectorId(s['detector_id'])
             sessionDict[s['session_id']] = ses
 
-    def screeningCollection(self, dataPath, sessionId, sessionName, setOfGrids, setOfAtlas,
-                            setOfSquares, setOfHoles, groupName, sessionDate):
+    def screeningCollection(self, dataPath, sessionName, setOfGrids, setOfAtlas,
+                            setOfSquares, setOfHoles, groupName, sessionDate, gridsToCollect, atlasToCollect):
 
         print('sessionName: {}'.format(sessionName))
-        timeGrid = time.time()
-        grid = self.pyClient.getRouteFromID('grids', 'session', sessionId, dev=False)
-        print('---- Request Grid time: {}s'.format(round(time.time() - timeGrid), 1))
-        if grid != []:print('Number grid in the sesison: {}'.format(len(grid)))
         objId = len(setOfGrids)
-        for g in grid:
+        for g in gridsToCollect:
             gr = Grid()
             gr.setGridId(g['grid_id'])
             gr.setPosition(g['position'])
@@ -158,7 +154,6 @@ class dataCollection():
             startAtlas = time.time()
             atlas = self.pyClient.getRouteFromID('atlas', 'grid', gr.getGridId())
             print('---- Request Atlas time: {}s'.format(round(time.time() - startAtlas), 1))
-
             if atlas != []: print(
                 '\tNumber atlas in the grid{}: {}'.format(gr.getName(), len(atlas)))
             for a in atlas:
@@ -179,8 +174,6 @@ class dataCollection():
                 at.setPngDir(join(pathGrid, 'pngs', str(a['name'] + '.png')))
                 at.setFileName(join(pathGrid, 'raw', a['name'] + '.mrc'))
                 setOfAtlas.append(at)
-                setOfAtlas.update(at)
-                setOfAtlas.write()
                 startSquares = time.time()
                 squares = self.pyClient.getRouteFromID('squares', 'atlas', at.getAtlasId())
                 print('request Square time: {}s'.format(
@@ -208,16 +201,15 @@ class dataCollection():
                         sq.setPngDir(pathPNG)
                     sq.setFileName(os.path.join(pathGrid, 'raw', s['name'] + '.mrc'))
                     setOfSquares.append(sq)
-                    setOfSquares.update(sq)
-                    setOfSquares.write()
                     startHoles = time.time()
-                    holes = self.pyClient.getRouteFromID('holes', 'square', sq.getSquareId(), endpoint='scipion_plugin', dev=True)
-                    #print('---- Request Holes time: {}s'.format(round(time.time() - startHoles), 1))
+                    holes = self.pyClient.getRouteFromID('holes', 'square', sq.getSquareId(), endpoint='scipion_plugin', dev=False)
                     if holes != []:
                         #print('square name: {}'.format(sq.getName()))
                         print('\t\t\tNumber holes in the square {}: {}'.format(
                             sq.getName(), len(holes)))
+                        print('---- Request Holes time: {}s'.format(round(time.time() - startHoles), 1))
                     for h in holes:
+                        startHoleTime = time.time()
                         ho = Hole()
                         ho.setHoleId(h['hole_id']) #TODO parece que aveces no se genera ese campo de hole_id, square_id, grid_id
                         ho.setName(h['name'])
@@ -256,8 +248,11 @@ class dataCollection():
                         ho.setSelectorValue(selectors['value'])
                         #hm = self.pyClient.getRouteFromID('highmag', 'hole', h['hole_id'], detailed=False)#could be several hm for one hole
                         setOfHoles.append(ho)
-                        setOfHoles.update(ho)
-                    setOfHoles.write()
+                        #print('---- Fill Hole: {}s'.format(round(time.time() - startHoleTime), 1))
+        setOfGrids.write()
+        setOfAtlas.write()
+        setOfSquares.write()
+        setOfHoles.write()
 
     def windowsPath(self, sessionId):
         session = self.pyClient.getRouteFromID('sessions', 'session', sessionId)

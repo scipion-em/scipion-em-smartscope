@@ -36,9 +36,10 @@ from pyworkflow import BETA, UPDATED, NEW, PROD
 from pwem.protocols.protocol_import.base import ProtImport
 from pyworkflow.protocol import ProtStreamingBase, getUpdatedProtocol
 from smartscope import Plugin
-from pyworkflow.protocol import params, STEPS_PARALLEL
+from pyworkflow.protocol import params, BooleanParam
 from ..objects.dataCollection import *
 from . import smartscopeConnection
+from collections import defaultdict
 
 #external imports
 import time
@@ -92,20 +93,30 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                       label="Percent empty bins in the histogram",
                       help="In the histogram of number of holes acquired (with movies), this parameter represent the"
                             " percent of empty bins allowed to feedback Smartscope (10% by default). Higher less restrictive")
+
         form.addSection('Streaming')
-
+        form.addParam('refreshMethod', params.EnumParam, default=0,
+                      choices=['Input micrographs', 'Time'],
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      label='Select input to refresh the protocol',
+                      help='Select the parameter which triger the refresh of the protocol.')
         form.addParam('refreshTime', params.IntParam, default=240,
-                      label="Time to refresh data collected (secs) and update the feedback if neccesary")
-
-        form.addParallelSection(threads=3, mpi=1)
+                      condition='refreshMethod==1',
+                      label="Time to refresh protocol",
+                      help = "Time to refresh data collected (secs) and update the feedback if neccesary")
+        form.addParam('refreshMics', params.IntParam, default=200,
+                      condition='refreshMethod==0',
+                      label = 'Input micrographs to refresh protocol',
+                      help="Number of new micrographs to refresh data collected and update the feedback if neccesary")
 
     def _initialize(self):
-        self.rTime = self.refreshTime.get()
-        # if self.rTime < 180: #TODO uncomnent
-        #     self.rTime = 180
-        self.zeroTime = time.time()
+        self.initialNumMics = 0
         self.finish = False
         self.runningPrevious = False
+        self.zeroTime = time.time()
+        self.rTime = self.refreshTime.get()
+        if self.rTime < 240:
+            self.rTime = 1240
         self.smartscopeConnectionProtocol = self.getInputProtocol()
         updatedProt = getUpdatedProtocol(self.smartscopeConnectionProtocol)
         if hasattr(updatedProt, 'Grids'):
@@ -140,16 +151,14 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
         fjj.close()
         print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
-        time.sleep(15)
+        time.sleep(10)
         # DEBUGALBERTO END
         while not self.finish:
-            rTime = time.time() - self.zeroTime
-            if rTime >= self.rTime:
+            self.fMics = self.micsPassFilter.get()
+            if self.conditionRefresh():
                 if self.runningPrevious == False:
-                    self.zeroTime = time.time()
                     if len(self.micsPassFilter.get()) >= self.triggerMicrograph.get():
                         self.runningPrevious = True
-                        self.fMics = self.micsPassFilter.get()
                         self.timeMainSteps = time.time()
                         self.collectHoles()
                         self.timeCollect = time.time()
@@ -159,11 +168,11 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                         self.timeStatistics = time.time()
                         self.createOutputs()
                         self.timeOutput = time.time()
-                        print(f'Collect Time: {round(self.timeCollect - self.timeMainSteps, 0)} s')
-                        print(f'Assign Time: {round(self.timeAssign - self.timeCollect, 0)} s')
-                        print(f'Statistics Time: {round(self.timeStatistics - self.timeAssign, 0)} s')
-                        print(f'Output Time: {round(self.timeOutput - self.timeStatistics, 0)} s')
-                        print(f'Total Time: {round(self.timeOutput - self.time0, 0)} s')
+                        self.info(f'Collect Time: {round(self.timeCollect - self.timeMainSteps, 0)} s')
+                        self.info(f'Assign Time: {round(self.timeAssign - self.timeCollect, 0)} s')
+                        self.info(f'Statistics Time: {round(self.timeStatistics - self.timeAssign, 0)} s')
+                        self.info(f'Output Time: {round(self.timeOutput - self.timeStatistics, 0)} s')
+                        self.info(f'Total Time: {round(self.timeOutput - self.time0, 0)} s')
                         if not self.fMics.isStreamOpen():
                             self.info('Not more micrographs are expected, set closed')
                             self.finish = True
@@ -173,6 +182,22 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                         self.info('Waiting enought micrographs to launch protocol.'
                                   ' triggerMicrograph: {}, micrographsFiltered: {}'.format(self.triggerMicrograph.get(), len(self.micsPassFilter.get())))
 
+
+    def conditionRefresh(self):
+        if self.refreshMethod == 0:
+            numMics = len(self.fMics)
+            if numMics - self.initialNumMics >= self.refreshMics.get():
+                self.initialNumMics = numMics
+                return True
+            else:
+                return False
+        else:
+            rTime = time.time() - self.zeroTime
+            if rTime >= self.rTime:
+                self.zeroTime = time.time()
+                return True
+            else:
+                return False
 
 
     def collectHoles(self):
@@ -214,15 +239,6 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
     def assignGridHoles(self):
         '''This function create list of holes based on the behaves of a grids'''
         self.info('\n-Assigning holes...')
-        from collections import defaultdict
-        self.totalHolesByGrid_value = defaultdict(list)
-        self.withMicsHolesByGrid_value = defaultdict(list)
-        self.passHolesByGrid_value = defaultdict(list)
-        self.rejectedHolesByGrid_value = defaultdict(list)
-        self.totalHolesByGrid = defaultdict(list)
-        self.withMicsHolesByGrid = defaultdict(list)
-        self.passHolesByGrid = defaultdict(list)
-        self.rejectedHolesByGrid = defaultdict(list)
 
         self.totalMicssByGrid = defaultdict(list) #TODO it does not consider the multishot, the hole does not know about how many shots it will have
         self.acquiredMicssByGrid = defaultdict(list)
@@ -419,11 +435,10 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         SOHPF = SetOfHoles.create(outputPath=self._getPath(), prefix='Pass')
         self.outputsToDefine = {'SetOfHolesPassFilter': SOHPF, 'SetOfHolesRejected': SOHR}
         self._defineOutputs(**self.outputsToDefine)
-        for grid in self.grids:
-            holesRejected = self.rejectedMicssByGrid[grid.getGridId()]
-            holesPass = self.passMicsByGrid[grid.getGridId()]
+        if self.dictPassHoles:
             for h in self.dictPassHoles:
                 self.createOutputStepPassFilter(SOHPF,self.dictPassHoles[h]['Hole'])
+        if self.dictRejectHoles:
             for h in self.dictRejectHoles:
                 self.createOutputStepRejected(SOHR,self.dictRejectHoles[h]['Hole'])
 

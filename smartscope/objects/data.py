@@ -900,7 +900,6 @@ class MovieSS(Movie):
     def setNumber(self, number):
         self._number.set(number)
 
-
     def setShapeX(self, xDim):
         self._shape_x.set(xDim)
 
