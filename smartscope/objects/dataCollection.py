@@ -126,7 +126,7 @@ class dataCollection():
             sessionDict[s['session_id']] = ses
 
     def screeningCollection(self, dataPath, sessionName, setOfGrids, setOfAtlas,
-                            setOfSquares, setOfHoles, groupName, sessionDate, gridsToCollect, atlasToCollect):
+                            setOfSquares, setOfHoles, groupName, sessionDate, gridsToCollect):
 
         print('sessionName: {}'.format(sessionName))
         objId = len(setOfGrids)

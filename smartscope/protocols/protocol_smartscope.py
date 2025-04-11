@@ -38,6 +38,9 @@ from ..objects.dataCollection import *
 import time
 from ..constants import *
 
+CROP_DIVISION = 10
+
+
 class smartscopeConnection(ProtImport, ProtStreamingBase):
     """
     This protocol will import all the metadata from the screenning managed by
@@ -135,7 +138,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                 metaTime = time.time()
                 self.screeningCollection()
                 screenTime = time.time()
-                #self.importMoviesSS(inputMovies)#TODO uncomment
+                self.importMoviesSS(inputMovies)#TODO uncomment
                 self.cropHolePNG()
                 moviesTime = time.time()
                 self.info(f'Metadata Time: {round((metaTime - startTime), 1)}s')
@@ -257,8 +260,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                                                   self.SOS, self.SOH,
                                                   self.groupName,
                                                   self.sessionDate,
-                                                  self.gridsToCollect,
-                                                  self.atlasToCollect)
+                                                  self.gridsToCollect)
         # STORE SQLITE
         self.SOG.write()
         self.SOA.write()
@@ -280,28 +282,46 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
     def cropHolePNG(self):
         pathPNGcrop = os.path.join(self._getExtraPath(), 'pngHoles')
+        if not os.path.exists(pathPNGcrop):
+            os.makedirs(pathPNGcrop)
         for m in self.MoviesSS:
+            time0 = time.time()
             self.cropImage(m, pathPNGcrop)
+            print(f'time crop hole: {time.time() - time0}s')
 
     def cropImage(self, m, pathPNGcrop):
         '''Split the png image based on the position of the hole (x,y) and a boxSize'''
         from PIL import Image
         import numpy as np
-        #self.Holes.
-        Range = 100
-        holeId = m.getHoleId()
-        xPng = m.getIsX()
-        yPng = m.getIsY()
-        # pngDir = h.getPngDir()
-        # baseNamePNG = os.path.basename(pngDir)
-        # imagen = Image.open(pngDir)
-        # arr = np.array(imagen)
-        # pngCrop = arr[yPng - Range:yPng + Range,
-        #           xPng - Range:xPng + Range]
-        # cropted_img = Image.fromarray(pngCrop)
-        # pathPNGCroped = os.path.join(pathPNGcrop, baseNamePNG)
-        # cropted_img.save(pathPNGCroped)
-        # h.setPngDir(pathPNGCroped)
+
+        pngDir = self.SOH.getItem("_hole_id", m.getHoleId()).getPngDir()
+        xPng = int(m.getIsX())
+        yPng = int(m.getIsY())
+        baseNamePNG = os.path.basename(pngDir)
+        imagen = Image.open(pngDir)
+        arr = np.array(imagen)
+        height, width = arr.shape[:2]
+        Range = int(np.mean([height, width]) / CROP_DIVISION)
+        if yPng - Range < 0:
+            arr_y = 0, Range
+        elif yPng + Range > height:
+            arr_y = height - Range, height
+        else:
+            arr_y = yPng - Range, yPng + Range
+        if xPng - Range < 0:
+            arr_x = 0, Range
+        elif xPng + Range > width:
+            arr_x = width - Range, width
+        else:
+            arr_x = xPng - Range, xPng + Range
+
+        pngCrop = arr[arr_y, arr_x]
+        cropted_img = Image.fromarray(pngCrop)
+        pathPNGCroped = os.path.join(pathPNGcrop, baseNamePNG)
+        cropted_img.save(pathPNGCroped)
+        self.SOH.getItem("_hole_id", m.getHoleId()).setPngDir(pathPNGCroped)
+
+
 
     def checkNewGrid(self):
         listInSessionGrids = []
@@ -355,7 +375,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         else:
             SOMSS = self.MoviesSS
 
-        for gr in self.Grids:
+        for gr in self.SOG:
             dictMAPI = self.pyClient.getRouteFromID('highmag', 'grid', gr.getGridId())
             for m in dictMAPI:
                 moviesAPI.append(m)
