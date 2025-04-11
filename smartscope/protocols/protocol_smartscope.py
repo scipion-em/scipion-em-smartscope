@@ -138,7 +138,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                 metaTime = time.time()
                 self.screeningCollection()
                 screenTime = time.time()
-                self.importMoviesSS(inputMovies)#TODO uncomment
+                self.importMoviesSS(inputMovies)
                 self.cropHolePNG()
                 moviesTime = time.time()
                 self.info(f'Metadata Time: {round((metaTime - startTime), 1)}s')
@@ -285,9 +285,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         if not os.path.exists(pathPNGcrop):
             os.makedirs(pathPNGcrop)
         for m in self.MoviesSS:
-            time0 = time.time()
             self.cropImage(m, pathPNGcrop)
-            print(f'time crop hole: {time.time() - time0}s')
 
     def cropImage(self, m, pathPNGcrop):
         '''Split the png image based on the position of the hole (x,y) and a boxSize'''
@@ -320,7 +318,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         pathPNGCroped = os.path.join(pathPNGcrop, baseNamePNG)
         cropted_img.save(pathPNGCroped)
         self.SOH.getItem("_hole_id", m.getHoleId()).setPngDir(pathPNGCroped)
-
 
 
     def checkNewGrid(self):
@@ -362,10 +359,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
     def importMoviesSS(self, inputMovies):
         self.info('importMoviesSS collection...')
-        moviesToAdd = []
-        moviesAPI = []
-
-        # Match movies from the API and from the output of the protocol
         if self.MoviesSS == None:
             SOMSS = SetOfMoviesSS.create(outputPath=self._getPath())
             SOMSS.copyInfo(inputMovies)
@@ -375,34 +368,21 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         else:
             SOMSS = self.MoviesSS
 
+        if inputMovies is None:
+            self.info('Set of movies from import movies protocol empty')
+            return
+
         for gr in self.SOG:
             dictMAPI = self.pyClient.getRouteFromID('highmag', 'grid', gr.getGridId())
             for m in dictMAPI:
-                moviesAPI.append(m)
-
-        ImportM = [m.getFrames() for m in SOMSS]
-        for mAPI in moviesAPI:
-            if mAPI['frames'] not in ImportM:
-                moviesToAdd.append(mAPI)
-
-        #Match movies to add and movies from importMovies protocol
-        self.info('\n\nmoviesAPI: {}\nmoviesToAdd: {}'.format(len(moviesAPI), len(moviesToAdd)))
-        notImportedMovies = []
-        if moviesToAdd:
-            if inputMovies is None:
-                self.info('Set of movies from import movies protocol empty')
-                return
-            else:
-                for mImport in inputMovies:
-                    imported = False
-                    for mAPI in moviesToAdd:
-                        if mAPI['frames'] == os.path.basename(mImport.getFileName()):
-                            imported = True
-                            self.addMovieSS(SOMSS, mImport, mAPI)
-                            break
-                    if imported == False:
-                        notImportedMovies.append(mImport)
-                        self.info('Movie not imported: {}\n'.format(os.path.basename(mImport.getFileName())))
+                try:
+                    inputMovies.getItem("_micName", m['frames'])
+                    try:
+                        SOMSS.getItem("_micName", m['frames'])#highMag movie from Smartscope imported previously
+                    except Exception:
+                        self.addMovieSS(SOMSS, inputMovies.getItem("_micName", m['frames']), m)
+                except UnboundLocalError:
+                    pass #highMag movie from Smartscope not in the inputMoviesSet
 
             # STORE SQLITE
             SOMSS.write()  # persist on sqlite
@@ -414,9 +394,9 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             summaryF3 = open(summaryF3, "w")
             summaryF3.write("\nSmartscope importing movies\n\n" +
                             "\t{}\tMovies Smartscope\n".format(len(SOMSS)))
-            summaryF3.write("\t{}\tMovies not imported\n".format(len(notImportedMovies)))
+            #summaryF3.write("\t{}\tMovies not imported\n".format(len(notImportedMovies)))
             summaryF3.close()
-        else:
+
             self.info('All movies from the Smartscope API were imported. '
                       'See the output of the protocol')
 
