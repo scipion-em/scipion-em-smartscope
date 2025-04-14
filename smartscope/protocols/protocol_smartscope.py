@@ -237,7 +237,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
     def screeningCollection(self):
         self.info('Screening collection...')
         if len(self.SOG) == 0:
-            self.info('IN')
             self.outputsToDefine = {'Grids': self.SOG,
                                     'Atlas': self.SOA,
                                     'Squares': self.SOS,
@@ -394,7 +393,9 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                     except Exception:
                         self.info(f"Collectiong ({counterMoviesChecked}/{sizeMoviesInput}) movie: {m['frames']}")
                         counterMoviesChecked += 1
+                        time0= time.time()
                         self.addMovieSS(SOMSS, inputMovies.getItem("_micName", m['frames']), m)
+                        print(f'time movie {counterMoviesChecked}: {time0 - time.time()} s')
                 except UnboundLocalError:
                     pass #highMag movie from Smartscope not in the inputMoviesSet
 

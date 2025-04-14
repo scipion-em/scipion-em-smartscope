@@ -38,6 +38,11 @@ from ..objects.data import *
 from ..pyclient.basic import *
 from pwem.objects.data import Acquisition
 import time
+import  logging
+
+logger = logging.getLogger(__name__)
+
+
 
 class dataCollection():
     def __init__(self, pyClient):
@@ -128,7 +133,7 @@ class dataCollection():
     def screeningCollection(self, dataPath, sessionName, setOfGrids, setOfAtlas,
                             setOfSquares, setOfHoles, groupName, sessionDate, gridsToCollect):
 
-        print('sessionName: {}'.format(sessionName))
+        logger.info('sessionName: {}'.format(sessionName))
         objId = len(setOfGrids)
         for g in gridsToCollect:
             gr = Grid()
@@ -153,8 +158,8 @@ class dataCollection():
             setOfGrids.append(gr)
             startAtlas = time.time()
             atlas = self.pyClient.getRouteFromID('atlas', 'grid', gr.getGridId())
-            print('---- Request Atlas time: {}s'.format(round(time.time() - startAtlas), 1))
-            if atlas != []: print(
+            logger.info('---- Request Atlas time: {}s'.format(round(time.time() - startAtlas), 1))
+            if atlas != []: logger.info(
                 '\tNumber atlas in the grid{}: {}'.format(gr.getName(), len(atlas)))
             for a in atlas:
                 at = Atlas()
@@ -176,10 +181,10 @@ class dataCollection():
                 setOfAtlas.append(at)
                 startSquares = time.time()
                 squares = self.pyClient.getRouteFromID('squares', 'atlas', at.getAtlasId())
-                print('request Square time: {}s'.format(
-                    time.time() - startSquares))
-                if squares != []: print(
-                    '\t\tNumber squares in the atlas: {}'.format(len(squares)))
+
+                if squares != []:
+                    logger.info('\t\tNumber squares in the atlas: {}'.format(len(squares)))
+                    logger.info('\t\t  Request Square time: {}s'.format(time.time() - startSquares))
                 for s in squares:
                     sq = Square()
                     sq.setSquareId(s['square_id'])
@@ -204,10 +209,10 @@ class dataCollection():
                     startHoles = time.time()
                     holes = self.pyClient.getRouteFromID('holes', 'square', sq.getSquareId(), endpoint='scipion_plugin', dev=False)
                     if holes != []:
-                        #print('square name: {}'.format(sq.getName()))
-                        print('\t\t\tNumber holes in the square {}: {}'.format(
+                        #logger.info('square name: {}'.format(sq.getName()))
+                        logger.info('\t\t\tNumber holes in the square {}: {}'.format(
                             sq.getName(), len(holes)))
-                        print('---- Request Holes time: {}s'.format(round(time.time() - startHoles), 1))
+                        logger.info('\t\t\t  Request hole time: {}s'.format(round(time.time() - startHoles), 1))
                     for h in holes:
                         startHoleTime = time.time()
                         ho = Hole()
@@ -248,7 +253,9 @@ class dataCollection():
                         ho.setSelectorValue(selectors['value'])
                         #hm = self.pyClient.getRouteFromID('highmag', 'hole', h['hole_id'], detailed=False)#could be several hm for one hole
                         setOfHoles.append(ho)
-                        #print('---- Fill Hole: {}s'.format(round(time.time() - startHoleTime), 1))
+                        timeFillHoles = time.time() - startHoleTime
+                        if timeFillHoles > 0.01 :
+                            logger.info('---- Fill Hole: {}s'.format(round(timeFillHoles), 2))
         setOfGrids.write()
         setOfAtlas.write()
         setOfSquares.write()
@@ -271,7 +278,7 @@ class dataCollection():
         if os.path.isfile(mdocFile):
             return MDoc(mdocFile)
         else:
-            print('HM {} not adquired'.format(mdocFile))
+            logger.info('HM {} not adquired'.format(mdocFile))
             return False
 
     def getMagnification(self, grid, highMagID):
@@ -398,11 +405,11 @@ class MDoc:
                         headerDict[key.strip()] = value.strip()
                     if zvalueList:
                         zvalueDict[key.strip()] = value.strip()
-                        #print('zvalue: {} key.strip(): {}'.format(zvalue, key.strip()))
-                        #print('zvalueDict[key.strip()] {}'.format(zvalueDict[key.strip()]))
+                        #logger.info('zvalue: {} key.strip(): {}'.format(zvalue, key.strip()))
+                        #logger.info('zvalueDict[key.strip()] {}'.format(zvalueDict[key.strip()]))
 
-        # print(len(zvalueList))
-        # print(zvalueDict)
+        # logger.info(len(zvalueList))
+        # logger.info(zvalueDict)
 
         return headerDict, zvalueList
 
