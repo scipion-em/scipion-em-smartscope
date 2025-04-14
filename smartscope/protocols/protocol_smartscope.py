@@ -236,7 +236,8 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
     def screeningCollection(self):
         self.info('Screening collection...')
-        if self.SOG == None:
+        if len(self.SOG) == 0:
+            self.info('IN')
             self.outputsToDefine = {'Grids': self.SOG,
                                     'Atlas': self.SOA,
                                     'Squares': self.SOS,
@@ -266,6 +267,11 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         self.SOA.write()
         self.SOS.write()
         self.SOH.write()
+        # self.SOH.setStreamState(self.SOH.STREAM_CLOSED)
+        # self.SOA.setStreamState(self.SOA.STREAM_CLOSED)
+        # self.SOS.setStreamState(self.SOS.STREAM_CLOSED)
+        # self.SOH.setStreamState(self.SOH.STREAM_CLOSED)
+
         self._store(self.SOG)
         self._store(self.SOA)
         self._store(self.SOS)
@@ -286,6 +292,9 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             os.makedirs(pathPNGcrop)
         for m in self.MoviesSS:
             self.cropImage(m, pathPNGcrop)
+        self.SOH.write()
+        self._store(self.SOH)
+
 
     def cropImage(self, m, pathPNGcrop):
         '''Split the png image based on the position of the hole (x,y) and a boxSize'''
@@ -313,12 +322,14 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         else:
             arr_x = xPng - Range, xPng + Range
 
-        pngCrop = arr[arr_y, arr_x]
+        #pngCrop = arr[arr_y, arr_x]
+        pngCrop = arr[arr_y[0]:arr_y[1], arr_x[0]:arr_x[1]]
         cropted_img = Image.fromarray(pngCrop)
         pathPNGCroped = os.path.join(pathPNGcrop, baseNamePNG)
         cropted_img.save(pathPNGCroped)
-        self.SOH.getItem("_hole_id", m.getHoleId()).setPngDir(pathPNGCroped)
-
+        holeItem = self.SOH.getItem("_hole_id", m.getHoleId())
+        holeItem.setPngDir(pathPNGCroped)
+        self.SOH.update(holeItem)
 
     def checkNewGrid(self):
         listInSessionGrids = []
