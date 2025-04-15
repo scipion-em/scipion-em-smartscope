@@ -1,5 +1,6 @@
 import requests
 import json
+import time
 from requests.auth import HTTPBasicAuth
 
 DETAILED = 'detailed'
@@ -66,54 +67,76 @@ class MainPyClient():
         except KeyError:
             return resp_jason
 
-    def getRouteFromID(self, route, from_id, id, endpoint=False, selected=False, completed=False, dev=False):
+    def fetch_page(self, url, headers):
+        r = requests.get(url, verify=False, headers=headers)
+        return r.json()
+
+
+    def getRouteFromID(self, route, from_id, id, endpoint=False, selected=False, completed=False, dev=False, json=True):
         '''
         route: element you request for
         from_id: father of the requested element (square is the father of hole)
         id: identification of the requested element
-        detailed: True if ou want a detailed response
-        selected: A filter for recieve just the selected elements
+        detailed: True if you want a detailed response
+        selected: A filter to receive just the selected elements
 
         return: the response, json format
         '''
+        import concurrent.futures
+        from urllib.parse import urlencode, urljoin
+
         response = []
-        if from_id != '':
-            roude_id = '{}_id='.format(from_id)
-        else:
-            roude_id = ''
-        if selected == True:
-            selected = 'selected=true'
-        else:
-            selected = ''
-        if endpoint == False:
-            endpoint = ''
-        else:
-            endpoint = '/{}'.format(endpoint)
-        if completed == True:
-            completed = 'status=completed'
-        else:
-            completed = ''
-        request = f'{self.getMainEndpoint()}{self.getApiEndPoint()}{route}{endpoint}/?{roude_id}{id}&{selected}&{completed}'
-        if dev==True:
+        base_url = urljoin(self.getMainEndpoint(), f"{self.getApiEndPoint()}{route}{f'/{endpoint}' if endpoint else ''}/")
+        params = {
+            f"{from_id}_id": id if from_id else None,
+            "selected": "true" if selected else None,
+            "status": "completed" if completed else None,
+            "format": "json" if json else None,
+            "page_size": 30,
+        }
+        params = {k: v for k, v in params.items() if v is not None}
+        request = f"{base_url}?{urlencode(params)}"
+
+        if dev:
             print(f'Requested url: {request}')
+            time0 = time.time()
+
         resp = requests.get(request, headers=self.getHeaders(), verify=False)
-        if route=='highmags' and dev==True:print(request)
+        time1 = time.time()
         resp_jason = resp.json()
+        response.extend(resp_jason['results'])
+        if dev:
+            time2 = time.time()
+            print(f'Time for initial request: {time1 - time0:.3f}s')
+            print(f'Time parsing json: {time2 - time1:.3f}s')
+
         try:
-            page_response = resp_jason['results']
-            response.extend(page_response)
-            while resp_jason['next'] != None:
-                corrected_endpoint = correctEndpointFormat(resp_jason['next'])
-                # print(f'Requested next url: {corrected_endpoint}')
-                r = requests.get(corrected_endpoint, verify=False,
-                                 headers=self.getHeaders())
-                resp_jason = r.json()
-                page_response = resp_jason['results']
-                # print(page_response)
-                response.extend(page_response)
+            count = resp_jason.get('count')
+            page_size = len(resp_jason['results'])
+            total_pages = (count + page_size - 1) // page_size
+            if total_pages > 1:
+                urls = [f"{request}&page={page}" for page in range(2, total_pages + 1)]
+                # PARALELIZATION:
+                if urls:
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+                        future_to_url = {
+                            executor.submit(self.fetch_page, url, self.getHeaders()): url for url in urls
+                        }
+                        for future in concurrent.futures.as_completed(future_to_url):
+                            time.sleep(0.5)
+                            try:
+                                page = future.result()
+                                response.extend(page['results'])
+                            except Exception as e:
+                                print(f"Error obtaining {future_to_url[future]}: {e}")
+
+            if dev:
+                print(f'Paralelization {len(urls)} requests time: {time.time() - time2:.3f}s')
+                print(f'Total time: {time.time() - time0:.3f}s')
 
             return response
-        except KeyError:
+
+        except Exception:
             return []
 
     def getDetailFromItem(self, route, ID, detailed=True, dev=False):
@@ -283,18 +306,18 @@ if __name__ == "__main__":
     pyClient = MainPyClient('cf566e4846930c9097db38acdd4775001609f831',    ' http://localhost:48000/',)
     #pyClient.postRangeIntensity(route='', ID='6FRO30_3uT8U2W539noHcC4J3i6onI', data={"low_limit": 100.0, "high_limit": 400.0}, devel=True)
     #url = pyClient.getURLFromGrid('6FRO30_3uT8U2W539noHcC4J3i6onI')
-    limits = pyClient.getRangeOfIntensityGrid('1jCzmOdx1ZaxaBbMhqut7B9mcTeKQr', devel=True)
-    print(limits)
-    pyClient.postRangeIntensity(ID='1jCzmOdx1ZaxaBbMhqut7B9mcTeKQr', data={"low_limit": 100.0, "high_limit": 400.0}, devel=True)
-    limits = pyClient.getRangeOfIntensityGrid('1jCzmOdx1ZaxaBbMhqut7B9mcTeKQr', devel=True)
-    print(limits)
+    #limits = pyClient.getRangeOfIntensityGrid('1jCzmOdx1ZaxaBbMhqut7B9mcTeKQr', devel=True)
+    #print(limits)
+    # pyClient.postRangeIntensity(ID='1jCzmOdx1ZaxaBbMhqut7B9mcTeKQr', data={"low_limit": 100.0, "high_limit": 400.0}, devel=True)
+    #limits = pyClient.getRangeOfIntensityGrid('1jCzmOdx1ZaxaBbMhqut7B9mcTeKQr', devel=True)
+    #print(limits)
     # metadataSession = {'microscopes': None,'detectors': None, 'sessions': None}
     # for key, value in metadataSession.items():
     #     metadataSession[key] = pyClient.getDetailsFromParameter(key)
     # print(metadataSession['microscopes'])
 
     #grid = pyClient.getRouteFromID('microscopes', 'microscope', 'h0PgRUjUq2K2Cr1CGZJq3q08il8i5n', dev=True)
-    #hole = pyClient.getRouteFromID('holes', 'square', 'autoloader_square23JZQjerrJVd9', dev=True)
+    hole = pyClient.getRouteFromID('holes', 'square', 'LH11_3_square101MThTKsfqdbO1uN', endpoint='scipion_plugin', dev=True)
     #hm = pyClient.getRouteFromID('highmag', 'highmag', 'aaa_square15_hole27_fflyClmoDr', dev=True)
     #hole = pyClient.getRouteFromID('hole', 'hole', 'aaa_square15_hole0Fq2BoTroLv24', dev=True)
 

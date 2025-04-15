@@ -210,8 +210,7 @@ class dataCollection():
                     holes = self.pyClient.getRouteFromID('holes', 'square', sq.getSquareId(), endpoint='scipion_plugin', dev=False)
                     if holes != []:
                         #logger.info('square name: {}'.format(sq.getName()))
-                        logger.info('\t\t\tNumber holes in the square {}: {}'.format(
-                            sq.getName(), len(holes)))
+                        logger.info('\t\t\tNumber holes in the square {}  {}: {}'.format( sq.getName(), sq.getSquareId(), len(holes)))
                         logger.info('\t\t\t  Request hole time: {}s'.format(round(time.time() - startHoles), 1))
                     for h in holes:
                         startHoleTime = time.time()
@@ -255,7 +254,7 @@ class dataCollection():
                         setOfHoles.append(ho)
                         timeFillHoles = time.time() - startHoleTime
                         if timeFillHoles > 0.01 :
-                            logger.info('---- Fill Hole: {}s'.format(round(timeFillHoles), 2))
+                            logger.info('\t\t\t  Fill Hole: {}s'.format(round(timeFillHoles), 3))
         setOfGrids.write()
         setOfAtlas.write()
         setOfSquares.write()
