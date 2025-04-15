@@ -4,7 +4,7 @@ import time
 from requests.auth import HTTPBasicAuth
 
 DETAILED = 'detailed'
-
+TIMEOUT = 300
 class MainPyClient():
     def __init__(self, Authorization, endpoint):
         self._headers = {'Authorization': f'Token {Authorization}'}
@@ -67,12 +67,21 @@ class MainPyClient():
         except KeyError:
             return resp_jason
 
-    def fetch_page(self, url, headers):
-        r = requests.get(url, verify=False, headers=headers)
+    def fetch_page(self, url, headers, session):
+        time0 = time.time()
+        r = session.get(url, verify=False, timeout=TIMEOUT)
+        print(f'\t\t\t  time request: {time.time() - time0}')
+        #r = requests.get(url, verify=False, headers=headers, timeout=TIMEOUT)
+        if r.status_code != 200:
+            print(f"?? Error {r.status_code} in {url}")
+            return {}
+        if not r.text.strip():
+            print(f"?? answer empty {url}")
+            return {}
         return r.json()
 
 
-    def getRouteFromID(self, route, from_id, id, endpoint=False, selected=False, completed=False, dev=False, json=True):
+    def getRouteFromID(self, route, from_id, id, endpoint=False, selected=False, completed=False, dev=False, json=True, pageSize=30):
         '''
         route: element you request for
         from_id: father of the requested element (square is the father of hole)
@@ -92,23 +101,28 @@ class MainPyClient():
             "selected": "true" if selected else None,
             "status": "completed" if completed else None,
             "format": "json" if json else None,
-            "page_size": 30,
+            "page_size":pageSize if pageSize else 30,
         }
         params = {k: v for k, v in params.items() if v is not None}
         request = f"{base_url}?{urlencode(params)}"
 
         if dev:
             print(f'Requested url: {request}')
-            time0 = time.time()
+        time0 = time.time()
 
-        resp = requests.get(request, headers=self.getHeaders(), verify=False)
+        session = requests.Session()
+        session.headers.update(self.getHeaders())
+
+        resp = session.get(request, verify=False, timeout=TIMEOUT)
+        #resp = requests.get(request, headers=self.getHeaders(), verify=False, timeout=TIMEOUT)#, proxies={"http": None, "https": None})
+
         time1 = time.time()
         resp_jason = resp.json()
         response.extend(resp_jason['results'])
-        if dev:
-            time2 = time.time()
-            print(f'Time for initial request: {time1 - time0:.3f}s')
-            print(f'Time parsing json: {time2 - time1:.3f}s')
+        time2 = time.time()
+        print(f'\t\t\tTime for initial request: {time1 - time0:.3f}s')
+
+        #print(f'Time parsing json: {time2 - time1:.3f}s')
 
         try:
             count = resp_jason.get('count')
@@ -120,7 +134,7 @@ class MainPyClient():
                 if urls:
                     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
                         future_to_url = {
-                            executor.submit(self.fetch_page, url, self.getHeaders()): url for url in urls
+                            executor.submit(self.fetch_page, url, self.getHeaders(), session): url for url in urls
                         }
                         for future in concurrent.futures.as_completed(future_to_url):
                             time.sleep(0.5)
@@ -128,7 +142,8 @@ class MainPyClient():
                                 page = future.result()
                                 response.extend(page['results'])
                             except Exception as e:
-                                print(f"Error obtaining {future_to_url[future]}: {e}")
+                                pass
+                                #print(f"Error obtaining {future_to_url[future]}: {e}")
 
             if dev:
                 print(f'Paralelization {len(urls)} requests time: {time.time() - time2:.3f}s')
@@ -317,12 +332,12 @@ if __name__ == "__main__":
     # print(metadataSession['microscopes'])
 
     #grid = pyClient.getRouteFromID('microscopes', 'microscope', 'h0PgRUjUq2K2Cr1CGZJq3q08il8i5n', dev=True)
-    hole = pyClient.getRouteFromID('holes', 'square', 'LH11_3_square101MThTKsfqdbO1uN', endpoint='scipion_plugin', dev=True)
+    #hole = pyClient.getRouteFromID('holes', 'square', 'LH11_3_square101MThTKsfqdbO1uN', endpoint='scipion_plugin', dev=True)
     #hm = pyClient.getRouteFromID('highmag', 'highmag', 'aaa_square15_hole27_fflyClmoDr', dev=True)
     #hole = pyClient.getRouteFromID('hole', 'hole', 'aaa_square15_hole0Fq2BoTroLv24', dev=True)
 
-    allHM = pyClient.getDetailsFromParameter('grids')
-    #allHM = pyClient.getRouteFromID('highmag', 'grid', '1autoloaderucI1Nd2F55R0OY5E18g', dev=True)
+    #allHM = pyClient.getDetailsFromParameter('grids')
+    allHM = pyClient.getRouteFromID('highmag', 'grid', '1LH11_3Mio1NcEGg7tDmRLmY7sUFgg', dev=True, pageSize=500)
 
     # print(allHM)
     # print(len(allHM))

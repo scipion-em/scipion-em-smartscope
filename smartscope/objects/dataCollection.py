@@ -185,7 +185,7 @@ class dataCollection():
                 if squares != []:
                     logger.info('\t\tNumber squares in the atlas: {}'.format(len(squares)))
                     logger.info('\t\t  Request Square time: {}s'.format(time.time() - startSquares))
-                for s in squares:
+                for i, s in enumerate(squares, start=1):
                     sq = Square()
                     sq.setSquareId(s['square_id'])
                     sq.setName(s['name'])
@@ -210,8 +210,8 @@ class dataCollection():
                     holes = self.pyClient.getRouteFromID('holes', 'square', sq.getSquareId(), endpoint='scipion_plugin', dev=False)
                     if holes != []:
                         #logger.info('square name: {}'.format(sq.getName()))
-                        logger.info('\t\t\tNumber holes in the square {}  {}: {}'.format( sq.getName(), sq.getSquareId(), len(holes)))
-                        logger.info('\t\t\t  Request hole time: {}s'.format(round(time.time() - startHoles), 1))
+                        logger.info(f'\t\t\tNumber holes in the square ({i}/{len(squares)}) {sq.getName()}  {sq.getSquareId()}: {len(holes)}')
+                        logger.info(f'\t\t\t  Request hole time: {round(time.time() - startHoles, 1)}')
                     for h in holes:
                         startHoleTime = time.time()
                         ho = Hole()
@@ -253,8 +253,8 @@ class dataCollection():
                         #hm = self.pyClient.getRouteFromID('highmag', 'hole', h['hole_id'], detailed=False)#could be several hm for one hole
                         setOfHoles.append(ho)
                         timeFillHoles = time.time() - startHoleTime
-                        if timeFillHoles > 0.01 :
-                            logger.info('\t\t\t  Fill Hole: {}s'.format(round(timeFillHoles), 3))
+                        if timeFillHoles > 1 :
+                            logger.info('\t\t\t  Fill Hole: {}s'.format(round(timeFillHoles), 1))
         setOfGrids.write()
         setOfAtlas.write()
         setOfSquares.write()

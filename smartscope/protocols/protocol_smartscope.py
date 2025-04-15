@@ -384,7 +384,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         sizeMoviesInput = len(inputMovies)
         counterMoviesChecked = 1
         for gr in self.SOG:
-            dictMAPI = self.pyClient.getRouteFromID('highmag', 'grid', gr.getGridId())
+            dictMAPI = self.pyClient.getRouteFromID('highmag', 'grid', gr.getGridId(), pageSize=500)
             for m in dictMAPI:
                 try:
                     inputMovies.getItem("_micName", m['frames'])
@@ -395,7 +395,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                         counterMoviesChecked += 1
                         time0= time.time()
                         self.addMovieSS(SOMSS, inputMovies.getItem("_micName", m['frames']), m)
-                        print(f'time movie {counterMoviesChecked}: {time0 - time.time()} s')
+                        #print(f'time movie {counterMoviesChecked}: {time.time() - time0} s')
                 except UnboundLocalError:
                     pass #highMag movie from Smartscope not in the inputMoviesSet
 
