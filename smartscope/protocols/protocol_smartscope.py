@@ -320,15 +320,17 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             arr_x = width - Range, width
         else:
             arr_x = xPng - Range, xPng + Range
-
-        #pngCrop = arr[arr_y, arr_x]
-        pngCrop = arr[arr_y[0]:arr_y[1], arr_x[0]:arr_x[1]]
-        cropted_img = Image.fromarray(pngCrop)
-        pathPNGCroped = os.path.join(pathPNGcrop, baseNamePNG)
-        cropted_img.save(pathPNGCroped)
-        holeItem = self.SOH.getItem("_hole_id", m.getHoleId())
-        holeItem.setPngDir(pathPNGCroped)
-        self.SOH.update(holeItem)
+        try:
+            #pngCrop = arr[arr_y, arr_x]
+            pngCrop = arr[arr_y[0]:arr_y[1], arr_x[0]:arr_x[1]]
+            cropted_img = Image.fromarray(pngCrop)
+            pathPNGCroped = os.path.join(pathPNGcrop, baseNamePNG)
+            cropted_img.save(pathPNGCroped)
+            holeItem = self.SOH.getItem("_hole_id", m.getHoleId())
+            holeItem.setPngDir(pathPNGCroped)
+            self.SOH.update(holeItem)
+        except Exception as e:
+            print(e)
 
     def checkNewGrid(self):
         listInSessionGrids = []

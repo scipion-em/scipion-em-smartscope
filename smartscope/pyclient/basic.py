@@ -81,7 +81,7 @@ class MainPyClient():
         return r.json()
 
 
-    def getRouteFromID(self, route, from_id, id, endpoint=False, selected=False, completed=False, dev=False, json=True, pageSize=30):
+    def getRouteFromID(self, route, from_id, id, endpoint=False, selected=False, completed=False, dev=False, json=True, pageSize=10):
         '''
         route: element you request for
         from_id: father of the requested element (square is the father of hole)
@@ -101,7 +101,7 @@ class MainPyClient():
             "selected": "true" if selected else None,
             "status": "completed" if completed else None,
             "format": "json" if json else None,
-            "page_size":pageSize if pageSize else 30,
+            "page_size":pageSize if pageSize else 10,
         }
         params = {k: v for k, v in params.items() if v is not None}
         request = f"{base_url}?{urlencode(params)}"
