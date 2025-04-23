@@ -70,7 +70,7 @@ class MainPyClient():
     def fetch_page(self, url, headers, session):
         time0 = time.time()
         r = session.get(url, verify=False, timeout=TIMEOUT)
-        print(f'\t\t\t  time request: {time.time() - time0}')
+        #print(f'\t\t\t  time request: {time.time() - time0}')
         #r = requests.get(url, verify=False, headers=headers, timeout=TIMEOUT)
         if r.status_code != 200:
             print(f"?? Error {r.status_code} in {url}")

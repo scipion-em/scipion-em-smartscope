@@ -233,19 +233,26 @@ class dataCollection():
                         ho.setShots(h['targets_in_hole'])
                         if h['bis_type'] == 'center':
                             pathPNG = os.path.join(pathGrid, 'pngs', h['name'] + '.png')
+                            pathRaw = os.path.join(pathGrid, 'raw', h['name'] + '.mrc')
                         elif h['bis_group'] != None:
                             bisGroup = h['bis_group'].split('_')[1]
                             nameL = h['name'].rsplit(str(h['number']), 1)
                             name = bisGroup.join(nameL)
                             pathPNG = os.path.join(pathGrid, 'pngs', name + '.png')
+                            pathRaw = os.path.join(pathGrid, 'raw', name + '.mrc')
                         if isfile(pathPNG):
                             ho.setPngDir(pathPNG)
+                        if isfile(pathRaw):
+                            ho.setRawDir(pathRaw)
                         else:
                             ho.setPngDir(self.holeUnacquired)
                         ho.setFileName(os.path.join(pathGrid, 'raw', h['name'] + '.mrc'))
                         #holeDetail = self.pyClient.getDetailFromItem('holes', h['hole_id'])
-                        finder = h['finders'][0]
-                        ho.setFinderName(finder['method_name'])
+                        if 'finders' in h and h['finders']:
+                            finder = h['finders'][0]
+                            ho.setFinderName(finder['method_name'])
+                            ho.setX(finder['x'])
+                            ho.setY(finder['y'])
                         selectors = h['selectors'][-1]
                         ho.setSelectorName(selectors['method_name'])
                         ho.setSelectorLabel(selectors['label'])

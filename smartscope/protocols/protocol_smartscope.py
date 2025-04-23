@@ -38,7 +38,7 @@ from ..objects.dataCollection import *
 import time
 from ..constants import *
 
-CROP_DIVISION = 10
+CROP_DIVISION = 8 #Higher small boxSize
 
 
 class smartscopeConnection(ProtImport, ProtStreamingBase):
@@ -286,51 +286,62 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         summaryF2.close()
 
     def cropHolePNG(self):
-        pathPNGcrop = os.path.join(self._getExtraPath(), 'pngHoles')
-        if not os.path.exists(pathPNGcrop):
-            os.makedirs(pathPNGcrop)
-        for m in self.MoviesSS:
-            self.cropImage(m, pathPNGcrop)
+        pathcrop = os.path.join(self._getExtraPath(), 'cropedHoles')
+        if not os.path.exists(pathcrop):
+            os.makedirs(pathcrop)
+        for m in self.MoviesSS:#TODO: with n multishot, we calculate the same hole crop n times
+            hole = self.SOH.getItem("_hole_id", m.getHoleId())
+            movieName = m.getName()
+            self.cropImage(hole, pathcrop, movieName)
         self.SOH.write()
         self._store(self.SOH)
 
 
-    def cropImage(self, m, pathPNGcrop):
+    def cropImage(self, hole, pathcrop, movieName):
         '''Split the png image based on the position of the hole (x,y) and a boxSize'''
         from PIL import Image
         import numpy as np
+        import mrcfile
 
-        pngDir = self.SOH.getItem("_hole_id", m.getHoleId()).getPngDir()
-        xPng = int(m.getIsX())
-        yPng = int(m.getIsY())
-        baseNamePNG = os.path.basename(pngDir)
-        imagen = Image.open(pngDir)
-        arr = np.array(imagen)
-        height, width = arr.shape[:2]
-        Range = int(np.mean([height, width]) / CROP_DIVISION)
-        if yPng - Range < 0:
-            arr_y = 0, Range
-        elif yPng + Range > height:
-            arr_y = height - Range, height
-        else:
-            arr_y = yPng - Range, yPng + Range
-        if xPng - Range < 0:
-            arr_x = 0, Range
-        elif xPng + Range > width:
-            arr_x = width - Range, width
-        else:
-            arr_x = xPng - Range, xPng + Range
-        try:
-            #pngCrop = arr[arr_y, arr_x]
-            pngCrop = arr[arr_y[0]:arr_y[1], arr_x[0]:arr_x[1]]
-            cropted_img = Image.fromarray(pngCrop)
-            pathPNGCroped = os.path.join(pathPNGcrop, baseNamePNG)
-            cropted_img.save(pathPNGCroped)
-            holeItem = self.SOH.getItem("_hole_id", m.getHoleId())
-            holeItem.setPngDir(pathPNGCroped)
-            self.SOH.update(holeItem)
-        except Exception as e:
-            print(e)
+        rawDir = hole.getRawDir()
+        if os.path.isfile(rawDir):
+            try:
+                xPng = int(hole.getX())
+                yPng = int(hole.getY())
+                with mrcfile.open(rawDir, permissive=True) as mrc:
+                    arr = mrc.data
+                height, width = arr.shape[:2]
+                Range = int(np.mean([height, width]) / CROP_DIVISION)
+                if yPng - Range < 0:
+                    arr_y = 0, Range
+                elif yPng + Range > height:
+                    arr_y = height - Range, height
+                else:
+                    arr_y = yPng - Range, yPng + Range
+                if xPng - Range < 0:
+                    arr_x = 0, Range
+                elif xPng + Range > width:
+                    arr_x = width - Range, width
+                else:
+                    arr_x = xPng - Range, xPng + Range
+                #pngCrop = arr[arr_y, arr_x]
+                rawCrop = arr[arr_y[0]:arr_y[1], arr_x[0]:arr_x[1]]
+                if rawCrop.dtype != np.uint8:
+                    rawCrop = (255 * (rawCrop - np.min(rawCrop)) / (np.ptp(rawCrop))).astype(np.uint8)
+                cropted_img = Image.fromarray(rawCrop)
+                import re
+                match = re.search(r'hole(\d+)', movieName)
+                if match:
+                    baseNameRaw = os.path.basename(rawDir)
+                    holeId = int(match.group(1))
+                    rawCroped = re.sub(r'(hole)\d+', 'hole{}'.format(holeId), baseNameRaw)
+                    rawCroped = os.path.splitext(rawCroped)[0] + '.png'  # cambiar extensión a .png
+                    pathRawCroped = os.path.join(pathcrop, rawCroped)
+                    cropted_img.save(pathRawCroped, optimize=True, compress_level=2)
+                    hole.setRawDir(pathRawCroped)
+                    self.SOH.update(hole)
+            except Exception as e:
+                print(e)
 
     def checkNewGrid(self):
         listInSessionGrids = []
