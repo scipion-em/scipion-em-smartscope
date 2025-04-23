@@ -119,13 +119,13 @@ class DataViewer_smartscope(ProtocolViewer):
 
     def _visualizeHoles(self, e=None):
         views = []
-        labels = ('_pngDir _hole_id _grid_id _selector_value _status _selected _completion_time _shape_x _shape_y _sampligRate _number _area')
+        labels = ('_rawDir _hole_id _grid_id _selector_value _status _selected _completion_time _shape_x _shape_y _sampligRate _number _area')
         if hasattr(self.protocol, 'Holes'):
             views.append(ObjectView(self._project,
                                     self.protocol.Holes.strId(),
                                     self.protocol.Holes.getFileName(),
                                     viewParams={VISIBLE: labels,
-                                                RENDER: '_pngDir',
+                                                RENDER: '_rawDir',
                                                 SORT_BY: labels}))
             return views
 
