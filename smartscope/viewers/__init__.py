@@ -11,6 +11,7 @@ from ..objects.data import *
 labels = (
 	'_pngDir _bis_type _hole_id _grid_id _selector_value _status _selected _shape_x _shape_y _sampligRate _number _area')
 
+
 RegistryViewerConfig.registerConfig(SetOfHoles,
                                    {ORDER: labels,
                                    VISIBLE: labels,
