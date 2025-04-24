@@ -41,6 +41,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import webbrowser
 
+
 class DataViewer_smartscope(ProtocolViewer):
     _targets = [smartscopeConnection]
     _label = 'viewer feedback holes filter'
@@ -118,15 +119,11 @@ class DataViewer_smartscope(ProtocolViewer):
 
 
     def _visualizeHoles(self, e=None):
+        from pwem.viewers.mdviewer.viewer import MDView
         views = []
-        labels = ('_rawDir _hole_id _grid_id _selector_value _status _selected _completion_time _shape_x _shape_y _sampligRate _number _area')
+        #labels = ('_pngDir _rawDir _hole_id _grid_id _selector_value _status _selected _completion_time _shape_x _shape_y _sampligRate _number _area')
         if hasattr(self.protocol, 'Holes'):
-            views.append(ObjectView(self._project,
-                                    self.protocol.Holes.strId(),
-                                    self.protocol.Holes.getFileName(),
-                                    viewParams={VISIBLE: labels,
-                                                RENDER: '_rawDir',
-                                                SORT_BY: labels}))
+            views.append(MDView(self.protocol.Holes, self.protocol, self._project.port))
             return views
 
     def _visualizeMovies(self, e=None):
