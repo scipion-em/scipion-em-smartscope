@@ -25,8 +25,6 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-from http.cookiejar import debug
-
 from pyworkflow.utils import Message
 from pyworkflow import BETA, UPDATED, NEW, PROD
 from pwem.protocols.protocol_import.base import ProtImport
@@ -35,10 +33,13 @@ import pyworkflow.utils as pwutils
 from smartscope import Plugin
 from pyworkflow.object import Set
 
-from pyworkflow.protocol import params, STEPS_PARALLEL
+from pyworkflow.protocol import params
 from ..objects.dataCollection import *
 import time
 from ..constants import *
+
+CROP_DIVISION = 8 #Higher small boxSize
+
 
 class smartscopeConnection(ProtImport, ProtStreamingBase):
     """
@@ -55,14 +56,12 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                         'MoviesSS': SetOfMoviesSS}
     def __init__(self, **args):
         ProtImport.__init__(self, **args)
-        self.stepsExecutionMode = STEPS_PARALLEL
         self.newSteps = []
         self.Squares = None
         self.Atlas = None
         self.Grids = None
         self.Holes = None
         self.MoviesSS = None
-        self.stepsExecutionMode = STEPS_PARALLEL # Defining that the protocol contain parallel steps
 
         self.token = Plugin.getVar(SMARTSCOPE_TOKEN)
         self.endpoint = Plugin.getVar(SMARTSCOPE_LOCALHOST)
@@ -78,8 +77,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         """
         # You need a params to belong to a section:
         form.addSection(label=Message.LABEL_INPUT)
-
-
         form.addParam('inputMovies', params.PointerParam, pointerClass='SetOfMovies',
                       important=True,
                       label=pwutils.Message.LABEL_INPUT_MOVS,
@@ -91,13 +88,23 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                            'The wizard provide a list of all sessions sorted by date.')
 
         form.addSection('Streaming')
+        form.addParam('refreshMethod', params.EnumParam, default=0,
+                      choices=['Input movies', 'Time'],
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      label='Select input to refresh the protocol',
+                      help='Select the parameter which triger the launch or refresh of the protocol.')
         form.addParam('refreshTime', params.IntParam, default=420,
-                      label="Time to refresh Smartscope data (secs)",help='Time to refresh Smartscope data, by default 420s (7mins)')
+                      condition='refreshMethod==1',
+                      label="Time to refresh protocol",
+                      help = "Time to launch or  refresh Smartscope connection. By default 420s (7mins)")
+        form.addParam('refreshMovies', params.IntParam, default=200,
+                      condition='refreshMethod==0',
+                      label = 'Input movies to refresh protocol',
+                      help="Number of new movies to launch or refresh Smartscope connection")
         form.addParam('TotalTime', params.IntParam, default=86400,
                       label="Time to finish Smartscope (secs)",
                       help='Time from the begining ot the protocol to '
                            'the end of the acquisicion. By default 1 day (86400 secs)')
-        form.addParallelSection(threads=3, mpi=1)
 
     # --------------------------- STEPS functions ------------------------------
     def stepsGeneratorStep(self):
@@ -108,21 +115,39 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         """
         self._initialize()
         while True:
+            # DEBUGALBERTO START
+            import os
+            fname = "/home/agarcia/Documents/attachActionDebug.txt"
+            if os.path.exists(fname):
+                os.remove(fname)
+            fjj = open(fname, "a+")
+            fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+            fjj.close()
+            print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+            time.sleep(10)
+            # DEBUGALBERTO END
             delayInit = int(time.time() - self.startTime)
-            self.info('TotalTime: {} delayInit: {}'.format(self.TotalTime,
-                                                           delayInit))
+            #self.info('Time to Finish Smartscope: {} delayInit: {}s'.format(self.TotalTime, delayInit))
             inputMovies = self.inputMovies.get()
-
             if self.TotalTime <= delayInit:  # End of the protocol
                 break
-            else:
-                metadataCollection = self._insertFunctionStep(self.metadataCollection,
-                                        prerequisites=[])
-                screeningCollection = self._insertFunctionStep(self.screeningCollection,
-                                          prerequisites=[metadataCollection])
-                self._insertFunctionStep(self.importMoviesSS, inputMovies,
-                                         prerequisites=[screeningCollection])
-
+            if self.conditionRefresh(len(inputMovies)):
+                startTime = time.time()
+                if not self.metadataCollected:
+                    self.metadataCollection()
+                metaTime = time.time()
+                self.screeningCollection()
+                screenTime = time.time()
+                self.importMoviesSS(inputMovies)
+                timeCrop0 = time.time()
+                self.cropHolePNG()
+                timeCrop1 = time.time()
+                moviesTime = time.time()
+                self.info(f'Metadata Time: {round((metaTime - startTime), 1)}s')
+                self.info(f'Screening Time: {round((screenTime - metaTime), 1)}s')
+                self.info(f'ImportMovies Time: {round((moviesTime - screenTime), 1)}s')
+                self.info(f'Crop Holes Time: {round((timeCrop1 - timeCrop0), 1)}s')
+                self.info(f'Total Time: {round((moviesTime - startTime), 1)}s')
             if not inputMovies.isStreamOpen():
                 self.info('Not more movies are expected; input setOfMovies closed')
                 break
@@ -130,10 +155,16 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             time.sleep(self.refreshTime)
 
     def _initialize(self):
+        self.metadataCollected = False
         self.acquisition = Acquisition()
         self.microscopeDict = {}
         self.detectorDict = {}
         self.sessionDict = {}
+        self.initialNumMovies = 0
+        self.zeroTime = time.time()
+        self.rTime = self.refreshTime.get()
+        if self.rTime < 240:
+            self.rTime = 1240
         if self.Grids is None:
             self.SOG = SetOfGrids.create(outputPath=self._getPath())
         else:
@@ -155,6 +186,21 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         self.reStartTime = time.time()
         self.ListMoviesImported = []
 
+    def conditionRefresh(self, lenInputMovies):
+        if self.refreshMethod == 0:
+            if lenInputMovies - self.initialNumMovies >= self.refreshMovies.get():
+                self.initialNumMovies = lenInputMovies
+                return True
+            else:
+                return False
+        else:
+            rTime = time.time() - self.zeroTime
+            if rTime >= self.rTime:
+                self.zeroTime = time.time()
+                return True
+            else:
+                return False
+
     def sessionListCollection(self):
         return self.connectionClient.sessionCollection()
 
@@ -162,6 +208,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         return self.connectionClient.sessionOpen()
 
     def metadataCollection(self):
+        self.info('Metadata collection...')
         self.connectionClient.metadataCollection(self.microscopeDict,
                                                  self.detectorDict,
                                                  self.sessionDict,
@@ -187,35 +234,46 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             "\tGroup: {}\n".format(group) +
             "\tSession: {}\n".format( self.sessionName.get()))
         summaryF.close()
-
+        self.metadataCollected = True
         self.setSessionURL()
 
     def screeningCollection(self):
-        self.outputsToDefine = {'Grids': self.SOG,
-                                'Atlas': self.SOA,
-                                'Squares': self.SOS,
-                                'Holes': self.SOH}
-        self._defineOutputs(**self.outputsToDefine)
-        self.SOG.enableAppend()
-        self.SOA.enableAppend()
-        self.SOS.enableAppend()
-        self.SOH.enableAppend()
-        self._store(self.SOG)
-        self._store(self.SOA)
-        self._store(self.SOS)
-        self._store(self.SOH)
+        self.info('Screening collection...')
+        if len(self.SOG) == 0:
+            self.outputsToDefine = {'Grids': self.SOG,
+                                    'Atlas': self.SOA,
+                                    'Squares': self.SOS,
+                                    'Holes': self.SOH}
+            self._defineOutputs(**self.outputsToDefine)
+            self.SOG.enableAppend()
+            self.SOA.enableAppend()
+            self.SOS.enableAppend()
+            self.SOH.enableAppend()
+            # self._store(self.SOG)
+            # self._store(self.SOA)
+            # self._store(self.SOS)
+            # self._store(self.SOH)
+
+        self.gridsToCollect = self.checkNewGrid()
+        self.atlasToCollect = self.checkNewAtlas()
+        if self.gridsToCollect != []:self.info('Number grid in the session: {}'.format(len(self.gridsToCollect)))
         self.connectionClient.screeningCollection(self.dataPath,
-                                                  self.sessionId,
                                                   self.sessionName,
                                                   self.SOG, self.SOA,
                                                   self.SOS, self.SOH,
                                                   self.groupName,
-                                                  self.sessionDate)
+                                                  self.sessionDate,
+                                                  self.gridsToCollect)
         # STORE SQLITE
         self.SOG.write()
         self.SOA.write()
         self.SOS.write()
         self.SOH.write()
+        # self.SOH.setStreamState(self.SOH.STREAM_CLOSED)
+        # self.SOA.setStreamState(self.SOA.STREAM_CLOSED)
+        # self.SOS.setStreamState(self.SOS.STREAM_CLOSED)
+        # self.SOH.setStreamState(self.SOH.STREAM_CLOSED)
+
         self._store(self.SOG)
         self._store(self.SOA)
         self._store(self.SOS)
@@ -230,11 +288,115 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             "\t{}\tHoles \n".format(len(self.SOH)))
         summaryF2.close()
 
-    def importMoviesSS(self, inputMovies):
-        moviesToAdd = []
-        moviesAPI = []
+    def cropHolePNG(self):
+        pathcrop = os.path.join(self._getExtraPath(), 'cropedHoles')
+        if not os.path.exists(pathcrop):
+            os.makedirs(pathcrop)
+        self.listHoleCropedID = []
+        import re
+        for m in self.MoviesSS:#TODO: with n multishot, we calculate the same hole crop n times
+            movieHoleId = m.getHoleId()
+            hole = self.SOH.getItem("_hole_id", m.getHoleId())
+            movieName = m.getName()
+            matchHole = re.search(r'hole(\d+)', movieName)
+            holeNum = int(matchHole.group(1))
+            rawDir = hole.getRawDir()
+            baseNameRaw = os.path.basename(rawDir)
+            rawCroped = re.sub(r'(hole)\d+', 'hole{}'.format(holeNum), baseNameRaw)
+            rawCroped = os.path.splitext(rawCroped)[0] + '.mrc'
+            pathRawCroped = os.path.join(pathcrop, rawCroped)
+            if not movieHoleId in self.listHoleCropedID:
+                if self.cropImage(hole, pathRawCroped, rawDir):
+                    hole.setRawDir(pathRawCroped)
+                    self.SOH.update(hole)
+                    self.listHoleCropedID.append(movieHoleId)
+            else:
+                hole.setRawDir(pathRawCroped)
+                self.SOH.update(hole)
 
-        # Match movies from the API and from the output of the protocol
+        self.SOH.write()
+        self._store(self.SOH)
+
+
+    def cropImage(self, hole, pathRawCroped, rawDir):
+        '''Split the png image based on the position of the hole (x,y) and a boxSize'''
+        from PIL import Image
+        import numpy as np
+        import mrcfile
+
+        if os.path.isfile(rawDir):
+            try:
+                xPng = int(hole.getX())
+                yPng = int(hole.getY())
+                with mrcfile.open(rawDir, permissive=True) as mrc:
+                    arr = mrc.data
+                height, width = arr.shape[:2]
+                Range = int(np.mean([height, width]) / CROP_DIVISION)
+                if yPng - Range < 0:
+                    arr_y = 0, Range
+                elif yPng + Range > height:
+                    arr_y = height - Range, height
+                else:
+                    arr_y = yPng - Range, yPng + Range
+                if xPng - Range < 0:
+                    arr_x = 0, Range
+                elif xPng + Range > width:
+                    arr_x = width - Range, width
+                else:
+                    arr_x = xPng - Range, xPng + Range
+
+                rawCrop = arr[arr_y[0]:arr_y[1], arr_x[0]:arr_x[1]]
+                # if rawCrop.dtype != np.uint8:
+                #     rawCrop = (255 * (rawCrop - np.min(rawCrop)) / (np.ptp(rawCrop))).astype(np.uint8)
+                #cropted_img = Image.fromarray(rawCrop)
+
+                #cropted_img.save(pathRawCroped)#, optimize=True, compress_level=2)
+                with mrcfile.new(pathRawCroped, overwrite=True) as mrc:
+                    mrc.set_data(rawCrop.astype(np.float32))
+                return True
+            except Exception as e:
+                print(e)
+                return False
+
+    def checkNewGrid(self):
+        listInSessionGrids = []
+        listCollectedGrids = []
+
+        grid = self.pyClient.getRouteFromID('grids', 'session', self.sessionId, dev=False)
+        if self.SOG:
+            for gr in grid:
+                listInSessionGrids.append(gr['grid_id'])
+            for gridCollected in self.SOG.iterItems():
+                listCollectedGrids.append(gridCollected.getGridId())
+
+            gridsToCollect = list(set(listInSessionGrids) - set(listCollectedGrids))
+            gridsToCollect.append(list(set(listCollectedGrids) - set(listInSessionGrids)))
+            return gridsToCollect
+        # for gr in grid:
+        #     atlas = self.pyClient.getRouteFromID('atlas', 'grid', gridCollected.getGridId())
+        else:
+            return grid
+
+    def checkNewAtlas(self):
+        listInSessionAtlas = []
+        listCollectedAtlas = []
+
+        atlas = self.pyClient.getRouteFromID('atlas', 'session', self.sessionId, dev=False)
+        if self.SOG:
+            for at in atlas:
+                listInSessionAtlas.append(at['atlas_id'])
+            for atlasCollected in self.SOG.iterItems():
+                listCollectedAtlas.append(atlasCollected.getAtlasId())
+
+            atlasToCollect = list(set(listInSessionAtlas) - set(listInSessionAtlas))
+            atlasToCollect.append(list(set(listCollectedAtlas) - set(listCollectedAtlas)))
+            return atlasToCollect
+        else:
+            return atlas
+
+
+    def importMoviesSS(self, inputMovies):
+        self.info('importMoviesSS collection...')
         if self.MoviesSS == None:
             SOMSS = SetOfMoviesSS.create(outputPath=self._getPath())
             SOMSS.copyInfo(inputMovies)
@@ -244,37 +406,29 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         else:
             SOMSS = self.MoviesSS
 
-
-        for gr in self.Grids:
-            dictMAPI = self.pyClient.getRouteFromID('highmag', 'grid', gr.getGridId())
+        if inputMovies is None:
+            self.info('Set of movies from import movies protocol empty')
+            return
+        sizeMoviesInput = len(inputMovies)
+        counterMoviesChecked = 1
+        for gr in self.SOG:
+            dictMAPI = self.pyClient.getRouteFromID('highmag', 'grid', gr.getGridId(), pageSize=500)
             for m in dictMAPI:
-                moviesAPI.append(m)
-
-        ImportM = [m.getFrames() for m in SOMSS]
-        for mAPI in moviesAPI:
-            if mAPI['frames'] not in ImportM:
-                moviesToAdd.append(mAPI)
-
-        #Match movies to add and movies from importMovies protocol
-        self.info('\n\nmoviesAPI: {}\nmoviesToAdd: {}'.format(len(moviesAPI), len(moviesToAdd)))
-        notImportedMovies = []
-        if moviesToAdd:
-            if inputMovies is None:
-                self.info('Set of movies from import movies protocol empty')
-                return
-            else:
-                for mImport in inputMovies:
-                    imported = False
-                    for mAPI in moviesToAdd:
-                        if mAPI['frames'] == os.path.basename(mImport.getFileName()):
-                            imported = True
-                            self.addMovieSS(SOMSS, mImport, mAPI)
-                            break
-                    if imported == False:
-                        notImportedMovies.append(mImport)
-                        self.info('Movie not imported: {}\n'.format(os.path.basename(mImport.getFileName())))
+                try:
+                    inputMovies.getItem("_micName", m['frames'])
+                    try:
+                        SOMSS.getItem("_micName", m['frames'])#highMag movie from Smartscope imported previously
+                    except Exception:
+                        self.info(f"Collectiong ({counterMoviesChecked}/{sizeMoviesInput}) movie: {m['frames']}")
+                        counterMoviesChecked += 1
+                        time0= time.time()
+                        self.addMovieSS(SOMSS, inputMovies.getItem("_micName", m['frames']), m)
+                        #print(f'time movie {counterMoviesChecked}: {time.time() - time0} s')
+                except UnboundLocalError:
+                    pass #highMag movie from Smartscope not in the inputMoviesSet
 
             # STORE SQLITE
+            SOMSS.write()  # persist on sqlite
             SOMSS.setStreamState(SOMSS.STREAM_CLOSED)
             self._store(SOMSS)
 
@@ -283,15 +437,14 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             summaryF3 = open(summaryF3, "w")
             summaryF3.write("\nSmartscope importing movies\n\n" +
                             "\t{}\tMovies Smartscope\n".format(len(SOMSS)))
-            summaryF3.write("\t{}\tMovies not imported\n".format(len(notImportedMovies)))
+            #summaryF3.write("\t{}\tMovies not imported\n".format(len(notImportedMovies)))
             summaryF3.close()
-        else:
+
             self.info('All movies from the Smartscope API were imported. '
                       'See the output of the protocol')
 
     def addMovieSS(self, SOMSS, movieImport, movieSS):
         SOMSS.setStreamState(SOMSS.STREAM_OPEN)
-        movieImport.setSamplingRate(movieSS['pixel_size'])
         movie2Add = MovieSS()
         movie2Add.copy(movieImport)
 
@@ -322,7 +475,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         movie2Add.setHoleId(movieSS['hole_id'])
 
         SOMSS.append(movie2Add)
-        SOMSS.write()#persist on sqlite
+
 
     def setSessionURL(self):
         gridId = self.pyClient.getRouteFromID('grids', 'session', self.sessionId, dev=False)[0]['grid_id']
@@ -363,7 +516,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
     def _validate(self):
         errors = []
-        self._validateThreads(errors)
         if Plugin.getVar(SMARTSCOPE_TOKEN) == 'Read Smartscope documentation to get the token...':
             errors.append('SMARTSCOPE_TOKEN has not been configured, please visit https://github.com/scipion-em/scipion-em-smartscope#configuration')
         if Plugin.getVar(SMARTSCOPE_LOCALHOST) == None:

@@ -637,6 +637,7 @@ class Hole(Image):
         self._name = String()
         self._number = Integer()
         self._pngDir = String()
+        self._rawDir = String()
         self._shape_x = Integer()
         self._shape_y = Integer()
         self._selected = Boolean()
@@ -679,6 +680,9 @@ class Hole(Image):
 
     def setPngDir(self, pngDir):
         self._pngDir.set(pngDir)
+
+    def setRawDir(self, rawDir):
+        self._rawDir.set(rawDir)
 
     def setShapeX(self, xDim):
         self._shape_x.set(xDim)
@@ -771,6 +775,9 @@ class Hole(Image):
 
     def getPngDir(self):
         return self._pngDir.get()
+
+    def getRawDir(self):
+        return self._rawDir.get()
 
     def getNumber(self):
         return self._number.get()
@@ -899,7 +906,6 @@ class MovieSS(Movie):
 
     def setNumber(self, number):
         self._number.set(number)
-
 
     def setShapeX(self, xDim):
         self._shape_x.set(xDim)

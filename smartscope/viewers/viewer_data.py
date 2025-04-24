@@ -119,13 +119,13 @@ class DataViewer_smartscope(ProtocolViewer):
 
     def _visualizeHoles(self, e=None):
         views = []
-        labels = ('_pngDir _hole_id _grid_id _selector_value _status _selected _completion_time _shape_x _shape_y _sampligRate _number _area')
+        labels = ('_rawDir _hole_id _grid_id _selector_value _status _selected _completion_time _shape_x _shape_y _sampligRate _number _area')
         if hasattr(self.protocol, 'Holes'):
             views.append(ObjectView(self._project,
                                     self.protocol.Holes.strId(),
                                     self.protocol.Holes.getFileName(),
                                     viewParams={VISIBLE: labels,
-                                                RENDER: '_pngDir',
+                                                RENDER: '_rawDir',
                                                 SORT_BY: labels}))
             return views
 
@@ -237,13 +237,13 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
             x_positions = (bin_edges[:-1] + bin_edges[1:]) / 2
             fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10), sharex=True)
             fig.canvas.manager.set_window_title('Histograms holes smartscope')
-            ax1.bar(x_positions, listRanges['totalHist'], color='black', edgecolor='black', width=bin_width * 0.95,linewidth=2, label='Total holes', alpha=0.2)
-            bars_with_mics = ax1.bar(x_positions, listRanges['withMicsHist'], color='blue', edgecolor='blue', width=bin_width * 0.95,linewidth=2,  label='Holes with mics', alpha=0.2)
-            bars_pass = ax1.bar(x_positions, listRanges['passHist'], color='green', edgecolor='green', width=bin_width * 0.95, linewidth=2, label='Holes pass filters', alpha=0.2)
-            ax1.set_ylabel('Number of Holes')
+            ax1.bar(x_positions, listRanges['totalHist'], color='black', edgecolor='black', width=bin_width * 0.95,linewidth=2, label='Total Micrographs', alpha=0.2)
+            bars_with_mics = ax1.bar(x_positions, listRanges['withMicsHist'], color='blue', edgecolor='blue', width=bin_width * 0.95,linewidth=2,  label='Micrographs acquired', alpha=0.2)
+            bars_pass = ax1.bar(x_positions, listRanges['passHist'], color='green', edgecolor='green', width=bin_width * 0.95, linewidth=2, label='Micrographs pass filters', alpha=0.2)
+            ax1.set_ylabel('Number of Micrographs')
             ax1.set_title('Histogram holes behave')
             ax1.legend(loc='upper right')
-            plt.xticks(np.round(bin_edges).astype(int) , rotation=45, ha='right')  # Rotate labels for better readability
+            plt.xticks(np.round(bin_edges).astype(int) , rotation=0, ha='right')  # Rotate labels for better readability
             ax1.set_xticks(np.round(bin_edges).astype(int) )  # Apply to ax1
             ax1.set_xticklabels([f'{edge:.2f}' for edge in bin_edges], rotation=45, ha='right')
 
@@ -271,13 +271,13 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
             ratioHist = np.divide(listRanges['passHist'], listRanges['withMicsHist'], out=np.zeros_like(listRanges['withMicsHist'], dtype=float),
                                   where=(listRanges['passHist'] != 0))
             barHist = ax2.bar(x_positions, ratioHist, color='indigo', edgecolor='indigo', linewidth=2, width=bin_width * 0.95,
-                    label='Holes with micrographs / Holess pass filters', alpha=0.2)
-            ax2.set_ylabel('Holes with micrographs / Holes with micrographs pass filters')
+                    label='Total Micrographs / Micrographs pass filters', alpha=0.2)
+            ax2.set_ylabel('Micrographs acquired / Micrographs pass filters')
             ax2.legend(loc='upper right')
             ax2.set_ylim(0, 1)
-            ax2.set_xticks(np.round(bin_edges).astype(int))
-            ax2.set_xticklabels([str(int(edge)) for edge in bin_edges], rotation=0, ha='center')
-            plt.xlabel('Intensity Range')
+            ax2.set_xticks(np.round(bin_edges).astype(float))
+            ax2.set_xticklabels([f'{edge:.2f}' for edge in bin_edges], rotation=0, ha='center')
+            plt.xlabel('Intensity range of Holes')
 
             for bar in barHist:
                 height = bar.get_height()

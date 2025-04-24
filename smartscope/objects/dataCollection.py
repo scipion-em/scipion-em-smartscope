@@ -38,6 +38,11 @@ from ..objects.data import *
 from ..pyclient.basic import *
 from pwem.objects.data import Acquisition
 import time
+import  logging
+
+logger = logging.getLogger(__name__)
+
+
 
 class dataCollection():
     def __init__(self, pyClient):
@@ -125,13 +130,12 @@ class dataCollection():
             ses.setDetectorId(s['detector_id'])
             sessionDict[s['session_id']] = ses
 
-    def screeningCollection(self, dataPath, sessionId, sessionName, setOfGrids, setOfAtlas,
-                            setOfSquares, setOfHoles, groupName, sessionDate):
-        print('sessionName: {}'.format(sessionName))
-        grid = self.pyClient.getRouteFromID('grids', 'session', sessionId, dev=False)
-        if grid != []:print('Number grid in the sesison: {}'.format(len(grid)))
+    def screeningCollection(self, dataPath, sessionName, setOfGrids, setOfAtlas,
+                            setOfSquares, setOfHoles, groupName, sessionDate, gridsToCollect):
+
+        logger.info('sessionName: {}'.format(sessionName))
         objId = len(setOfGrids)
-        for g in grid:
+        for g in gridsToCollect:
             gr = Grid()
             gr.setGridId(g['grid_id'])
             gr.setPosition(g['position'])
@@ -154,9 +158,8 @@ class dataCollection():
             setOfGrids.append(gr)
             startAtlas = time.time()
             atlas = self.pyClient.getRouteFromID('atlas', 'grid', gr.getGridId())
-            print('request Atlas time: {}s'.format(time.time() - startAtlas))
-
-            if atlas != []: print(
+            logger.info('---- Request Atlas time: {}s'.format(round(time.time() - startAtlas), 1))
+            if atlas != []: logger.info(
                 '\tNumber atlas in the grid{}: {}'.format(gr.getName(), len(atlas)))
             for a in atlas:
                 at = Atlas()
@@ -176,15 +179,13 @@ class dataCollection():
                 at.setPngDir(join(pathGrid, 'pngs', str(a['name'] + '.png')))
                 at.setFileName(join(pathGrid, 'raw', a['name'] + '.mrc'))
                 setOfAtlas.append(at)
-                setOfAtlas.update(at)
-                setOfAtlas.write()
                 startSquares = time.time()
                 squares = self.pyClient.getRouteFromID('squares', 'atlas', at.getAtlasId())
-                print('request Atlas time: {}s'.format(
-                    time.time() - startSquares))
-                if squares != []: print(
-                    '\t\tNumber squares in the atlas: {}'.format(len(squares)))
-                for s in squares:
+
+                if squares != []:
+                    logger.info('\t\tNumber squares in the atlas: {}'.format(len(squares)))
+                    logger.info('\t\t  Request Square time: {}s'.format(time.time() - startSquares))
+                for i, s in enumerate(squares, start=1):
                     sq = Square()
                     sq.setSquareId(s['square_id'])
                     sq.setName(s['name'])
@@ -205,15 +206,14 @@ class dataCollection():
                         sq.setPngDir(pathPNG)
                     sq.setFileName(os.path.join(pathGrid, 'raw', s['name'] + '.mrc'))
                     setOfSquares.append(sq)
-                    setOfSquares.update(sq)
-                    setOfSquares.write()
-                    holes = self.pyClient.getRouteFromID('holes', 'square', sq.getSquareId(), endpoint='scipion_plugin')
-
+                    startHoles = time.time()
+                    holes = self.pyClient.getRouteFromID('holes', 'square', sq.getSquareId(), endpoint='scipion_plugin', dev=False)
                     if holes != []:
-                        #print('square name: {}'.format(sq.getName()))
-                        print('\t\t\tNumber holes in the square {}: {}'.format(
-                            sq.getName(), len(holes)))
+                        #logger.info('square name: {}'.format(sq.getName()))
+                        logger.info(f'\t\t\tNumber holes in the square ({i}/{len(squares)}) {sq.getName()}  {sq.getSquareId()}: {len(holes)}')
+                        logger.info(f'\t\t\t  Request hole time: {round(time.time() - startHoles, 1)}')
                     for h in holes:
+                        startHoleTime = time.time()
                         ho = Hole()
                         ho.setHoleId(h['hole_id']) #TODO parece que aveces no se genera ese campo de hole_id, square_id, grid_id
                         ho.setName(h['name'])
@@ -230,30 +230,42 @@ class dataCollection():
                         ho.setBisType(h['bis_type'])
                         ho.setGridId(h['grid_id'])
                         ho.setSquareId(h['square_id'])
-                        #ho.setShots(h['shots_number']) #TODO when available on API
+                        ho.setShots(h['targets_in_hole'])
                         if h['bis_type'] == 'center':
                             pathPNG = os.path.join(pathGrid, 'pngs', h['name'] + '.png')
+                            pathRaw = os.path.join(pathGrid, 'raw', h['name'] + '.mrc')
                         elif h['bis_group'] != None:
                             bisGroup = h['bis_group'].split('_')[1]
                             nameL = h['name'].rsplit(str(h['number']), 1)
                             name = bisGroup.join(nameL)
                             pathPNG = os.path.join(pathGrid, 'pngs', name + '.png')
+                            pathRaw = os.path.join(pathGrid, 'raw', name + '.mrc')
                         if isfile(pathPNG):
                             ho.setPngDir(pathPNG)
+                        if isfile(pathRaw):
+                            ho.setRawDir(pathRaw)
                         else:
                             ho.setPngDir(self.holeUnacquired)
                         ho.setFileName(os.path.join(pathGrid, 'raw', h['name'] + '.mrc'))
                         #holeDetail = self.pyClient.getDetailFromItem('holes', h['hole_id'])
-                        finder = h['finders'][0]
-                        ho.setFinderName(finder['method_name'])
+                        if 'finders' in h and h['finders']:
+                            finder = h['finders'][0]
+                            ho.setFinderName(finder['method_name'])
+                            ho.setX(finder['x'])
+                            ho.setY(finder['y'])
                         selectors = h['selectors'][-1]
                         ho.setSelectorName(selectors['method_name'])
                         ho.setSelectorLabel(selectors['label'])
                         ho.setSelectorValue(selectors['value'])
                         #hm = self.pyClient.getRouteFromID('highmag', 'hole', h['hole_id'], detailed=False)#could be several hm for one hole
                         setOfHoles.append(ho)
-                        setOfHoles.update(ho)
-                    setOfHoles.write()
+                        timeFillHoles = time.time() - startHoleTime
+                        if timeFillHoles > 1 :
+                            logger.info('\t\t\t  Fill Hole: {}s'.format(round(timeFillHoles), 1))
+        setOfGrids.write()
+        setOfAtlas.write()
+        setOfSquares.write()
+        setOfHoles.write()
 
     def windowsPath(self, sessionId):
         session = self.pyClient.getRouteFromID('sessions', 'session', sessionId)
@@ -272,7 +284,7 @@ class dataCollection():
         if os.path.isfile(mdocFile):
             return MDoc(mdocFile)
         else:
-            print('HM {} not adquired'.format(mdocFile))
+            logger.info('HM {} not adquired'.format(mdocFile))
             return False
 
     def getMagnification(self, grid, highMagID):
@@ -399,11 +411,11 @@ class MDoc:
                         headerDict[key.strip()] = value.strip()
                     if zvalueList:
                         zvalueDict[key.strip()] = value.strip()
-                        #print('zvalue: {} key.strip(): {}'.format(zvalue, key.strip()))
-                        #print('zvalueDict[key.strip()] {}'.format(zvalueDict[key.strip()]))
+                        #logger.info('zvalue: {} key.strip(): {}'.format(zvalue, key.strip()))
+                        #logger.info('zvalueDict[key.strip()] {}'.format(zvalueDict[key.strip()]))
 
-        # print(len(zvalueList))
-        # print(zvalueDict)
+        # logger.info(len(zvalueList))
+        # logger.info(zvalueDict)
 
         return headerDict, zvalueList
 
