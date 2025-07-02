@@ -180,7 +180,7 @@ class dataCollection():
                 at.setFileName(join(pathGrid, 'raw', a['name'] + '.mrc'))
                 setOfAtlas.append(at)
                 startSquares = time.time()
-                squares = self.pyClient.getRouteFromID('squares', 'atlas', at.getAtlasId())
+                squares = self.pyClient.getRouteFromID('squares', 'atlas', at.getAtlasId(), dev=True)
 
                 if squares != []:
                     logger.info('\t\tNumber squares in the atlas: {}'.format(len(squares)))
@@ -207,7 +207,7 @@ class dataCollection():
                     sq.setFileName(os.path.join(pathGrid, 'raw', s['name'] + '.mrc'))
                     setOfSquares.append(sq)
                     startHoles = time.time()
-                    holes = self.pyClient.getRouteFromID('holes', 'square', sq.getSquareId(), endpoint='scipion_plugin', dev=False)
+                    holes = self.pyClient.getRouteFromID('holes', 'square', sq.getSquareId(), endpoint='scipion_plugin', dev=True)
                     if holes != []:
                         #logger.info('square name: {}'.format(sq.getName()))
                         logger.info(f'\t\t\tNumber holes in the square ({i}/{len(squares)}) {sq.getName()}  {sq.getSquareId()}: {len(holes)}')
@@ -240,12 +240,16 @@ class dataCollection():
                             name = bisGroup.join(nameL)
                             pathPNG = os.path.join(pathGrid, 'pngs', name + '.png')
                             pathRaw = os.path.join(pathGrid, 'raw', name + '.mrc')
+                        else:
+                            pathRaw = ''
                         if isfile(pathPNG):
                             ho.setPngDir(pathPNG)
                         if isfile(pathRaw):
                             ho.setRawDir(pathRaw)
                         else:
                             ho.setPngDir(self.holeUnacquired)
+                            ho.setRawDir(self.holeUnacquired)
+
                         ho.setFileName(os.path.join(pathGrid, 'raw', h['name'] + '.mrc'))
                         #holeDetail = self.pyClient.getDetailFromItem('holes', h['hole_id'])
                         if 'finders' in h and h['finders']:

@@ -81,7 +81,7 @@ class MainPyClient():
         return r.json()
 
 
-    def getRouteFromID(self, route, from_id, id, endpoint=False, selected=False, completed=False, dev=False, json=True, pageSize=10):
+    def getRouteFromID(self, route, from_id, id, endpoint=False, selected=False, completed=False, dev=False, json=True, pageSize=100):
         '''
         route: element you request for
         from_id: father of the requested element (square is the father of hole)
@@ -318,7 +318,7 @@ if __name__ == "__main__":
     #grid j = 1jCzmOdx1ZaxaBbMhqut7B9mcTeKQr
     #grid testMario1 = 6FRO30_3uT8U2W539noHcC4J3i6onI
 
-    pyClient = MainPyClient('cf566e4846930c9097db38acdd4775001609f831',    ' http://localhost:48000/',)
+    pyClient = MainPyClient('df3bda5b5d1bd0bb808a780e798ef7da4b318af4',    ' http://localhost:48000/',)
     #pyClient.postRangeIntensity(route='', ID='6FRO30_3uT8U2W539noHcC4J3i6onI', data={"low_limit": 100.0, "high_limit": 400.0}, devel=True)
     #url = pyClient.getURLFromGrid('6FRO30_3uT8U2W539noHcC4J3i6onI')
     #limits = pyClient.getRangeOfIntensityGrid('1jCzmOdx1ZaxaBbMhqut7B9mcTeKQr', devel=True)
@@ -337,7 +337,7 @@ if __name__ == "__main__":
     #hole = pyClient.getRouteFromID('hole', 'hole', 'aaa_square15_hole0Fq2BoTroLv24', dev=True)
 
     #allHM = pyClient.getDetailsFromParameter('grids')
-    allHM = pyClient.getRouteFromID('highmag', 'grid', '1LH11_3Mio1NcEGg7tDmRLmY7sUFgg', dev=True, pageSize=500)
+    allHM = pyClient.getRouteFromID('highmag', 'grid', '6FRO30_3yS1wRa1phy1mOI30gHto2Y', dev=True, pageSize=500)
 
     # print(allHM)
     # print(len(allHM))
