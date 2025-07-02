@@ -120,7 +120,8 @@ class MainPyClient():
         resp_jason = resp.json()
         response.extend(resp_jason['results'])
         time2 = time.time()
-        print(f'\t\t\tTime for initial request: {time1 - time0:.3f}s')
+        if dev:
+            print(f'\t\t\tTime for initial request: {time1 - time0:.3f}s')
 
         #print(f'Time parsing json: {time2 - time1:.3f}s')
 

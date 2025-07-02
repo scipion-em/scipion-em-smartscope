@@ -180,7 +180,7 @@ class dataCollection():
                 at.setFileName(join(pathGrid, 'raw', a['name'] + '.mrc'))
                 setOfAtlas.append(at)
                 startSquares = time.time()
-                squares = self.pyClient.getRouteFromID('squares', 'atlas', at.getAtlasId(), dev=True)
+                squares = self.pyClient.getRouteFromID('squares', 'atlas', at.getAtlasId(), dev=False)
 
                 if squares != []:
                     logger.info('\t\tNumber squares in the atlas: {}'.format(len(squares)))
@@ -207,11 +207,11 @@ class dataCollection():
                     sq.setFileName(os.path.join(pathGrid, 'raw', s['name'] + '.mrc'))
                     setOfSquares.append(sq)
                     startHoles = time.time()
-                    holes = self.pyClient.getRouteFromID('holes', 'square', sq.getSquareId(), endpoint='scipion_plugin', dev=True)
+                    holes = self.pyClient.getRouteFromID('holes', 'square', sq.getSquareId(), endpoint='scipion_plugin', dev=False)
                     if holes != []:
                         #logger.info('square name: {}'.format(sq.getName()))
                         logger.info(f'\t\t\tNumber holes in the square ({i}/{len(squares)}) {sq.getName()}  {sq.getSquareId()}: {len(holes)}')
-                        logger.info(f'\t\t\t  Request hole time: {round(time.time() - startHoles, 1)}')
+                        #logger.info(f'\t\t\t  Request hole time: {round(time.time() - startHoles, 1)}')
                     for h in holes:
                         startHoleTime = time.time()
                         ho = Hole()
@@ -244,10 +244,11 @@ class dataCollection():
                             pathRaw = ''
                         if isfile(pathPNG):
                             ho.setPngDir(pathPNG)
+                        else:
+                            ho.setPngDir(self.holeUnacquired)
                         if isfile(pathRaw):
                             ho.setRawDir(pathRaw)
                         else:
-                            ho.setPngDir(self.holeUnacquired)
                             ho.setRawDir(self.holeUnacquired)
 
                         ho.setFileName(os.path.join(pathGrid, 'raw', h['name'] + '.mrc'))

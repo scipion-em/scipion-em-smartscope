@@ -38,8 +38,7 @@ from ..objects.dataCollection import *
 import time
 from ..constants import *
 
-CROP_DIVISION = 8 #Higher small boxSize
-
+BOX_SIZE_EXTENSION_PERCENT = 1.3
 
 class smartscopeConnection(ProtImport, ProtStreamingBase):
     """
@@ -161,6 +160,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         self.detectorDict = {}
         self.sessionDict = {}
         self.initialNumMovies = 0
+        self.listHoleCropedID = []
         self.zeroTime = time.time()
         self.rTime = self.refreshTime.get()
         if self.rTime < 240:
@@ -289,11 +289,12 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         summaryF2.close()
 
     def cropHolePNG(self):
+        self.info('Cropping hole image...')
         pathcrop = os.path.join(self._getExtraPath(), 'cropedHoles')
         if not os.path.exists(pathcrop):
             os.makedirs(pathcrop)
-        self.listHoleCropedID = []
         import re
+        counter = 0
         for m in self.MoviesSS:
             movieHoleId = m.getHoleId()
             hole = self.SOH.getItem("_hole_id", m.getHoleId())
@@ -305,21 +306,26 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             # shapeY = hole.getShapeY()
             baseNameRaw = os.path.basename(rawDir)
             rawCroped = re.sub(r'(hole)\d+', 'hole{}'.format(holeNum), baseNameRaw)
-            rawCroped = os.path.splitext(rawCroped)[0] + '.mrc'
-            pathRawCroped = os.path.join(pathcrop, rawCroped)
+            pathRawCroped = os.path.join(pathcrop, os.path.splitext(rawCroped)[0] + '.mrc')
+            if baseNameRaw.find('133_hole47') != -1:
+                pass
             if not movieHoleId in self.listHoleCropedID:
-                if self.cropImage(hole, pathRawCroped, rawDir):
-                    hole.setRawDir(pathRawCroped)
-                    self.SOH.update(hole)
-                    self.listHoleCropedID.append(movieHoleId)
-                    #self.info(f'holeID append: {movieHoleId} movieName: {movieName}')
-            else:
+                fileName  = os.path.splitext(os.path.basename(rawDir))[0]
+                if not fileName.startswith('holeUnacquired'):
+                    if self.cropImage(hole, pathRawCroped,rawDir):
+                        counter += 1
+                        self.info(f'Croped {counter} hole images')
+                        hole.setRawDir(pathRawCroped)
+                        #self.SOH.update(hole)
+                        # self.info(f'holeID append: {movieHoleId} movieName: {movieName}')
+                self.listHoleCropedID.append(movieHoleId)
+            #else:
                 #self.info(f'movie: {movieName} with hole croped: {baseNameRaw}')
-                hole.setRawDir(pathRawCroped)
-                #self.SOH.update(hole)
+                #hole.setRawDir(pathRawCroped)
+            self.SOH.update(hole)
 
         self.SOH.write()
-        #self._store(self.SOH)
+        self._store(self.SOH)
 
 
     def cropImage(self, hole, pathRawCroped, rawDir):
@@ -334,8 +340,12 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                 yPng = int(hole.getY())
                 with mrcfile.open(rawDir, permissive=True) as mrc:
                     arr = mrc.data
+                    if arr is None or arr.size == 0:
+                        self.error("MRC data is empty or unreadable.")
+                        return False
                 height, width = arr.shape[:2]#TODO smartscope shape_X / Y provide 383803710 size 2 more pixels
-                Range = int(np.mean([height, width]) / CROP_DIVISION)
+                print(f'[xPng - yPNG]: [{xPng} - {yPng}]      [width - height]: [{width} - {height}] ')
+                Range = (hole.getRadius()) * BOX_SIZE_EXTENSION_PERCENT
                 if yPng - Range < 0:
                     arr_y = 0, Range
                 elif yPng + Range > height:
