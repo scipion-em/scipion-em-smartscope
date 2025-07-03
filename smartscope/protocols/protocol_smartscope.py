@@ -131,7 +131,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             inputMovies = self.inputMovies.get()
             if self.TotalTime <= delayInit:  # End of the protocol
                 break
-            if self.conditionRefresh(len(inputMovies)):
+            if self.conditionRefresh(inputMovies):
                 startTime = time.time()
                 if not self.metadataCollected:
                     self.metadataCollection()
@@ -187,10 +187,12 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         self.reStartTime = time.time()
         self.ListMoviesImported = []
 
-    def conditionRefresh(self, lenInputMovies):
+    def conditionRefresh(self, inputMovies):
         if self.refreshMethod == 0:
-            if lenInputMovies - self.initialNumMovies >= self.refreshMovies.get():
-                self.initialNumMovies = lenInputMovies
+            if len(inputMovies) - self.initialNumMovies >= self.refreshMovies.get():
+                self.initialNumMovies = len(inputMovies)
+                return True
+            elif inputMovies.isStreamOpen() == False:
                 return True
             else:
                 return False
