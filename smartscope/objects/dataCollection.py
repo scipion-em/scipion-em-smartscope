@@ -41,7 +41,11 @@ import time
 import  logging
 
 logger = logging.getLogger(__name__)
-
+HOLE_TYPE = {'R0.6/1': {'hole_diam': 6000, 'hole_separation': 10000},
+             'R1.2/1.3': {'hole_diam': 12000, 'hole_separation': 13000},
+             'R2/1': {'hole_diam': 20000, 'hole_separation': 10000},
+             'R2/2': {'hole_diam': 20000, 'hole_separation': 20000},
+             'R2/4': {'hole_diam': 20000, 'hole_separation': 40000}} # in Amstrongs
 
 
 class dataCollection():
@@ -49,6 +53,7 @@ class dataCollection():
         self.pyClient = pyClient
         self.holeUnacquired =  join(dirname(__file__), 'holeUnacquired.png')
         self.squareUnacquired =  join(dirname(__file__), 'squareUnacquired.png')
+        self.pixelSize = None
 
     def sessionCollection(self):
         sessionList = []
@@ -218,7 +223,15 @@ class dataCollection():
                         ho.setHoleId(h['hole_id']) #TODO parece que aveces no se genera ese campo de hole_id, square_id, grid_id
                         ho.setName(h['name'])
                         ho.setNumber(h['number'])
-                        ho.setSamplingRate(h['pixel_size'])
+                        ho.setPixelSize(h['pixel_size'])
+                        pixelSize = h['pixel_size']
+                        if not pixelSize:
+                            pixelSize = self.pixelSize
+                        holeType = gr.getHoleType()
+                        if holeType in HOLE_TYPE and pixelSize:
+                            self.pixelSize = pixelSize
+                            ho.setHoleDiam(HOLE_TYPE[holeType]['hole_diam'] / pixelSize)
+                            ho.setHoleSeparation(HOLE_TYPE[holeType]['hole_separation'] / pixelSize)
                         ho.setShapeX(h['shape_x'])
                         ho.setShapeY(h['shape_y'])
                         ho.setSelected(h['selected'])

@@ -650,6 +650,7 @@ class Hole(Image):
         self._grid_id = String()
         self._square_id = String()
         self._shots_number = Integer()
+        self._pixel_size = Float()
         # DETAILED
         self._finder_name = String()
         self._x = Integer()
@@ -666,6 +667,9 @@ class Hole(Image):
         #QUALITY
         self._goodParticles = Integer(0)
         self._badParticles = Integer(0)
+        #EXTERNAL
+        self._hole_diam = Float()
+        self._hole_separation = Float()
 
     # Setters
 
@@ -720,6 +724,9 @@ class Hole(Image):
     def setShots(self, shots):
         self._shots_number.set(shots)
 
+    def setPixelSize(self, value):
+        self._pixel_size.set(value)
+
     # DETAILED
     def setFinderName(self, finder):
         self._finder_name.set(finder)
@@ -763,6 +770,11 @@ class Hole(Image):
     def setBadParticles(self, value):
         self._badParticles.set(value)
 
+    def setHoleDiam(self, value):
+        self._hole_diam.set(value)
+
+    def setHoleSeparation(self, value):
+        self._hole_separation.set(value)
 
 
     # Getters
@@ -799,6 +811,15 @@ class Hole(Image):
 
     def getRadius(self):
         return self._radius.get()
+
+    def getHoleDiam(self):
+        return self._hole_diam.get()
+
+    def getHoleSeparation(self):
+        return self._hole_separation.get()
+
+    def getPixelSize(self):
+        return self._pixel_size.get()
 
     def getArea(self):
         return self._area.get()

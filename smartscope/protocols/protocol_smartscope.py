@@ -38,7 +38,6 @@ from ..objects.dataCollection import *
 import time
 from ..constants import *
 
-BOX_SIZE_EXTENSION_PERCENT = 1.3
 
 class smartscopeConnection(ProtImport, ProtStreamingBase):
     """
@@ -344,8 +343,12 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                         self.error("MRC data is empty or unreadable.")
                         return False
                 height, width = arr.shape[:2]#TODO smartscope shape_X / Y provide 383803710 size 2 more pixels
-                print(f'[xPng - yPNG]: [{xPng} - {yPng}]      [width - height]: [{width} - {height}] ')
-                Range = (hole.getRadius()) * BOX_SIZE_EXTENSION_PERCENT
+                #print(f'[xPng - yPNG]: [{xPng} - {yPng}]      [width - height]: [{width} - {height}] ')
+                try:
+                    Range = int((hole.getHoleDiam() / 2) + (hole.getHoleSeparation() / 2) )# radius + (separation / 2)
+                except Exception:
+                    print(f'rawDir: {rawDir}\nhole: {hole.getName()}\n')
+                    return False
                 if yPng - Range < 0:
                     arr_y = 0, Range
                 elif yPng + Range > height:
