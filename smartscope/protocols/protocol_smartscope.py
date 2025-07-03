@@ -313,7 +313,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             if not movieHoleId in self.listHoleCropedID:
                 fileName  = os.path.splitext(os.path.basename(rawDir))[0]
                 if not fileName.startswith('holeUnacquired'):
-                    if self.cropImage(hole, pathRawCroped,rawDir):
+                    if self.cropImage(hole, m.getX(), m.getY(), pathRawCroped,rawDir):
                         counter += 1
                         self.info(f'Croped {counter} hole images')
                         hole.setRawDir(pathRawCroped)
@@ -329,7 +329,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         self._store(self.SOH)
 
 
-    def cropImage(self, hole, pathRawCroped, rawDir):
+    def cropImage(self, hole, X, Y, pathRawCroped, rawDir):
         '''Split the png image based on the position of the hole (x,y) and a boxSize'''
         from PIL import Image
         import numpy as np
@@ -337,32 +337,30 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
         if os.path.isfile(rawDir):
             try:
-                xPng = int(hole.getX())
-                yPng = int(hole.getY())
                 with mrcfile.open(rawDir, permissive=True) as mrc:
                     arr = mrc.data
                     if arr is None or arr.size == 0:
                         self.error("MRC data is empty or unreadable.")
                         return False
                 height, width = arr.shape[:2]#TODO smartscope shape_X / Y provide 383803710 size 2 more pixels
-                #print(f'[xPng - yPNG]: [{xPng} - {yPng}]      [width - height]: [{width} - {height}] ')
+                #print(f'[x - y]: [{X} - {Y}]      [width - height]: [{width} - {height}] ')
                 try:
                     Range = int((hole.getHoleDiam() / 2) + (hole.getHoleSeparation() / 2) )# radius + (separation / 2)
                 except Exception:
                     print(f'rawDir: {rawDir}\nhole: {hole.getName()}\n')
                     return False
-                if yPng - Range < 0:
+                if Y - Range < 0:
                     arr_y = 0, Range
-                elif yPng + Range > height:
+                elif Y + Range > height:
                     arr_y = height - Range, height
                 else:
-                    arr_y = yPng - Range, yPng + Range
-                if xPng - Range < 0:
+                    arr_y = Y - Range, Y + Range
+                if X - Range < 0:
                     arr_x = 0, Range
-                elif xPng + Range > width:
+                elif X + Range > width:
                     arr_x = width - Range, width
                 else:
-                    arr_x = xPng - Range, xPng + Range
+                    arr_x = X - Range, X + Range
 
                 rawCrop = arr[arr_y[0]:arr_y[1], arr_x[0]:arr_x[1]]
                 with mrcfile.new(pathRawCroped, overwrite=True) as mrc:
@@ -469,8 +467,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             finder = movieSS['finders'][0]
             movie2Add.setX(finder['x'])
             movie2Add.setY(finder['y'])
-            setHoleImageX(finder['x'])
-            setHoleImageY(finder['y'])
+
 
         if movieSS['pixel_size'] == None or movieSS['pixel_size'] == 'null':
             movie2Add.setSamplingRate(movieImport.getSamplingRate())
