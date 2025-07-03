@@ -290,26 +290,22 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         summaryF2.close()
 
     def cropHolePNG(self):
-        self.info('Cropping hole image...')
+        self.info('Cropping hole images...')
         pathcrop = os.path.join(self._getExtraPath(), 'cropedHoles')
         if not os.path.exists(pathcrop):
             os.makedirs(pathcrop)
         import re
         counter = 0
         for m in self.MoviesSS:
-            movieHoleId = m.getHoleId()
+            movieHoleId = m.getHoleId() #TODO in detailed of hm there is no hole_id has to be included by Jonathan
             hole = self.SOH.getItem("_hole_id", m.getHoleId())
             movieName = m.getName()
             matchHole = re.search(r'hole(\d+)', movieName)
             holeNum = int(matchHole.group(1))
             rawDir = hole.getRawDir()
-            # shapeX = hole.getShapeX()
-            # shapeY = hole.getShapeY()
             baseNameRaw = os.path.basename(rawDir)
             rawCroped = re.sub(r'(hole)\d+', 'hole{}'.format(holeNum), baseNameRaw)
             pathRawCroped = os.path.join(pathcrop, os.path.splitext(rawCroped)[0] + '.mrc')
-            if baseNameRaw.find('133_hole47') != -1:
-                pass
             if not movieHoleId in self.listHoleCropedID:
                 fileName  = os.path.splitext(os.path.basename(rawDir))[0]
                 if not fileName.startswith('holeUnacquired'):
@@ -317,14 +313,9 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                         counter += 1
                         self.info(f'Croped {counter} hole images')
                         hole.setRawDir(pathRawCroped)
-                        #self.SOH.update(hole)
                         # self.info(f'holeID append: {movieHoleId} movieName: {movieName}')
                 self.listHoleCropedID.append(movieHoleId)
-            #else:
-                #self.info(f'movie: {movieName} with hole croped: {baseNameRaw}')
-                #hole.setRawDir(pathRawCroped)
             self.SOH.update(hole)
-
         self.SOH.write()
         self._store(self.SOH)
 
@@ -460,10 +451,10 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         movie2Add = MovieSS()
         movie2Add.copy(movieImport)
 
-        movie2Add.setHmId(movieSS['hm_id'])
+        movie2Add.setHmId(movieSS['hm_id']) #TODO provide calculation protocol requires the hm_id !!!
         movie2Add.setName(movieSS['name'])
         movie2Add.setNumber(movieSS['number'])
-        if 'finders' in movie2Add and movieSS['finders']:
+        if movieSS['finders']:
             finder = movieSS['finders'][0]
             movie2Add.setX(finder['x'])
             movie2Add.setY(finder['y'])
@@ -489,8 +480,8 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         movie2Add.setAstig(movieSS['astig'])
         movie2Add.setAngast(movieSS['angast'])
         movie2Add.setCtffit(movieSS['ctffit'])
-        movie2Add.setGridId(movieSS['grid_id'])
-        movie2Add.setHoleId(movieSS['hole_id'])
+        #movie2Add.setGridId(movieSS['grid_id'])
+        movie2Add.setHoleId(movieSS['hole_id']) #TODO in detail not available, must be fixed by Jonathan
 
         SOMSS.append(movie2Add)
 
