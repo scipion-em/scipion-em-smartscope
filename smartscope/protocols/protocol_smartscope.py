@@ -25,6 +25,8 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
+from sqlite3 import OperationalError
+
 from pyworkflow.utils import Message
 from pyworkflow import BETA, UPDATED, NEW, PROD
 from pwem.protocols.protocol_import.base import ProtImport
@@ -424,16 +426,16 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         sizeMoviesInput = len(inputMovies)
         counterMoviesChecked = 1
         for gr in self.SOG:
-            dictMAPI = self.pyClient.getRouteFromID('highmag', 'grid', gr.getGridId(), pageSize=500)
+            dictMAPI = self.pyClient.getRouteFromID('highmag', 'grid', gr.getGridId(), pageSize=500, endpoint='detailed')
             for m in dictMAPI:
                 try:
                     inputMovies.getItem("_micName", m['frames'])
                     try:
                         SOMSS.getItem("_micName", m['frames'])#highMag movie from Smartscope imported previously
-                    except Exception:
+                    except OperationalError:
                         self.info(f"Collectiong ({counterMoviesChecked}/{sizeMoviesInput}) movie: {m['frames']}")
                         counterMoviesChecked += 1
-                        time0= time.time()
+                        #time0= time.time()
                         self.addMovieSS(SOMSS, inputMovies.getItem("_micName", m['frames']), m)
                         #print(f'time movie {counterMoviesChecked}: {time.time() - time0} s')
                 except UnboundLocalError:
@@ -463,6 +465,13 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         movie2Add.setHmId(movieSS['hm_id'])
         movie2Add.setName(movieSS['name'])
         movie2Add.setNumber(movieSS['number'])
+        if 'finders' in movie2Add and movieSS['finders']:
+            finder = movieSS['finders'][0]
+            movie2Add.setX(finder['x'])
+            movie2Add.setY(finder['y'])
+            setHoleImageX(finder['x'])
+            setHoleImageY(finder['y'])
+
         if movieSS['pixel_size'] == None or movieSS['pixel_size'] == 'null':
             movie2Add.setSamplingRate(movieImport.getSamplingRate())
         else:
@@ -533,10 +542,15 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         if Plugin.getVar(SMARTSCOPE_LOCALHOST) == None:
             errors.append(
                 'SMARTSCOPE_LOCALHOST has not been configured, please visit https://github.com/scipion-em/scipion-em-smartscope#configuration')
-        if Plugin.getVar(SMARTSCOPE_DATA_SESSION_PATH) == 'Path assigned to the data in the Smartscope installation':
+        dataPath = Plugin.getVar(SMARTSCOPE_DATA_SESSION_PATH)
+        if dataPath == 'Path assigned to the data in the Smartscope installation':
             errors.append(
-                'SMARTSCOPE_DATA_SESSION_PATH has not been configured, please visit https://github.com/scipion-em/scipion-em-smartscope#configuration')
-
+        	    'SMARTSCOPE_DATA_SESSION_PATH has not been configured, '
+        	    'please visit https://github.com/scipion-em/scipion-em-smartscope#configuration \n')
+        if not os.path.isdir(dataPath):
+            errors.append(
+        	    f'SMARTSCOPE_DATA_SESSION_PATH: {dataPath} has wrong configuration, '
+        	    'please visit https://github.com/scipion-em/scipion-em-smartscope#configuration \n')
         response = self.checkSmartscopeConnection()
         try:
             response[0]['username']

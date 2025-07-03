@@ -335,11 +335,15 @@ class provideCalculations(ProtImport, ProtStreamingBase):
         if Plugin.getVar(SMARTSCOPE_LOCALHOST) == None:
             errors.append(
                 'SMARTSCOPE_LOCALHOST has not been configured, please visit https://github.com/scipion-em/scipion-em-smartscope#configuration \n')
-        if Plugin.getVar(SMARTSCOPE_DATA_SESSION_PATH) == 'Path assigned to the data in the Smartscope installation':
+        dataPath = Plugin.getVar(SMARTSCOPE_DATA_SESSION_PATH)
+        if dataPath == 'Path assigned to the data in the Smartscope installation':
             errors.append(
-                'SMARTSCOPE_DATA_SESSION_PATH has not been configured, '
-                'please visit https://github.com/scipion-em/scipion-em-smartscope#configuration \n')
-
+        	    'SMARTSCOPE_DATA_SESSION_PATH has not been configured, '
+        	    'please visit https://github.com/scipion-em/scipion-em-smartscope#configuration \n')
+        if not os.path.isdir(dataPath):
+            errors.append(
+        	    f'SMARTSCOPE_DATA_SESSION_PATH: {dataPath} has wrong configuration, '
+        	    'please visit https://github.com/scipion-em/scipion-em-smartscope#configuration \n')
         response = self.checkSmartscopeConnection()
         try:
             response[0]['username']

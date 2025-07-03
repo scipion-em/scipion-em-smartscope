@@ -653,8 +653,10 @@ class Hole(Image):
         self._pixel_size = Float()
         # DETAILED
         self._finder_name = String()
-        self._x = Integer()
+        self._x = Integer() #in the square image...
         self._y = Integer()
+        self._holeImage_x =  Integer()
+        self._holeImage_y = Integer()
         self._stage_x = Float()
         self._stage_y = Float()
         self._stage_z = Float()
@@ -736,6 +738,12 @@ class Hole(Image):
 
     def setY(self, y):
         self._y.set(y)
+
+    def setHoleImageX(self, x):
+        self._holeImage_x.set(x)
+
+    def setHoleImageY(self, y):
+        self._holeImage_y.set(y)
 
     def setStageX(self, stageX):
         self._stage_x.set(stageX)
@@ -849,6 +857,12 @@ class Hole(Image):
     def getY(self):
         return self._y.get()
 
+    def getHoleImageX(self):
+        return self._holeImage_x.get()
+
+    def getHoleImageY(self):
+        return self._holeImage_y.get()
+
     def getStageX(self):
         return self._stage_x.get()
 
@@ -907,6 +921,8 @@ class MovieSS(Movie):
         self._completion_time = String()
         self._hole_id = String()
         self._grid_id = String()
+        self._x = Integer() #in the hole image...
+        self._y = Integer()
 
 
     # Setters
@@ -973,6 +989,12 @@ class MovieSS(Movie):
     def setGridId(self, id):
         self._grid_id.set(id)
 
+    # DETAILED
+    def setX(self, x):
+        self._x.set(x)
+
+    def setY(self, y):
+        self._y.set(y)
 
     # Getter
     def getHmId(self):
@@ -1037,6 +1059,13 @@ class MovieSS(Movie):
 
     def getGridId(self):
         return self._grid_id.get()
+
+    #DETAILED
+    def getX(self):
+        return self._x.get()
+
+    def getY(self):
+        return self._y.get()
 
 
 # -------SETS------------
