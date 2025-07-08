@@ -422,7 +422,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                 try:
                     inputMovies.getItem("_micName", m['frames'])
                 except UnboundLocalError:
-                    break  # highMag movie from Smartscope not in the inputMoviesSet
+                    continue  # highMag movie from Smartscope not in the inputMoviesSet
                 try:
                     SOMSS.getItem("_micName", m['frames'])#highMag movie from Smartscope imported previously?
                 except (UnboundLocalError, OperationalError) :
