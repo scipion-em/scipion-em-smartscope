@@ -342,22 +342,37 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                 except Exception:
                     print(f'rawDir: {rawDir}\nhole: {hole.getName()}\n')
                     return False
-                if Y - Range < 0:
-                    arr_y = 0, Range
-                elif Y + Range > height:
-                    arr_y = height - Range, height
-                else:
-                    arr_y = Y - Range, Y + Range
-                if X - Range < 0:
-                    arr_x = 0, Range
-                elif X + Range > width:
-                    arr_x = width - Range, width
-                else:
-                    arr_x = X - Range, X + Range
+                # Calculate initial crop boundaries
+                y_start = Y - Range
+                y_end = Y + Range
+                x_start = X - Range
+                x_end = X + Range
+                # Adjust boundaries if they extend past the image edges
+                if y_start < 0:
+                    y_end -= y_start  # Shift the end coordinate by the amount the start was off
+                    y_start = 0
 
-                rawCrop = arr[arr_y[0]:arr_y[1], arr_x[0]:arr_x[1]]
-                with mrcfile.new(pathRawCroped, overwrite=True) as mrc:
-                    mrc.set_data(rawCrop.astype(np.float32))
+                if x_start < 0:
+                    x_end -= x_start  # Shift the end coordinate
+                    x_start = 0
+
+                if y_end > height:
+                    y_start -= (y_end - height)  # Shift the start coordinate
+                    y_end = height
+
+                if x_end > width:
+                    x_start -= (x_end - width)  # Shift the start coordinate
+                    x_end = width
+
+                # Final check to prevent negative indices if the image is smaller than the crop size
+                y_start = max(0, y_start)
+                x_start = max(0, x_start)
+
+                # Perform the crop using the corrected coordinates
+                rawCrop = arr[y_start:y_end, x_start:x_end]
+
+                with mrcfile.new(pathRawCroped, overwrite=True) as mrc_out:
+                    mrc_out.set_data(rawCrop.astype(np.float32))
                 return True
             except Exception as e:
                 print(e)
