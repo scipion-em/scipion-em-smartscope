@@ -440,7 +440,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                 self.createOutputStepPassFilter(SOHPF,self.dictPassHoles[h]['Hole'])
         if self.dictRejectHoles:
             for h in self.dictRejectHoles:
-                self.createOutputStepRejected(SOHR,self.dictRejectHoles[h]['Hole'])
+                self.createOutputStepRejected(SOHR,self.dictRejectHoles[h])
 
     def createOutputStepRejected(self, SOHR, hole):
         SOHR.copyInfo(self.holes)

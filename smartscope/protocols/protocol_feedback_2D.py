@@ -47,7 +47,7 @@ from ..constants import *
 
 
 
-class smartscopeFeedback(ProtImport, ProtStreamingBase):
+class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
     """
     This protocol will calculate which are the best holes of the session based
     on the good particles of each hole. After knowing the good holes, will

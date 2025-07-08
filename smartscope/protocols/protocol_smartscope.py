@@ -338,7 +338,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                 height, width = arr.shape[:2]#TODO smartscope shape_X / Y provide 383803710 size 2 more pixels
                 #print(f'[x - y]: [{X} - {Y}]      [width - height]: [{width} - {height}] ')
                 try:
-                    Range = int((hole.getHoleDiam() / 2) + (hole.getHoleSeparation() / 2) )# radius + (separation / 2)
+                    Range = int((hole.getHoleDiam() / 2) + (hole.getHoleSeparation() / 4) )# radius + (separation / 2)
                 except Exception:
                     print(f'rawDir: {rawDir}\nhole: {hole.getName()}\n')
                     return False
@@ -421,16 +421,17 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             for m in dictMAPI:
                 try:
                     inputMovies.getItem("_micName", m['frames'])
-                    try:
-                        SOMSS.getItem("_micName", m['frames'])#highMag movie from Smartscope imported previously
-                    except OperationalError:
-                        self.info(f"Collectiong ({counterMoviesChecked}/{sizeMoviesInput}) movie: {m['frames']}")
-                        counterMoviesChecked += 1
-                        #time0= time.time()
-                        self.addMovieSS(SOMSS, inputMovies.getItem("_micName", m['frames']), m)
-                        #print(f'time movie {counterMoviesChecked}: {time.time() - time0} s')
                 except UnboundLocalError:
-                    pass #highMag movie from Smartscope not in the inputMoviesSet
+                    break  # highMag movie from Smartscope not in the inputMoviesSet
+                try:
+                    SOMSS.getItem("_micName", m['frames'])#highMag movie from Smartscope imported previously?
+                except (UnboundLocalError, OperationalError) :
+                    self.info(f"Collecting ({counterMoviesChecked}/{sizeMoviesInput}) movie: {m['frames']}")
+                    counterMoviesChecked += 1
+                    #time0= time.time()
+                    self.addMovieSS(SOMSS, inputMovies.getItem("_micName", m['frames']), m)
+                    #print(f'time movie {counterMoviesChecked}: {time.time() - time0} s')
+
 
             # STORE SQLITE
             SOMSS.write()  # persist on sqlite
@@ -453,7 +454,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         movie2Add = MovieSS()
         movie2Add.copy(movieImport)
 
-        movie2Add.setHmId(movieSS['hm_id']) #TODO provide calculation protocol requires the hm_id !!!
+        movie2Add.setHmId(movieSS['hm_id'])
         movie2Add.setName(movieSS['name'])
         movie2Add.setNumber(movieSS['number'])
         if movieSS['finders']:
@@ -482,8 +483,8 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         movie2Add.setAstig(movieSS['astig'])
         movie2Add.setAngast(movieSS['angast'])
         movie2Add.setCtffit(movieSS['ctffit'])
-        #movie2Add.setGridId(movieSS['grid_id'])
-        movie2Add.setHoleId(movieSS['hole_id']) #TODO in detail not available, must be fixed by Jonathan
+        movie2Add.setGridId(movieSS['grid_id'])
+        movie2Add.setHoleId(movieSS['hole_id'])
 
         SOMSS.append(movie2Add)
 
