@@ -184,7 +184,7 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
                                     self.protocol.SetOfHolesPassFilter.strId(),
                                     self.protocol.SetOfHolesPassFilter.getFileName(),
                                     viewParams={VISIBLE: labels,
-                                                RENDER: '_pngDir',
+                                                RENDER: '_rawDir',
                                                 SORT_BY: labels}))
             return views
 
@@ -197,7 +197,7 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
                                           self.protocol.SetOfHolesRejected.strId(),
                                           self.protocol.SetOfHolesRejected.getFileName(),
                                           viewParams={VISIBLE: labels,
-                                                      RENDER: '_pngDir',
+                                                      RENDER: '_rawDir',
                                                       SORT_BY: labels}))
             return views
 

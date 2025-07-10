@@ -271,10 +271,8 @@ class dataCollection():
                             ho.setFinderName(finder['method_name'])
                             ho.setX(finder['x'])
                             ho.setY(finder['y'])
-                        selectors = h['selectors'][-1]
-                        ho.setSelectorName(selectors['method_name'])
-                        ho.setSelectorLabel(selectors['label'])
-                        ho.setSelectorValue(selectors['value'])
+                        selectors = h['selectors']
+                        ho.setSelectorValue([d['value'] for d in selectors if d['method_name'] == 'Graylevel selector'][0])
                         #hm = self.pyClient.getRouteFromID('highmag', 'hole', h['hole_id'], detailed=False)#could be several hm for one hole
                         setOfHoles.append(ho)
                         timeFillHoles = time.time() - startHoleTime

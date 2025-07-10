@@ -190,7 +190,7 @@ class MainPyClient():
         resp = requests.get(request, headers=self.getHeaders(), verify=False)
         return resp.json()
 
-    def getRangeOfIntensityGrid(self, gridID, devel=True):
+    def getRangeOfIntensityGrid(self, gridID, devel=False):
         '''
         route: element you request for
         id: identification of the requested element
@@ -201,14 +201,14 @@ class MainPyClient():
         apiRoute = 'selector_viewer/api'
         selector = 'Graylevel%20selector'
         getLimits = 'getlimits'
-        request = f'{self.getMainEndpoint()}{apiRoute}/{gridID}/{selector}/{getLimits}'
+        request = f'{self.getMainEndpoint()}{apiRoute}/{gridID}/{selector}/{getLimits}/'
         if devel==True: print(f'Requested url: {request}')
         resp = requests.get(request, headers=self.getHeaders(), verify=False)
         if resp.status_code == 200 and devel:
             return True, resp.json()
         elif resp.status_code != 200:
             print('Error code: {}'.format(resp.status_code))
-            return False, '', ''
+            return False, ''
 
     def getRouteFromName(self, route, from_name, name, detailed=False, selected=False, completed=False, dev=False):
         '''
@@ -282,7 +282,7 @@ class MainPyClient():
         url = f'{self.getMainEndpoint()}{apiRoute}/{ID}/{grayScaleRoute}'
         if devel:
             print(url)
-        r = requests.patch(url, verify=False, headers=self.getHeaders(), data=data)
+        r = requests.post(url, verify=False, headers=self.getHeaders(), data=data)
         if r.status_code == 200 and devel:
             print('Element status updated')
         elif r.status_code != 200:
@@ -325,7 +325,8 @@ if __name__ == "__main__":
     #limits = pyClient.getRangeOfIntensityGrid('1jCzmOdx1ZaxaBbMhqut7B9mcTeKQr', devel=True)
     #print(limits)
     # pyClient.postRangeIntensity(ID='1jCzmOdx1ZaxaBbMhqut7B9mcTeKQr', data={"low_limit": 100.0, "high_limit": 400.0}, devel=True)
-    #limits = pyClient.getRangeOfIntensityGrid('1jCzmOdx1ZaxaBbMhqut7B9mcTeKQr', devel=True)
+    limits = pyClient.getRangeOfIntensityGrid('1PostIntl3ABv3AA9beyNXxgZPE9S1', devel=True)
+    pyClient.postRangeIntensity(ID='1PostIntl3ABv3AA9beyNXxgZPE9S1', data={"low_limit": 0.2, "high_limit": 0.7}, devel=True)
     #print(limits)
     # metadataSession = {'microscopes': None,'detectors': None, 'sessions': None}
     # for key, value in metadataSession.items():
@@ -338,7 +339,7 @@ if __name__ == "__main__":
     #hole = pyClient.getRouteFromID('hole', 'hole', 'aaa_square15_hole0Fq2BoTroLv24', dev=True)
 
     #allHM = pyClient.getDetailsFromParameter('grids')
-    allHM = pyClient.getRouteFromID('highmag', 'grid', '6FRO30_3yS1wRa1phy1mOI30gHto2Y', dev=True, pageSize=500)
+    #allHM = pyClient.getRouteFromID('highmag', 'grid', '6FRO30_3yS1wRa1phy1mOI30gHto2Y', dev=True, pageSize=500)
 
     # print(allHM)
     # print(len(allHM))

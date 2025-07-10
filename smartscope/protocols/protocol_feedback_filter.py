@@ -103,7 +103,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         form.addParam('refreshTime', params.IntParam, default=240,
                       condition='refreshMethod==1',
                       label="Time to refresh protocol",
-                      help = "Time to refresh data collected (secs) and update the feedback if neccesary")
+                      help = "Time to refresh data collected (minimum 240 secs) and update the feedback if neccesary")
         form.addParam('refreshMics', params.IntParam, default=200,
                       condition='refreshMethod==0',
                       label = 'Input micrographs to refresh protocol',
@@ -116,7 +116,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         self.zeroTime = time.time()
         self.rTime = self.refreshTime.get()
         if self.rTime < 240:
-            self.rTime = 1240
+            self.rTime = 240
         self.smartscopeConnectionProtocol = self.getInputProtocol()
         updatedProt = getUpdatedProtocol(self.smartscopeConnectionProtocol)
         if hasattr(updatedProt, 'Grids'):
@@ -309,7 +309,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                 self.listGridsStatistics[grid.getName()]['sigma'] = sigma
 
             #Posting Smartscope
-            #self.postingBack2Smartscope()
+            self.postingBack2Smartscope()
             #Prepare viewer
             self.prepareViewer(gridId, grid.getName(), nBins, minI, maxI)
 
@@ -399,14 +399,16 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         for grid in self.grids:
             self.info('\n -Posting Back to Smartscope ...')
             gridID = grid.getGridId()
-            status, currentMinRange, currentMaxRange = self.pyClient.getRangeOfIntensityGrid(gridID)
+            status, currentRange = self.pyClient.getRangeOfIntensityGrid(gridID, devel=True)
+            currentMinRange, currentMaxRange  = currentRange['low_limit'],  currentRange['high_limit']
             if status:
                 self.info('ranges before feedback: {} - {}'.format(currentMinRange, currentMaxRange))
             minI = self.listGridsStatistics[grid.getName()]['minIntensityL']
             maxI = self.listGridsStatistics[grid.getName()]['maxIntensityL']
             self.pyClient.postRangeIntensity(ID=gridID, data={"low_limit": minI, "high_limit": maxI})
             time.sleep(10) #wait until Smartscope manage the posting
-            status, currentMinRange, currentMaxRange = self.pyClient.getRangeOfIntensityGrid(gridID)
+            status, currentRange = self.pyClient.getRangeOfIntensityGrid(gridID, devel=True)
+            currentMinRange, currentMaxRange  = currentRange['low_limit'],  currentRange['high_limit']
             if status and currentMinRange == minI and currentMaxRange == maxI:
                 # SUMMARY INFO
                 summaryF = self._getExtraPath("summary.txt")

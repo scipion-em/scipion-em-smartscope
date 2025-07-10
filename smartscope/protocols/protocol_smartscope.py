@@ -33,6 +33,10 @@ from pwem.protocols.protocol_import.base import ProtImport
 from pyworkflow.protocol import ProtStreamingBase
 import pyworkflow.utils as pwutils
 from smartscope import Plugin
+from scipy.ndimage import gaussian_filter
+from scipy.optimize import minimize
+import numpy as np
+import mrcfile
 from pyworkflow.object import Set
 
 from pyworkflow.protocol import params
@@ -114,18 +118,18 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         call the self._insertFunctionStep method.
         """
         self._initialize()
+        # DEBUGALBERTO START
+        import os
+        fname = "/home/agarcia/Documents/attachActionDebug.txt"
+        if os.path.exists(fname):
+            os.remove(fname)
+        fjj = open(fname, "a+")
+        fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+        fjj.close()
+        print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+        time.sleep(10)
+        # DEBUGALBERTO END
         while True:
-            # DEBUGALBERTO START
-            import os
-            fname = "/home/agarcia/Documents/attachActionDebug.txt"
-            if os.path.exists(fname):
-                os.remove(fname)
-            fjj = open(fname, "a+")
-            fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
-            fjj.close()
-            print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
-            time.sleep(10)
-            # DEBUGALBERTO END
             delayInit = int(time.time() - self.startTime)
             #self.info('Time to Finish Smartscope: {} delayInit: {}s'.format(self.TotalTime, delayInit))
             inputMovies = self.inputMovies.get()
@@ -311,7 +315,15 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             if not movieHoleId in self.listHoleCropedID:
                 fileName  = os.path.splitext(os.path.basename(rawDir))[0]
                 if not fileName.startswith('holeUnacquired'):
-                    if self.cropImage(hole, m.getX(), m.getY(), pathRawCroped,rawDir):
+                    # if hole.getShots() > 1: #TODO Jonathan have to fix this field, now is the shots for the bis hole-group
+                    #     pathRawPartial = os.path.join(pathcrop, os.path.splitext(rawCroped)[0] + 'partial' + '.mrc')
+                    #     self.cropImage(hole, m.getX(), m.getY(), pathRawPartial, rawDir, separationDiv=2)
+                    #     status, x, y = self.detect_circle_center_scipy(pathRawPartial, radius_estimate=hole.getHoleDiam())
+                    #     if not status:
+                    #         continue
+                    #     self.cropImage(hole, x, y, pathRawCroped, pathRawPartial, separationDiv=3)
+                    #     os.remove(pathRawPartial)
+                    if self.cropImage(hole, m.getX(), m.getY(), pathRawCroped, rawDir):
                         counter += 1
                         self.info(f'Croped {counter} hole images')
                         hole.setRawDir(pathRawCroped)
@@ -321,8 +333,40 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         self.SOH.write()
         self._store(self.SOH)
 
+    def detect_circle_center_scipy(self, img, radius_estimate, sigma=5):
+        """
+        Detect the center of a bright or dark circular object using edge detection and centroid optimization.
+        """
+        try:
+            # Step 1: Smooth and detect edges
+            with mrcfile.open(img) as mrc:
+                img = mrc.data
+                smoothed = gaussian_filter(img, sigma=sigma)
+                edges = np.gradient(smoothed)
+                edge_magnitude = np.hypot(edges[0], edges[1])
+                edge_binary = edge_magnitude > edge_magnitude.mean() + edge_magnitude.std()
 
-    def cropImage(self, hole, X, Y, pathRawCroped, rawDir):
+                # Step 2: Get coordinates of edges
+                y_coords, x_coords = np.nonzero(edge_binary)
+
+                # Step 3: Define loss: sum of squared differences between radius and distance from (cx, cy)
+                def circle_loss(center):
+                    cx, cy = center
+                    distances = np.sqrt((x_coords - cx) ** 2 + (y_coords - cy) ** 2)
+                    return np.mean((distances - radius_estimate) ** 2)
+
+                # Step 4: Minimize loss
+                h, w = img.shape
+                initial_guess = (w // 2, h // 2)
+                result = minimize(circle_loss, initial_guess, method='Powell')
+
+                x_center, y_center = map(int, result.x)
+                return True, x_center, y_center
+        except Exception as e:
+            self.error(e)
+            return False
+
+    def cropImage(self, hole, X, Y, pathRawCroped, rawDir, separationDiv=3):
         '''Split the png image based on the position of the hole (x,y) and a boxSize'''
         from PIL import Image
         import numpy as np
@@ -338,7 +382,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                 height, width = arr.shape[:2]#TODO smartscope shape_X / Y provide 383803710 size 2 more pixels
                 #print(f'[x - y]: [{X} - {Y}]      [width - height]: [{width} - {height}] ')
                 try:
-                    Range = int((hole.getHoleDiam() / 2) + (hole.getHoleSeparation() / 4) )# radius + (separation / 2)
+                    Range = int((hole.getHoleDiam() / 2) + (hole.getHoleSeparation() / separationDiv) )# radius + (separation / 2)
                 except Exception:
                     print(f'rawDir: {rawDir}\nhole: {hole.getName()}\n')
                     return False
