@@ -42,9 +42,6 @@ from . import smartscopeConnection
 from collections import defaultdict
 
 #external imports
-import time
-from ..constants import *
-import numpy as np
 
 class smartscopeSimulator(ProtImport):
     """
@@ -77,13 +74,13 @@ class smartscopeSimulator(ProtImport):
                       important=True, allowsNull=False,
                       label='Second set of  micrographs',
                       help='Second set of micrographs.')
-        form.addParam('intensityRange', params.IntParam, important=True,
+        form.addParam('intensityRange', params.StringParam, important=True, allowsPointers=True,
                       label="Intensity Range", pointerClass= StringParam,
                       help='Intensity Range calculated by Feedback Micrograph protocol with the first set of micrographs')
 
     def _initialize(self):
-        self.micsInsideRange = []
-        self.setOfMics = self.micsNoFiltered.get()
+        self.micsInsideRange = set()
+        self.setOfMicsNoFiltered = self.micsNoFiltered.get()
         updatedProt = getUpdatedProtocol(self.smartscopeConnectionProtocol)
         if hasattr(updatedProt, 'MoviesSS'):
             self.movies = updatedProt.MoviesSS
@@ -95,28 +92,31 @@ class smartscopeSimulator(ProtImport):
         self._initialize()
         self.filterMicByIntensity()
         self.joinMicrographs()
-        self.createOutputs()
+        self.createOutput()
 
-    def joinMicrographs(self):
-        self.micsFiltered.get()
-        self.micsNoFiltered.get()
+    def filterMicByIntensity(self):
+        self.info('\n-Filtering micrographs by intensity hole ...')
 
-    def filterMicrographs(self):
         for hole in self.holes:
             holeC = hole.clone()
-            self.dictHoles[hole.getHoleId()] = {'Hole':  holeC, 'GridID': holeC.getGridId(), 'Shots': sessionshots, 'Acquired': 0, 'Pass': 0, 'Rejected': 0, 'Intensity': holeC.getSelectorValue()}
+            self.dictHoles[hole.getHoleId()] = {'Hole':  holeC, 'GridID': holeC.getGridId(), 'Shots': hole.getShots(), 'Intensity': holeC.getSelectorValue()}
 
         for m in self.movies:
             self.dictMovies[m.getMicName()] = m.clone()
 
-        for mic in self.setOfMics:
+        for mic in self.setOfMicsNoFiltered:
             holeId = self.dictMovies[mic.getMicName()].getHoleId()
             intensityHole = self.dictHoles[holeId].getSelectorValue()
             if min(self.intensityRangeList) <= intensityHole <= max(self.intensityRangeList):
-                self.micsInsideRange.append(mic.copy())
+                self.micsInsideRange.add(mic.copy())
 
+    def joinMicrographs(self):
+        self.info('\n-Joinning sets of micrographs ...')
+        self.joinedSetOfMics = self.micsInsideRange.union(self.micsFiltered.get())
 
-    def cereateOutput(self):
-        pass
+    def createOutput(self):
+        self.info('\n-Generating outputs ...')
+        self.outputsToDefine = {"outputMicrographs" : self.joinedSetOfMics}
+        self._defineOutputs(**self.outputsToDefine)
 
 
