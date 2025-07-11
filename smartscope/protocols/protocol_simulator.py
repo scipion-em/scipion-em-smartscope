@@ -35,7 +35,7 @@ from pyworkflow import BETA, UPDATED, NEW, PROD
 from pwem.protocols.protocol_import.base import ProtImport
 from pyworkflow.protocol import ProtStreamingBase, getUpdatedProtocol
 from smartscope import Plugin
-from pyworkflow.protocol import params
+from pyworkflow.protocol import params, StringParam
 from pwem.objects import SetOfMicrographs
 from ..objects.dataCollection import *
 from . import smartscopeConnection
@@ -46,7 +46,7 @@ import time
 from ..constants import *
 import numpy as np
 
-class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
+class smartscopeSimulator(ProtImport):
     """
     This protocol will simulate a streaming acquisition with Smartscope. It simulate the set of intensity range calculated by the Feedback micrograph protocol
     The protocol takes the first set of micrographs, the intensityRange calculated for the Feedback Micrograph prptocol and a nes set of micrograph.
@@ -60,7 +60,6 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
     def __init__(self, **args):
         ProtImport.__init__(self, **args)
 
-
     def _defineParams(self, form):
         """ Define the input parameters that will be used.
         Params:
@@ -68,6 +67,9 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         """
         # You need a params to belong to a section:
         form.addSection(label=Message.LABEL_INPUT)
+        form.addParam('inputProtocol', params.PointerParam,
+                      pointerClass='EMProtocol', label="Input Smartscope connection protocols", important=True,
+                      help="Smartscope connection protocol")
         form.addParam('micsFiltered', params.PointerParam,
                       pointerClass='SetOfMicrographs', label="Set of micrographs filtered", important=True,
                       help="First set of micrographs with the IntensityRange calculated by Feedback micrograph protocol")
@@ -76,6 +78,45 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                       label='Second set of  micrographs',
                       help='Second set of micrographs.')
         form.addParam('intensityRange', params.IntParam, important=True,
-                      label="Intensity Range", pointer= '',
+                      label="Intensity Range", pointerClass= StringParam,
                       help='Intensity Range calculated by Feedback Micrograph protocol with the first set of micrographs')
+
+    def _initialize(self):
+        self.micsInsideRange = []
+        self.setOfMics = self.micsNoFiltered.get()
+        updatedProt = getUpdatedProtocol(self.smartscopeConnectionProtocol)
+        if hasattr(updatedProt, 'MoviesSS'):
+            self.movies = updatedProt.MoviesSS
+        if hasattr(updatedProt, 'Holes'):
+            self.holes = updatedProt.Holes
+        self.intensityRangeList = [float(x.strip()) for x in self.intensityRange.get().split('-')]
+
+    def _insertAllSteps(self):
+        self._initialize()
+        self.filterMicByIntensity()
+        self.joinMicrographs()
+        self.createOutputs()
+
+    def joinMicrographs(self):
+        self.micsFiltered.get()
+        self.micsNoFiltered.get()
+
+    def filterMicrographs(self):
+        for hole in self.holes:
+            holeC = hole.clone()
+            self.dictHoles[hole.getHoleId()] = {'Hole':  holeC, 'GridID': holeC.getGridId(), 'Shots': sessionshots, 'Acquired': 0, 'Pass': 0, 'Rejected': 0, 'Intensity': holeC.getSelectorValue()}
+
+        for m in self.movies:
+            self.dictMovies[m.getMicName()] = m.clone()
+
+        for mic in self.setOfMics:
+            holeId = self.dictMovies[mic.getMicName()].getHoleId()
+            intensityHole = self.dictHoles[holeId].getSelectorValue()
+            if min(self.intensityRangeList) <= intensityHole <= max(self.intensityRangeList):
+                self.micsInsideRange.append(mic.copy())
+
+
+    def cereateOutput(self):
+        pass
+
 

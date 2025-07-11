@@ -8,4 +8,5 @@ from . protocol_smartscope import smartscopeConnection
 from . protocol_provide_calculations import provideCalculations
 #from . protocol_feedback import smartscopeFeedback2D
 from . protocol_feedback_filter import smartscopeFeedbackFilter
+from . protocol_simulator import smartscopeSimulator
 
