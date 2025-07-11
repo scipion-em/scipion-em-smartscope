@@ -1,7 +1,6 @@
 # **************************************************************************
 # *
 # * Authors: Alberto Garcia Mena   (alberto.garcia@cnb.csic.es)
-# *          Daniel Marchan (da.marchan@cnb.csic.es)
 # *
 # *
 # * Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC
@@ -54,7 +53,9 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
     """
     _label = 'Feedback filter'
     _devStatus = BETA
-    _possibleOutputs = {'SetOfHolesRejected': SetOfHoles, 'SetOfHolesPassFilter': SetOfHoles}
+    _possibleOutputs = {'SetOfHolesRejected': SetOfHoles,
+                        'SetOfHolesPassFilter': SetOfHoles,
+                        'IntensityRange': Integer}
     percentBins = ['0','10','20', '30', '40', '50', '60', '70']
     percentShots = ['1','25','50', '75', '100']
 
@@ -114,6 +115,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         self.finish = False
         self.runningPrevious = False
         self.zeroTime = time.time()
+        self.firtsFlag = True
         self.rTime = self.refreshTime.get()
         if self.rTime < 240:
             self.rTime = 240
@@ -155,9 +157,10 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         # DEBUGALBERTO END
         while not self.finish:
             self.fMics = self.micsPassFilter.get()
-            if self.conditionRefresh():
+            if self.conditionRefresh() or self.firtsFlag:
                 if self.runningPrevious == False:
                     if len(self.micsPassFilter.get()) >= self.triggerMicrograph.get():
+                        self.firtsFlag = False
                         self.runningPrevious = True
                         self.timeMainSteps = time.time()
                         self.collectHoles()
@@ -247,7 +250,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 
         for holeID, hole_data in self.dictHoles.items():
             h = hole_data['Hole']
-            shots = hole_data['Shots']
+            shots = hole_data['Shots'] #TODO Jonathan has to fix this value. now is the shots for the hole bis group
             acqs = hole_data['Acquired']
             passF = hole_data['Pass']
             reject = hole_data['Rejected']
@@ -399,7 +402,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         for grid in self.grids:
             self.info('\n -Posting Back to Smartscope ...')
             gridID = grid.getGridId()
-            status, currentRange = self.pyClient.getRangeOfIntensityGrid(gridID, devel=True)
+            status, currentRange = self.pyClient.getRangeOfIntensityGrid(gridID, magLevel='square', devel=True)
             currentMinRange, currentMaxRange  = currentRange['low_limit'],  currentRange['high_limit']
             if status:
                 self.info('ranges before feedback: {} - {}'.format(currentMinRange, currentMaxRange))
@@ -407,7 +410,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             maxI = self.listGridsStatistics[grid.getName()]['maxIntensityL']
             self.pyClient.postRangeIntensity(ID=gridID, data={"low_limit": minI, "high_limit": maxI})
             time.sleep(10) #wait until Smartscope manage the posting
-            status, currentRange = self.pyClient.getRangeOfIntensityGrid(gridID, devel=True)
+            status, currentRange = self.pyClient.getRangeOfIntensityGrid(gridID, magLevel='square',devel=True)
             currentMinRange, currentMaxRange  = currentRange['low_limit'],  currentRange['high_limit']
             if status and currentMinRange == minI and currentMaxRange == maxI:
                 # SUMMARY INFO
@@ -435,8 +438,13 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         self.info('\n-Generating outputs ...')
         SOHR = SetOfHoles.create(outputPath=self._getPath(), prefix='Rejected')#baseName
         SOHPF = SetOfHoles.create(outputPath=self._getPath(), prefix='Pass')
-        self.outputsToDefine = {'SetOfHolesPassFilter': SOHPF, 'SetOfHolesRejected': SOHR}
+        minI = list(self.listGridsStatistics.values())[0]['minIntensityL'] # TODO just provide the IntensityRange od the first grid
+        maxI = list(self.listGridsStatistics.values())[0]['maxIntensityL']
+        IntensityRange = f'{minI} - {maxI}'
+        self.outputsToDefine = {'SetOfHolesPassFilter': SOHPF, 'SetOfHolesRejected': SOHR, 'IntensityRange': String(IntensityRange)}
         self._defineOutputs(**self.outputsToDefine)
+
+
         if self.dictPassHoles:
             for h in self.dictPassHoles:
                 self.createOutputStepPassFilter(SOHPF,self.dictPassHoles[h]['Hole'])

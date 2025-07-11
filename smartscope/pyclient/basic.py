@@ -190,7 +190,7 @@ class MainPyClient():
         resp = requests.get(request, headers=self.getHeaders(), verify=False)
         return resp.json()
 
-    def getRangeOfIntensityGrid(self, gridID, devel=False):
+    def getRangeOfIntensityGrid(self, gridID, magLevel='square', devel=False):
         '''
         route: element you request for
         id: identification of the requested element
@@ -200,8 +200,7 @@ class MainPyClient():
         '''
         apiRoute = 'selector_viewer/api'
         selector = 'Graylevel%20selector'
-        getLimits = 'getlimits'
-        request = f'{self.getMainEndpoint()}{apiRoute}/{gridID}/{selector}/{getLimits}/'
+        request = f'{self.getMainEndpoint()}{apiRoute}/{gridID}/{selector}/{magLevel}/'
         if devel==True: print(f'Requested url: {request}')
         resp = requests.get(request, headers=self.getHeaders(), verify=False)
         if resp.status_code == 200 and devel:
@@ -325,7 +324,7 @@ if __name__ == "__main__":
     #limits = pyClient.getRangeOfIntensityGrid('1jCzmOdx1ZaxaBbMhqut7B9mcTeKQr', devel=True)
     #print(limits)
     # pyClient.postRangeIntensity(ID='1jCzmOdx1ZaxaBbMhqut7B9mcTeKQr', data={"low_limit": 100.0, "high_limit": 400.0}, devel=True)
-    limits = pyClient.getRangeOfIntensityGrid('1PostIntl3ABv3AA9beyNXxgZPE9S1', devel=True)
+    limits = pyClient.getRangeOfIntensityGrid('1PostIntl3ABv3AA9beyNXxgZPE9S1', magLevel='square', devel=True)
     pyClient.postRangeIntensity(ID='1PostIntl3ABv3AA9beyNXxgZPE9S1', data={"low_limit": 0.2, "high_limit": 0.7}, devel=True)
     #print(limits)
     # metadataSession = {'microscopes': None,'detectors': None, 'sessions': None}

@@ -234,7 +234,7 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
             x_positions = (bin_edges[:-1] + bin_edges[1:]) / 2
             fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10), sharex=True)
             fig.canvas.manager.set_window_title('Histograms holes smartscope')
-            ax1.bar(x_positions, listRanges['totalHist'], color='black', edgecolor='black', width=bin_width * 0.95,linewidth=2, label='Total Micrographs', alpha=0.2)
+            ax1.bar(x_positions, listRanges['totalHist'], color='black', edgecolor='black', width=bin_width * 0.95,linewidth=2, label='Total possible Micrographs (based on holes availability)', alpha=0.2)
             bars_with_mics = ax1.bar(x_positions, listRanges['withMicsHist'], color='blue', edgecolor='blue', width=bin_width * 0.95,linewidth=2,  label='Micrographs acquired', alpha=0.2)
             bars_pass = ax1.bar(x_positions, listRanges['passHist'], color='green', edgecolor='green', width=bin_width * 0.95, linewidth=2, label='Micrographs pass filters', alpha=0.2)
             ax1.set_ylabel('Number of Micrographs')
@@ -268,7 +268,7 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
             ratioHist = np.divide(listRanges['passHist'], listRanges['withMicsHist'], out=np.zeros_like(listRanges['withMicsHist'], dtype=float),
                                   where=(listRanges['passHist'] != 0))
             barHist = ax2.bar(x_positions, ratioHist, color='indigo', edgecolor='indigo', linewidth=2, width=bin_width * 0.95,
-                    label='Total Micrographs / Micrographs pass filters', alpha=0.2)
+                    label='Micrographs pass filters / Total Micrographs', alpha=0.2)
             ax2.set_ylabel('Micrographs acquired / Micrographs pass filters')
             ax2.legend(loc='upper right')
             ax2.set_ylim(0, 1)
