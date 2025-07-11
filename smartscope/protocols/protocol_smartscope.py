@@ -368,7 +368,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
     def cropImage(self, hole, X, Y, pathRawCroped, rawDir, separationDiv=3):
         '''Split the png image based on the position of the hole (x,y) and a boxSize'''
-        from PIL import Image
         import numpy as np
         import mrcfile
 
@@ -379,7 +378,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                     if arr is None or arr.size == 0:
                         self.error("MRC data is empty or unreadable.")
                         return False
-                height, width = arr.shape[:2]#TODO smartscope shape_X / Y provide 383803710 size 2 more pixels
+                height, width = arr.shape[:2]
                 #print(f'[x - y]: [{X} - {Y}]      [width - height]: [{width} - {height}] ')
                 try:
                     Range = int((hole.getHoleDiam() / 2) + (hole.getHoleSeparation() / separationDiv) )# radius + (separation / 2)

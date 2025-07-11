@@ -185,6 +185,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                         self.info('Waiting enought micrographs to launch protocol.'
                                   ' triggerMicrograph: {}, micrographsFiltered: {}'.format(self.triggerMicrograph.get(), len(self.micsPassFilter.get())))
 
+            time.sleep(30)
 
     def conditionRefresh(self):
         if self.refreshMethod == 0:
@@ -438,19 +439,22 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         self.info('\n-Generating outputs ...')
         SOHR = SetOfHoles.create(outputPath=self._getPath(), prefix='Rejected')#baseName
         SOHPF = SetOfHoles.create(outputPath=self._getPath(), prefix='Pass')
-        minI = list(self.listGridsStatistics.values())[0]['minIntensityL'] # TODO just provide the IntensityRange od the first grid
-        maxI = list(self.listGridsStatistics.values())[0]['maxIntensityL']
-        IntensityRange = f'{minI} - {maxI}'
-        self.outputsToDefine = {'SetOfHolesPassFilter': SOHPF, 'SetOfHolesRejected': SOHR, 'IntensityRange': String(IntensityRange)}
-        self._defineOutputs(**self.outputsToDefine)
+        try:
+            minI = list(self.listGridsStatistics.values())[0]['minIntensityL'] #TODO just provide the IntensityRange od the first grid
+            maxI = list(self.listGridsStatistics.values())[0]['maxIntensityL']
+            IntensityRange = f'{minI} - {maxI}'
+            self.outputsToDefine = {'SetOfHolesPassFilter': SOHPF, 'SetOfHolesRejected': SOHR, 'IntensityRange': String(IntensityRange)}
+            self._defineOutputs(**self.outputsToDefine)
 
 
-        if self.dictPassHoles:
-            for h in self.dictPassHoles:
-                self.createOutputStepPassFilter(SOHPF,self.dictPassHoles[h]['Hole'])
-        if self.dictRejectHoles:
-            for h in self.dictRejectHoles:
-                self.createOutputStepRejected(SOHR,self.dictRejectHoles[h])
+            if self.dictPassHoles:
+                for h in self.dictPassHoles:
+                    self.createOutputStepPassFilter(SOHPF,self.dictPassHoles[h]['Hole'])
+            if self.dictRejectHoles:
+                for h in self.dictRejectHoles:
+                    self.createOutputStepRejected(SOHR,self.dictRejectHoles[h])
+        except Exception as e:
+            pass
 
     def createOutputStepRejected(self, SOHR, hole):
         SOHR.copyInfo(self.holes)
