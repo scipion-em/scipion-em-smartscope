@@ -87,10 +87,9 @@ class smartscopeSimulator(EMProtocol):
         fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
         fjj.close()
         print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
-        import time
-        time.sleep(10)
+        # import time
+        # time.sleep(10)
         # DEBUGALBERTO END
-        self.micsInsideRange = SetOfMicrographs.create(outputPath=self._getPath())
         self.dictHoles = {}
         self.dictMovies = {}
         self.setOfMicsNoFiltered = self.micsNoFiltered.get()
@@ -111,34 +110,32 @@ class smartscopeSimulator(EMProtocol):
             return False
 
     def _insertAllSteps(self):
-        self._initialize()
-        self.filterMicByIntensity()
-        self.createOutput()
+        self._insertFunctionStep(self._initialize, needsGPU=False)
+        self._insertFunctionStep(self.filterMicByIntensity, needsGPU=False)
+        self._insertFunctionStep(self.createOutput, needsGPU=False)
 
     def filterMicByIntensity(self):
         self.info('\n-Filtering micrographs by intensity hole ...')
 
         for hole in self.holes:
-            holeC = hole.clone()
-            self.dictHoles[hole.getHoleId()] = {'Hole':  holeC, 'GridID': holeC.getGridId(), 'Shots': hole.getShots(), 'Intensity': holeC.getSelectorValue()}
+            self.dictHoles[hole.getHoleId()] =  hole.getSelectorValue()
 
         for m in self.movies:
             self.dictMovies[m.getMicName()] = m.getHoleId()
 
+        self.micsInsideRange = SetOfMicrographs.create(self._getPath())
         self.micsInsideRange.copyInfo(self.setOfMicsNoFiltered)
-        # for mic in self.setOfMicsNoFiltered.iterItems(iterate=False):
-        #
-        #     holeId = self.dictMovies[mic.getMicName()]
-        #     intensityHole = self.dictHoles[holeId]['Intensity']
-        #     if min(self.intensityRangeList) <= intensityHole <= max(self.intensityRangeList):
-        #         mic2Add = mic.clone()
-        #         self.micsInsideRange.append(mic2Add)
+        for mic in self.setOfMicsNoFiltered.iterItems(iterate=False):
+            holeId = self.dictMovies[mic.getMicName()]
+            intensityHole = self.dictHoles[holeId]
+            if min(self.intensityRangeList) <= intensityHole <= max(self.intensityRangeList):
+                mic2Add =mic.clone()
+                self.micsInsideRange.append(mic2Add)
         self.micsInsideRange.write()
 
     def createOutput(self):
         self.info('\n-Generating outputs ...')
         self.outputsToDefine = {"outputMicrographs" : self.micsInsideRange}
-        self._defineOutputs(outputMicrographs=self.outputsToDefine)
-        #self._store()
+        self._defineOutputs(** self.outputsToDefine)
 
 
