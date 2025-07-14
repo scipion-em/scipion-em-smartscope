@@ -34,16 +34,18 @@ from pyworkflow.utils import Message
 from pyworkflow import BETA, UPDATED, NEW, PROD
 from pwem.protocols.protocol_import.base import ProtImport
 from pyworkflow.protocol import ProtStreamingBase, getUpdatedProtocol
+from pwem.protocols import EMProtocol
+
 from smartscope import Plugin
 from pyworkflow.protocol import params, StringParam
-from pwem.objects import SetOfMicrographs
+from pwem.objects import SetOfMicrographs, Micrograph
 from ..objects.dataCollection import *
 from . import smartscopeConnection
 from collections import defaultdict
 
 #external imports
 
-class smartscopeSimulator(ProtImport):
+class smartscopeSimulator(EMProtocol):
     """
     This protocol will simulate a streaming acquisition with Smartscope. It simulate the set of intensity range calculated by the Feedback micrograph protocol
     The protocol takes the first set of micrographs, the intensityRange calculated for the Feedback Micrograph prptocol and a nes set of micrograph.
@@ -55,7 +57,7 @@ class smartscopeSimulator(ProtImport):
 
 
     def __init__(self, **args):
-        ProtImport.__init__(self, **args)
+        EMProtocol.__init__(self, **args)
 
     def _defineParams(self, form):
         """ Define the input parameters that will be used.
@@ -67,9 +69,6 @@ class smartscopeSimulator(ProtImport):
         form.addParam('inputProtocol', params.PointerParam,
                       pointerClass='EMProtocol', label="Input Smartscope connection protocols", important=True,
                       help="Smartscope connection protocol")
-        form.addParam('micsFiltered', params.PointerParam,
-                      pointerClass='SetOfMicrographs', label="Set of micrographs filtered", important=True,
-                      help="First set of micrographs with the IntensityRange calculated by Feedback micrograph protocol")
         form.addParam('micsNoFiltered', params.PointerParam, pointerClass='SetOfMicrographs',
                       important=True, allowsNull=False,
                       label='Second set of  micrographs',
@@ -79,8 +78,23 @@ class smartscopeSimulator(ProtImport):
                       help='Intensity Range calculated by Feedback Micrograph protocol with the first set of micrographs')
 
     def _initialize(self):
-        self.micsInsideRange = set()
+        # DEBUGALBERTO START
+        import os
+        fname = "/home/agarcia/Documents/attachActionDebug.txt"
+        if os.path.exists(fname):
+            os.remove(fname)
+        fjj = open(fname, "a+")
+        fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+        fjj.close()
+        print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+        import time
+        time.sleep(10)
+        # DEBUGALBERTO END
+        self.micsInsideRange = SetOfMicrographs.create(outputPath=self._getPath())
+        self.dictHoles = {}
+        self.dictMovies = {}
         self.setOfMicsNoFiltered = self.micsNoFiltered.get()
+        self.smartscopeConnectionProtocol = self.getInputProtocol()
         updatedProt = getUpdatedProtocol(self.smartscopeConnectionProtocol)
         if hasattr(updatedProt, 'MoviesSS'):
             self.movies = updatedProt.MoviesSS
@@ -88,10 +102,17 @@ class smartscopeSimulator(ProtImport):
             self.holes = updatedProt.Holes
         self.intensityRangeList = [float(x.strip()) for x in self.intensityRange.get().split('-')]
 
+    def getInputProtocol(self):
+        prot = self.inputProtocol.get()
+        prot.setProject(self.getProject())
+        if isinstance(prot, smartscopeConnection):
+            return prot
+        else:
+            return False
+
     def _insertAllSteps(self):
         self._initialize()
         self.filterMicByIntensity()
-        self.joinMicrographs()
         self.createOutput()
 
     def filterMicByIntensity(self):
@@ -102,21 +123,22 @@ class smartscopeSimulator(ProtImport):
             self.dictHoles[hole.getHoleId()] = {'Hole':  holeC, 'GridID': holeC.getGridId(), 'Shots': hole.getShots(), 'Intensity': holeC.getSelectorValue()}
 
         for m in self.movies:
-            self.dictMovies[m.getMicName()] = m.clone()
+            self.dictMovies[m.getMicName()] = m.getHoleId()
 
-        for mic in self.setOfMicsNoFiltered:
-            holeId = self.dictMovies[mic.getMicName()].getHoleId()
-            intensityHole = self.dictHoles[holeId].getSelectorValue()
-            if min(self.intensityRangeList) <= intensityHole <= max(self.intensityRangeList):
-                self.micsInsideRange.add(mic.copy())
-
-    def joinMicrographs(self):
-        self.info('\n-Joinning sets of micrographs ...')
-        self.joinedSetOfMics = self.micsInsideRange.union(self.micsFiltered.get())
+        self.micsInsideRange.copyInfo(self.setOfMicsNoFiltered)
+        # for mic in self.setOfMicsNoFiltered.iterItems(iterate=False):
+        #
+        #     holeId = self.dictMovies[mic.getMicName()]
+        #     intensityHole = self.dictHoles[holeId]['Intensity']
+        #     if min(self.intensityRangeList) <= intensityHole <= max(self.intensityRangeList):
+        #         mic2Add = mic.clone()
+        #         self.micsInsideRange.append(mic2Add)
+        self.micsInsideRange.write()
 
     def createOutput(self):
         self.info('\n-Generating outputs ...')
-        self.outputsToDefine = {"outputMicrographs" : self.joinedSetOfMics}
-        self._defineOutputs(**self.outputsToDefine)
+        self.outputsToDefine = {"outputMicrographs" : self.micsInsideRange}
+        self._defineOutputs(outputMicrographs=self.outputsToDefine)
+        #self._store()
 
 

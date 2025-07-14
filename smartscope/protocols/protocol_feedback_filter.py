@@ -56,7 +56,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
     _possibleOutputs = {'SetOfHolesRejected': SetOfHoles,
                         'SetOfHolesPassFilter': SetOfHoles,
                         'IntensityRange': Integer}
-    percentBins = ['0','10','20', '30', '40', '50', '60', '70']
+    percentBins = ['0','10','20', '30', '40', '50', '60', '70', '80', '90']
     percentShots = ['1','25','50', '75', '100']
 
     def __init__(self, **args):
@@ -111,6 +111,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                       help="Number of new micrographs to refresh data collected and update the feedback if neccesary")
 
     def _initialize(self):
+        self.intensityRangeSet = False
         self.initialNumMics = 0
         self.finish = False
         self.runningPrevious = False
@@ -301,6 +302,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                 continue
             #NORMAL DISTRIBUTION
             else:
+                self.intensityRangeSet = True
                 self.info('{}% of bins empty <= {}% configured.\nRanges of empty bins: {}'.format(
                     round(percentEmptyBins_Mics, 1),  self.percentBins[self.emptyBinsPercent.get()], empty_bin_ranges_Mics))
                 mu, sigma = self.normalDistribution(minI, maxI, nBins, gridId)
@@ -362,6 +364,8 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         histRatio[np.isnan(histRatio)] = 0.0
         mu = np.sum(ranges[:-1] * histRatio) / np.sum(histRatio)
         sigma = np.sqrt(np.sum(histRatio * (ranges[:-1] - mu) ** 2) / np.sum(histRatio))
+        if sigma == 0:
+            sigma = ranges[1] - ranges[0]
         return mu, sigma
 
 
@@ -439,22 +443,25 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         self.info('\n-Generating outputs ...')
         SOHR = SetOfHoles.create(outputPath=self._getPath(), prefix='Rejected')#baseName
         SOHPF = SetOfHoles.create(outputPath=self._getPath(), prefix='Pass')
-        try:
+        if self.intensityRangeSet:
             minI = list(self.listGridsStatistics.values())[0]['minIntensityL'] #TODO just provide the IntensityRange od the first grid
             maxI = list(self.listGridsStatistics.values())[0]['maxIntensityL']
             IntensityRange = f'{minI} - {maxI}'
             self.outputsToDefine = {'SetOfHolesPassFilter': SOHPF, 'SetOfHolesRejected': SOHR, 'IntensityRange': String(IntensityRange)}
-            self._defineOutputs(**self.outputsToDefine)
+
+        else:
+            self.outputsToDefine = {'SetOfHolesPassFilter': SOHPF, 'SetOfHolesRejected': SOHR}
+
+        self._defineOutputs(**self.outputsToDefine)
 
 
-            if self.dictPassHoles:
-                for h in self.dictPassHoles:
-                    self.createOutputStepPassFilter(SOHPF,self.dictPassHoles[h]['Hole'])
-            if self.dictRejectHoles:
-                for h in self.dictRejectHoles:
-                    self.createOutputStepRejected(SOHR,self.dictRejectHoles[h])
-        except Exception as e:
-            pass
+        if self.dictPassHoles:
+            for h in self.dictPassHoles:
+                self.createOutputStepPassFilter(SOHPF,self.dictPassHoles[h]['Hole'])
+        if self.dictRejectHoles:
+            for h in self.dictRejectHoles:
+                self.createOutputStepRejected(SOHR,self.dictRejectHoles[h])
+
 
     def createOutputStepRejected(self, SOHR, hole):
         SOHR.copyInfo(self.holes)
