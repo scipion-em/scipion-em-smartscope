@@ -53,9 +53,12 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
     on the good particles of each hole. After knowing the good holes, will
     sort the queue of hole acquisition that Smartscope uses.
     """
-    _label = '2D Feedback'
+    _label = 'Feedback from particles'
     _devStatus = BETA
-    _possibleOutputs = {'SetOfHoles': SetOfHoles}
+    _possibleOutputs = {'SetOfHolesRejected': SetOfHoles,
+                        'SetOfHolesPassFilter': SetOfHoles,
+                        'IntensityRange': Integer}
+    percentBins = ['0','10','20', '30', '40', '50', '60', '70', '80', '90']
 
     def __init__(self, **args):
         ProtImport.__init__(self, **args)

@@ -58,7 +58,6 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                         'SetOfHolesPassFilter': SetOfHoles,
                         'IntensityRange': Integer}
     percentBins = ['0','10','20', '30', '40', '50', '60', '70', '80', '90']
-    percentShots = ['1','25','50', '75', '100']
 
     def __init__(self, **args):
         ProtImport.__init__(self, **args)
@@ -100,7 +99,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                       label="Enable to simulate the screening",
                       help='If True the number of movies available will be the ones related to the micrographs. If False the number of movies will be the number reported by SmartscopeConnection')
         form.addParam('micsAll', params.PointerParam, pointerClass='SetOfMicrographs',
-                      expertLevel=cons.LEVEL_ADVANCED,
+                      expertLevel=cons.LEVEL_ADVANCED, allowsNull=True,
                       label='Micrographs',
                       help='Select a set of micrographs from any protocol.')
 
