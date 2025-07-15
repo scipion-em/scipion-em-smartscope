@@ -39,6 +39,7 @@ from pyworkflow.protocol import params, BooleanParam
 from ..objects.dataCollection import *
 from . import smartscopeConnection
 from collections import defaultdict
+import pyworkflow.protocol.constants as cons
 
 #external imports
 import time
@@ -94,6 +95,14 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                       label="Percent empty bins in the histogram",
                       help="In the histogram of number of holes acquired (with movies), this parameter represent the"
                             " percent of empty bins allowed to feedback Smartscope (10% by default). Higher less restrictive")
+        form.addParam('simulator', params.BooleanParam, default=False,
+                      expertLevel=cons.LEVEL_ADVANCED,
+                      label="Enable to simulate the screening",
+                      help='If True the number of movies available will be the ones related to the micrographs. If False the number of movies will be the number reported by SmartscopeConnection')
+        form.addParam('micsAll', params.PointerParam, pointerClass='SetOfMicrographs',
+                      expertLevel=cons.LEVEL_ADVANCED,
+                      label='Micrographs',
+                      help='Select a set of micrographs from any protocol.')
 
         form.addSection('Streaming')
         form.addParam('refreshMethod', params.EnumParam, default=0,
@@ -109,6 +118,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                       condition='refreshMethod==0',
                       label = 'Input micrographs to refresh protocol',
                       help="Number of new micrographs to refresh data collected and update the feedback if neccesary")
+
 
     def _initialize(self):
         self.intensityRangeSet = False
@@ -217,11 +227,23 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             holeC = hole.clone()
             self.dictHoles[hole.getHoleId()] = {'Hole':  holeC, 'GridID': holeC.getGridId(), 'Shots': sessionshots, 'Acquired': 0, 'Pass': 0, 'Rejected': 0, 'Intensity': holeC.getSelectorValue()}
 
-        for m in self.movies:
-            self.dictMovies[m.getMicName()] = m.clone()
-            if m.getHoleId() not in self.dictHolesWithMic:
-                self.dictHolesWithMic[m.getHoleId()] = self.dictHoles[m.getHoleId()]['Hole'].clone()
-            self.dictHoles[m.getHoleId()]['Acquired'] += 1
+        if self.simulator.get():
+            for m in self.movies:
+                for mic in self.micsAll.get():
+                    try:
+                        movie = self.movies.getItem("_micName", mic.getMicName())
+                        self.dictMovies[m.getMicName()] = movie.clone()
+                        if movie.getHoleId() not in self.dictHolesWithMic:
+                            self.dictHolesWithMic[m.getHoleId()] = self.dictHoles[movie.getHoleId()]['Hole'].clone()
+                        self.dictHoles[m.getHoleId()]['Acquired'] += 1
+                    except Exception:
+                        pass
+        else:
+            for m in self.movies:
+                self.dictMovies[m.getMicName()] = m.clone()
+                if m.getHoleId() not in self.dictHolesWithMic:
+                    self.dictHolesWithMic[m.getHoleId()] = self.dictHoles[m.getHoleId()]['Hole'].clone()
+                self.dictHoles[m.getHoleId()]['Acquired'] += 1
 
         for mic in self.fMics:
             H_ID = self.dictMovies[mic.getMicName()].getHoleId()
@@ -253,6 +275,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         for holeID, hole_data in self.dictHoles.items():
             h = hole_data['Hole']
             shots = hole_data['Shots'] #TODO Jonathan has to fix this value. now is the shots for the hole bis group
+            if shots > 3:shots = 3 #TODO remove when fixed getShots
             acqs = hole_data['Acquired']
             passF = hole_data['Pass']
             reject = hole_data['Rejected']
@@ -315,7 +338,8 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                 self.listGridsStatistics[grid.getName()]['sigma'] = sigma
 
             #Posting Smartscope
-            self.postingBack2Smartscope()
+            if not self.simulator.get():
+                self.postingBack2Smartscope()
             #Prepare viewer
             self.prepareViewer(gridId, grid.getName(), nBins, minI, maxI)
 
