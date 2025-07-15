@@ -53,11 +53,12 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
     """
     _label = 'Connection'
     _devStatus = BETA
-    _possibleOutputs = {'Squares': SetOfSquares,
-                        'Atlas': SetOfAtlas,
-                        'Grids': SetOfGrids,
-                        'Holes': SetOfHoles,
-                        'MoviesSS': SetOfMoviesSS}
+    _possibleOutputs = {
+                'Grids': SetOfGrids,
+                'Atlas': SetOfAtlas,
+                'Squares': SetOfSquares,
+                'Holes': SetOfHoles,
+                'MoviesSS': SetOfMoviesSS}
     def __init__(self, **args):
         ProtImport.__init__(self, **args)
         self.newSteps = []

@@ -138,6 +138,8 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             self.holes = updatedProt.Holes
         if hasattr(updatedProt, 'MoviesSS'):
             self.movies = updatedProt.MoviesSS
+        if hasattr(updatedProt, 'Session'):
+            self.sessionId = updatedProt.Session
 
     def getInputProtocol(self):
         prot = self.inputProtocol.get()
@@ -223,9 +225,14 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         self.dictPassHoles = {}
         self.dictRejectHoles = {}
         sessionshots = self.collectSessionShots()
+        #Collect session holes (all grids)
+        # for g in self.grids:
+        #     gridId = g.getGridId()
+        #     if g.getSessionId() == self.sessionId.get():
         for hole in self.holes:
-            holeC = hole.clone()
-            self.dictHoles[hole.getHoleId()] = {'Hole':  holeC, 'GridID': holeC.getGridId(), 'Shots': sessionshots, 'Acquired': 0, 'Pass': 0, 'Rejected': 0, 'Intensity': holeC.getSelectorValue()}
+        #    if hole.getGridId() == gridId:
+                holeC = hole.clone()
+                self.dictHoles[hole.getHoleId()] = {'Hole':  holeC, 'GridID': hole.getGridId(), 'Shots': sessionshots, 'Acquired': 0, 'Pass': 0, 'Rejected': 0, 'Intensity': holeC.getSelectorValue()}
 
         if self.simulator.get():
             for m in self.movies:
@@ -280,6 +287,8 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             passF = hole_data['Pass']
             reject = hole_data['Rejected']
             intensity = hole_data['Intensity']
+            if intensity == None or intensity == '':
+                print(f'hole without intensity: {holeID}')
             grid_id = h.getGridId()
 
             for s in range(shots):
@@ -302,6 +311,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
     # --------------------------- STATISTICS functions -----------------------------------
     def statistics(self):
         self.info('\n-Calculating statistics...')
+
         for grid in self.grids:
             self.listGridsStatistics[grid.getName()] = {}
             self.info('\n################\nGRID: {}\n################\n'.format(grid.getName()))

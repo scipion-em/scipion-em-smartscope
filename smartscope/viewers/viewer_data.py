@@ -251,7 +251,7 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
                         bar.get_x() + bar.get_width() / 2,
                         height,
                         f'{height:.0f}',
-                        ha='center', va='bottom', fontsize=8, color='blue'
+                        ha='left', va='bottom', fontsize=8, color='blue', rotation=45
                     )
             for bar in bars_pass:
                 height = bar.get_height()
@@ -260,7 +260,7 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
                         bar.get_x() + bar.get_width() / 2,
                         height,
                         f'{height:.0f}',
-                        ha='center', va='bottom', fontsize=8, color='green'
+                        ha='right', va='bottom', fontsize=8, color='green', rotation=45
                     )
 
 
