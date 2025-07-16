@@ -35,6 +35,8 @@ from pyworkflow.utils import Message
 from pyworkflow import BETA, UPDATED, NEW, PROD
 from pwem.protocols.protocol_import.base import ProtImport
 from pyworkflow.protocol import ProtStreamingBase
+from pwem.objects import SetOfClasses2D
+
 import pyworkflow.utils as pwutils
 from smartscope import Plugin
 from pyworkflow.object import Set
@@ -98,43 +100,77 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
                        label="Good Classes2D",
                        help='Set of good Classes2D calculated by a ranker')
 
+        form.addSection('Streaming')
+        form.addParam('refreshMethod', params.EnumParam, default=0,
+                      choices=['Input micrographs', 'Time'],
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      label='Select input to refresh the protocol',
+                      help='Select the parameter which triger the refresh of the protocol.')
+        form.addParam('refreshTime', params.IntParam, default=240,
+                      condition='refreshMethod==1',
+                      label="Time to refresh protocol",
+                      help = "Time to refresh data collected (minimum 240 secs) and update the feedback if neccesary")
+        form.addParam('refreshMics', params.IntParam, default=200,
+                      condition='refreshMethod==0',
+                      label = 'Input micrographs to refresh protocol',
+                      help="Number of new micrographs to refresh data collected and update the feedback if neccesary")
 
-        # form.addSection('Streaming')
-        # form.addParam('refreshTime', params.IntParam, default=120,
-        #               label="Time to refresh Smartscope synchronization (secs)")
+
+    def _initialize(self):
+        # DEBUGALBERTO START
+        import os
+        fname = "/home/agarcia/Documents/attachActionDebug.txt"
+        if os.path.exists(fname):
+            os.remove(fname)
+        fjj = open(fname, "a+")
+        fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+        fjj.close()
+        print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+        import time
+        time.sleep(10)
+        # DEBUGALBERTO END
+
+        self.movies = self.inputMovies.get()
+        self.holes = self.inputHoles.get()
+        self.totalC = self.totalClasses2D.get()
+        self.goodC = self.goodClasses2D.get()
+        self.badC = SetOfClasses2D.create(outputPath=self._getPath(), prefix='bad' )
+        self.badC.copyInfo(self.goodC)
 
 
-
-    def _insertAllSteps(self):
-        totalC = self.totalClasses2D.get()
-        goodC = self.goodClasses2D.get()
-        badC = []
-
-        for t in totalC:
+        # for g in goodC:
+        #     try:
+        #         totalC.getItem("_ID", g.getObjId())
+        #     except Exception: # is not in there
+        #         badC.append(t)
+        #
+        for t in self.totalC:
             flag = False
-            for g in goodC:
+            for g in self.goodC:
                 if t.getObjId() == g.getObjId():
                     flag = True
                     break
             if flag == False:
-                badC.append(t)
+                self.badC.appendFromClasses(t.clone())
+        self.badC.write()
 
-        self.info('Total classe: {} Good Classe: {} Bad: {}\n'.format(
-            len(totalC),len(goodC), len(badC)))
-        self._insertFunctionStep('readClasses',goodC, badC,
-                                 self.inputMovies.get(),  self.inputHoles.get())
+    def _insertAllSteps(self):
+        self._insertFunctionStep(self._initialize, needsGPU=False)
+        self._insertFunctionStep(self.readClasses, needsGPU=False)
 
 
-    def readClasses(self, goodP, badP, movies, holes):
+    def readClasses(self):
         '''Increase 1 to the hole.goodparticle (badParticle) based on the class ranker'''
         self.info('Reading inputs...')
-
+        self.info('Total classe: {} Good Classe: {} Bad: {}\n'.format(
+            len(self.totalC),len(self.goodC), len(self.badC)))
         SOH = SetOfHoles.create(outputPath=self._getPath())
-        self.outputsToDefine = {'SetOfHoles': SOH}
+        SOHR = SetOfHoles.create(outputPath=self._getPath())
+        self.outputsToDefine = {'SetOfHolesPassFilter': SOH, 'SetOfHolesRejected': SOHR}
         self._defineOutputs(**self.outputsToDefine)
 
         self.info('Assigning good/bad particles to holes...')
-        classesToiterate = {'goodParticles': goodP, 'badParticles': badP}
+        classesToiterate = {'goodParticles': self.goodC, 'badParticles': self.badC}
         dictHoles2Add = {}
         pCount = 0
         pAdded = 0
@@ -145,28 +181,25 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
                 self.info('\t----->{}'.format(classItem))
                 for p in classItem:
                     pCount += 1
-                    for m in movies:
-                        if (os.path.basename(m.getMicName()) == os.path.basename(p.getCoordinate().getMicName())):
-                            for h in holes:
-                                H_ID = h.getHoleId()
-                                if m.getHoleId() == H_ID:
-                                    keyList = [key2 for key2 in dictHoles2Add.keys()]
-                                    pAdded += 1
-                                    if key == 'goodParticles':
-                                        if H_ID not in keyList:
-                                            dictHoles2Add[H_ID] = [1, 0]
-                                            self.debug('H_ID: {}  resolution: {}'.format(H_ID, p.getCTF().getResolution()))
-                                            #self.debug('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(m.getMicName())))
-                                        else:
-                                            dictHoles2Add[H_ID] = [dictHoles2Add[H_ID][0] + 1, dictHoles2Add[H_ID][1]]
-                                        break
-                                    elif key == 'badParticles':
-                                        if H_ID not in keyList:
-                                            dictHoles2Add[H_ID] = [0, 1]
-                                            self.info('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(m.getMicName())))
-                                        else:
-                                            dictHoles2Add[H_ID] = [dictHoles2Add[H_ID][0], dictHoles2Add[H_ID][1] + 1]
-                                        break
+                    m = self.movies.getItem("_micName", p.getCoordinate().getMicName())
+                    H_ID = m.getHoleId()
+                    keyList = [key2 for key2 in dictHoles2Add.keys()]
+                    pAdded += 1
+                    if key == 'goodParticles':
+                        if H_ID not in keyList:
+                            dictHoles2Add[H_ID] = [1, 0]
+                            self.debug('H_ID: {}  resolution: {}'.format(H_ID, p.getCTF().getResolution()))
+                            #self.debug('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(m.getMicName())))
+                        else:
+                            dictHoles2Add[H_ID] = [dictHoles2Add[H_ID][0] + 1, dictHoles2Add[H_ID][1]]
+                        break
+                    elif key == 'badParticles':
+                        if H_ID not in keyList:
+                            dictHoles2Add[H_ID] = [0, 1]
+                            self.info('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(m.getMicName())))
+                        else:
+                            dictHoles2Add[H_ID] = [dictHoles2Add[H_ID][0], dictHoles2Add[H_ID][1] + 1]
+                        break
 
         self.info('\n\nParticles to add: {}'.format(pCount))
         self.info('Particles added: {}'.format(pAdded))
@@ -217,7 +250,6 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
 
     def _summary(self):
         summary = []
-
 
         return summary
 
