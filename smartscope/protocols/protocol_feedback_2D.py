@@ -34,8 +34,9 @@ to Smartscope to take decission about the acquisition
 from pyworkflow.utils import Message
 from pyworkflow import BETA, UPDATED, NEW, PROD
 from pwem.protocols.protocol_import.base import ProtImport
-from pyworkflow.protocol import ProtStreamingBase
+from pyworkflow.protocol import ProtStreamingBase, getUpdatedProtocol
 from pwem.objects import SetOfClasses2D
+from . import smartscopeConnection
 
 import pyworkflow.utils as pwutils
 from smartscope import Plugin
@@ -81,16 +82,10 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         """
         # You need a params to belong to a section:
         form.addSection(label=Message.LABEL_INPUT)
+        form.addParam('inputProtocol', params.PointerParam,
+                      pointerClass='EMProtocol', label="Input Smartscope connection protocols", important=True,
+                      help="Smartscope connection protocol")
 
-        form.addParam('inputHoles', params.PointerParam, pointerClass='SetOfHoles',
-                      important=True, allowsNull=False,
-                      label='Input holes from Smartscope',
-                      help='Select a set of holes from Smartscope connection protocol.')
-        form.addParam('inputMovies', params.PointerParam, pointerClass='SetOfMoviesSS',
-                      important=True, allowsNull=False,
-                      label='Input movies from Smartscope',
-                      help='Select a set of movies from Smartscope connection protocol.')
-        #sesion de Smartscope -> para cada hole pregunto de que sesion viene su grid
         form.addParam('totalClasses2D', params.PointerParam, allowsNull=False,
                        pointerClass='SetOfClasses2D',
                        label="Classes2D",
@@ -99,6 +94,10 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
                        pointerClass='SetOfClasses2D',
                        label="Good Classes2D",
                        help='Set of good Classes2D calculated by a ranker')
+        form.addParam('percentBadPartcilesHole', params.EnumParam,
+                      choices=self.percentBins, default=8, display=params.EnumParam.DISPLAY_COMBO,
+                      label="Percent bad particles to consider bad Hole",
+                      help="Percent of bad particles in a Hole to consider that the hole is a bad Hole or a Hole to reject. Default 80%")
 
         form.addSection('Streaming')
         form.addParam('refreshMethod', params.EnumParam, default=0,
@@ -130,20 +129,19 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         time.sleep(10)
         # DEBUGALBERTO END
 
-        self.movies = self.inputMovies.get()
-        self.holes = self.inputHoles.get()
+        self.smartscopeConnectionProtocol = self.getInputProtocol()
+        updatedProt = getUpdatedProtocol(self.smartscopeConnectionProtocol)
+        if hasattr(updatedProt, 'Grids'):
+            self.grids = updatedProt.Grids
+        if hasattr(updatedProt, 'Holes'):
+            self.holes = updatedProt.Holes
+        if hasattr(updatedProt, 'MoviesSS'):
+            self.movies = updatedProt.MoviesSS
+
         self.totalC = self.totalClasses2D.get()
         self.goodC = self.goodClasses2D.get()
-        self.badC = SetOfClasses2D.create(outputPath=self._getPath(), prefix='bad' )
-        self.badC.copyInfo(self.goodC)
+        self.badC = []
 
-
-        # for g in goodC:
-        #     try:
-        #         totalC.getItem("_ID", g.getObjId())
-        #     except Exception: # is not in there
-        #         badC.append(t)
-        #
         for t in self.totalC:
             flag = False
             for g in self.goodC:
@@ -151,8 +149,15 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
                     flag = True
                     break
             if flag == False:
-                self.badC.appendFromClasses(t.clone())
-        self.badC.write()
+                self.badC.append(t)
+
+    def getInputProtocol(self):
+        prot = self.inputProtocol.get()
+        prot.setProject(self.getProject())
+        if isinstance(prot, smartscopeConnection):
+            return prot
+        else:
+            return False
 
     def _insertAllSteps(self):
         self._insertFunctionStep(self._initialize, needsGPU=False)
@@ -160,60 +165,61 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
 
 
     def readClasses(self):
-        '''Increase 1 to the hole.goodparticle (badParticle) based on the class ranker'''
+
         self.info('Reading inputs...')
-        self.info('Total classe: {} Good Classe: {} Bad: {}\n'.format(
-            len(self.totalC),len(self.goodC), len(self.badC)))
+        self.info(f'Total classe: {len(self.totalC)} Good Classe: {len(self.goodC)}')
         SOH = SetOfHoles.create(outputPath=self._getPath())
         SOHR = SetOfHoles.create(outputPath=self._getPath())
         self.outputsToDefine = {'SetOfHolesPassFilter': SOH, 'SetOfHolesRejected': SOHR}
         self._defineOutputs(**self.outputsToDefine)
 
         self.info('Assigning good/bad particles to holes...')
-        classesToiterate = {'goodParticles': self.goodC, 'badParticles': self.badC}
+
         dictHoles2Add = {}
-        pCount = 0
-        pAdded = 0
+        totalParticles = self.totalC.getImages()
 
-        for key, value in classesToiterate.items():
-            self.info('\n\n{}'.format(key))
-            for classItem in value:
-                self.info('\t----->{}'.format(classItem))
-                for p in classItem:
-                    pCount += 1
-                    m = self.movies.getItem("_micName", p.getCoordinate().getMicName())
-                    H_ID = m.getHoleId()
-                    keyList = [key2 for key2 in dictHoles2Add.keys()]
-                    pAdded += 1
-                    if key == 'goodParticles':
-                        if H_ID not in keyList:
-                            dictHoles2Add[H_ID] = [1, 0]
-                            self.debug('H_ID: {}  resolution: {}'.format(H_ID, p.getCTF().getResolution()))
-                            #self.debug('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(m.getMicName())))
-                        else:
-                            dictHoles2Add[H_ID] = [dictHoles2Add[H_ID][0] + 1, dictHoles2Add[H_ID][1]]
-                        break
-                    elif key == 'badParticles':
-                        if H_ID not in keyList:
-                            dictHoles2Add[H_ID] = [0, 1]
-                            self.info('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(m.getMicName())))
-                        else:
-                            dictHoles2Add[H_ID] = [dictHoles2Add[H_ID][0], dictHoles2Add[H_ID][1] + 1]
-                        break
+        goodParticles = self.goodC.getImages()
+        self.info(f'Total particles: {totalParticles.getSize()}\n'
+                  f'Good particles: {goodParticles.getSize()}\n'
+                  f'Bad particles: {totalParticles.getSize() - goodParticles.getSize()}')
 
-        self.info('\n\nParticles to add: {}'.format(pCount))
-        self.info('Particles added: {}'.format(pAdded))
-        self.info('Holes to update: {}'.format(len(dictHoles2Add.items())))
+        time0 = time.time()
+        good_ids = set(p.getObjId() for p in goodParticles.iterItems())
+        time1 = time.time()
+        self.info(f'good classes particles Time: {round(time1 - time0, 0)} s')
+        time2 = time.time()
 
+        for p in self.totalC.iterClassItems(): #iterRows
+            movie = self.movies.getItem("_micName", p.getCoordinate().getMicName())
+            H_ID = movie.getHoleId()
+            #self.debug(f"micName: {p.getCoordinate().getMicName()} | H_ID: {H_ID}")
+            obj_id = p.getObjId()
+            is_good = obj_id in good_ids
+            #try:
+                #is_good = goodParticles.getItem("id", p.getObjId()) is not None
+            #except UnboundLocalError:
+            #    is_good = False
+            if H_ID not in dictHoles2Add:
+                dictHoles2Add[H_ID] = [0, 0]
+            if is_good:
+                dictHoles2Add[H_ID][0] += 1
+                #self.debug('H_ID: {}  resolution: {}'.format(H_ID, p.getCTF().getResolution()))
+            else:
+                dictHoles2Add[H_ID][1] += 1
+                #self.debug('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(movie.getMicName())))
+
+        time3 = time.time()
+        self.info(f'iter to asign holes to particles Time: {round(time3 - time2, 0)} s')
         for key, value in dictHoles2Add.items():
-            self.debug(key)
-            self.debug(value)
-            for h in holes:
-                if h.getHoleId() == key:
-                    h.setGoodParticles(int(h.getGoodParticles()) + value[0])
-                    h.setBadParticles(int(h.getBadParticles()) + value[1])
-                    break
-            self.createOutputStep(SOH, h, holes)
+            self.debug(f'{key} {value}')
+            hole = self.holes.getItem('_hole_id', key)
+            hole.setGoodParticles(int(hole.getGoodParticles()) + value[0])
+            hole.setBadParticles(int(hole.getBadParticles()) + value[1])
+            hole.setTotalParticles(int(hole.getGoodParticles()) + value[0] + int(hole.getBadParticles()) + value[1])
+            self.createOutputStep(SOH, hole, self.holes)
+
+        time4 = time.time()
+        self.info(f'iter to create outputs Time: {round(time4 - time3, 0)} s')
 
 
     def holesStatistis(self):
@@ -230,8 +236,8 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         '''
         pass
 
-    def createOutputStep(self, SOH, hole, holes):
-        SOH.copyInfo(holes)
+    def createOutputStep(self, SOH, hole, Setholes):
+        SOH.copyInfo(Setholes)
         hole2Add_copy = Hole()
         hole2Add_copy.copy(hole, copyId=False)
         SOH.append(hole2Add_copy)
@@ -247,6 +253,7 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
     def checkSmartscopeConnection(self):
         response = self.pyClient.getDetailsFromParameter('users')
         return response
+
 
     def _summary(self):
         summary = []

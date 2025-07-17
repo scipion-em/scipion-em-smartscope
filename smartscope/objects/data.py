@@ -667,6 +667,8 @@ class Hole(Image):
         #QUALITY
         self._goodParticles = Integer(0)
         self._badParticles = Integer(0)
+        self._totalParticles = Integer(0)
+
         #EXTERNAL
         self._hole_diam = Float()
         self._hole_separation = Float()
@@ -769,6 +771,9 @@ class Hole(Image):
 
     def setBadParticles(self, value):
         self._badParticles.set(value)
+
+    def setTotalParticles(self, value):
+        self._totalParticles.set(value)
 
     def setHoleDiam(self, value):
         self._hole_diam.set(value)
@@ -881,6 +886,9 @@ class Hole(Image):
 
     def getGoodParticles(self):
         return self._goodParticles
+
+    def getTotalParticles(self):
+        return self._totalParticles
 
 class MovieSS(Movie):
     """ Represents an EM Movie object """
