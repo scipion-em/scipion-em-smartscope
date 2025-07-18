@@ -165,40 +165,38 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
 
 
     def readClasses(self):
-
-        self.info('Reading inputs...')
+        self.info('\nReading inputs...')
         self.info(f'Total classe: {len(self.totalC)} Good Classe: {len(self.goodC)}')
         SOH = SetOfHoles.create(outputPath=self._getPath())
         SOHR = SetOfHoles.create(outputPath=self._getPath())
         self.outputsToDefine = {'SetOfHolesPassFilter': SOH, 'SetOfHolesRejected': SOHR}
         self._defineOutputs(**self.outputsToDefine)
 
-        self.info('Assigning good/bad particles to holes...')
-
         dictHoles2Add = {}
-        totalParticles = self.totalC.getImages()
-
-        goodParticles = self.goodC.getImages()
-        self.info(f'Total particles: {totalParticles.getSize()}\n'
-                  f'Good particles: {goodParticles.getSize()}\n'
-                  f'Bad particles: {totalParticles.getSize() - goodParticles.getSize()}')
+        totalParticlesNum = sum(c.getSize() for c in self.totalC.iterItems())
+        goodParticlesNum = sum(c.getSize() for c in self.goodC.iterItems())
+        self.info(f'Total particles: {totalParticlesNum}\n'
+                  f'Good particles: {goodParticlesNum}\n'
+                  f'Bad particles: {totalParticlesNum - goodParticlesNum}')
 
         time0 = time.time()
-        good_ids = set(p.getObjId() for p in goodParticles.iterItems())
+        self.info('\nCollecting particles from good classes...')
+        good_ids = set(p.getObjId() for p in self.goodC.iterClassItems())
         time1 = time.time()
         self.info(f'good classes particles Time: {round(time1 - time0, 0)} s')
-        time2 = time.time()
 
-        for p in self.totalC.iterClassItems(): #iterRows
+        self.info('\nAssigning good/bad particles to holes...')
+        particles = list(self.totalC.iterClassItems())
+        time2 = time.time()
+        self.info(f'collecting all particles Time: {round(time2 - time1, 0)} s')
+        #TODO Assigna mal los holes: {'LH11_3_square386_holXEZjZogOFw': [180366, 66024], 'LH11_3_square386_holAztiwnsCIa': [0, 77], 'LH11_3_square386_holzZfSm7jRF3': [0, 588], 'LH11_3_square386_holrUjBES1gSF': [50930, 19425], 'LH11_3_square386_hol929tIJ390T': [1396, 945], 'LH11_3_square386_holMTwXvE57NR': [0, 937], 'LH11_3_square407_hol3DEBuxJg8d': [0, 49], 'LH11_3_square386_hol7hjl1W6ZhS': [0, 367], 'LH11_3_square386_holpNyyHkWKC2': [0, 450], 'LH11_3_square386_holCdWRh4lEDt': [0, 1843], 'LH11_3_square386_hol9fBjbaa63T': [0, 198]}
+        #TODO el bucle de abajo tarda como 1 hora...
+        for p in particles: #iterRows
             movie = self.movies.getItem("_micName", p.getCoordinate().getMicName())
             H_ID = movie.getHoleId()
             #self.debug(f"micName: {p.getCoordinate().getMicName()} | H_ID: {H_ID}")
             obj_id = p.getObjId()
             is_good = obj_id in good_ids
-            #try:
-                #is_good = goodParticles.getItem("id", p.getObjId()) is not None
-            #except UnboundLocalError:
-            #    is_good = False
             if H_ID not in dictHoles2Add:
                 dictHoles2Add[H_ID] = [0, 0]
             if is_good:
@@ -209,17 +207,18 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
                 #self.debug('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(movie.getMicName())))
 
         time3 = time.time()
-        self.info(f'iter to asign holes to particles Time: {round(time3 - time2, 0)} s')
+        self.info(f'iter to assign holes to particles Time: {round(time3 - time2, 0)} s')
         for key, value in dictHoles2Add.items():
             self.debug(f'{key} {value}')
             hole = self.holes.getItem('_hole_id', key)
             hole.setGoodParticles(int(hole.getGoodParticles()) + value[0])
             hole.setBadParticles(int(hole.getBadParticles()) + value[1])
             hole.setTotalParticles(int(hole.getGoodParticles()) + value[0] + int(hole.getBadParticles()) + value[1])
-            self.createOutputStep(SOH, hole, self.holes)
+            #self.createOutputStep(SOH, hole, self.holes) #TODO in time develope the statistics
 
         time4 = time.time()
         self.info(f'iter to create outputs Time: {round(time4 - time3, 0)} s')
+        self.info(f'Total collecting time: {round(time4 - time0, 0)} s')
 
 
     def holesStatistis(self):
