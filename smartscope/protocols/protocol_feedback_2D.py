@@ -186,13 +186,24 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         self.info(f'good classes particles Time: {round(time1 - time0, 0)} s')
 
         self.info('\nAssigning good/bad particles to holes...')
-        particles = list(self.totalC.iterClassItems())
+        #particles = list(self.totalC.iterClassItems())
         time2 = time.time()
         self.info(f'collecting all particles Time: {round(time2 - time1, 0)} s')
         #TODO Assigna mal los holes: {'LH11_3_square386_holXEZjZogOFw': [180366, 66024], 'LH11_3_square386_holAztiwnsCIa': [0, 77], 'LH11_3_square386_holzZfSm7jRF3': [0, 588], 'LH11_3_square386_holrUjBES1gSF': [50930, 19425], 'LH11_3_square386_hol929tIJ390T': [1396, 945], 'LH11_3_square386_holMTwXvE57NR': [0, 937], 'LH11_3_square407_hol3DEBuxJg8d': [0, 49], 'LH11_3_square386_hol7hjl1W6ZhS': [0, 367], 'LH11_3_square386_holpNyyHkWKC2': [0, 450], 'LH11_3_square386_holCdWRh4lEDt': [0, 1843], 'LH11_3_square386_hol9fBjbaa63T': [0, 198]}
         #TODO el bucle de abajo tarda como 1 hora...
-        for p in particles: #iterRows
-            movie = self.movies.getItem("_micName", p.getCoordinate().getMicName())
+        movie_cache = {}
+
+        for p in self.totalC.iterClassItems(): #iterRows
+            timeA = time.time()
+            mic_name = p.getCoordinate().getMicName()
+            if mic_name in movie_cache:
+                movie = movie_cache[mic_name]
+            else:
+                movie = self.movies.getItem("_micName", mic_name)
+                movie_cache[mic_name] = movie
+
+            timeB = time.time()
+            self.info(f'time getItem: {timeB - timeA}\n') #TODO to sloww. 0.01 sec each time
             H_ID = movie.getHoleId()
             #self.debug(f"micName: {p.getCoordinate().getMicName()} | H_ID: {H_ID}")
             obj_id = p.getObjId()
@@ -205,6 +216,7 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
             else:
                 dictHoles2Add[H_ID][1] += 1
                 #self.debug('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(movie.getMicName())))
+
 
         time3 = time.time()
         self.info(f'iter to assign holes to particles Time: {round(time3 - time2, 0)} s')
