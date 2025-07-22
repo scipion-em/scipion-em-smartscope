@@ -81,7 +81,7 @@ class MainPyClient():
         return r.json()
 
 
-    def getRouteFromID(self, route, from_id, id, endpoint=False, selected=False, completed=False, dev=False, json=True, pageSize=10):
+    def getRouteFromID(self, route, from_id, id, endpoint=False, selected=False, completed=False, dev=False, json=True, pageSize=100):
         '''
         route: element you request for
         from_id: father of the requested element (square is the father of hole)
@@ -120,7 +120,8 @@ class MainPyClient():
         resp_jason = resp.json()
         response.extend(resp_jason['results'])
         time2 = time.time()
-        print(f'\t\t\tTime for initial request: {time1 - time0:.3f}s')
+        if dev:
+            print(f'\t\t\tTime for initial request: {time1 - time0:.3f}s')
 
         #print(f'Time parsing json: {time2 - time1:.3f}s')
 
@@ -189,7 +190,7 @@ class MainPyClient():
         resp = requests.get(request, headers=self.getHeaders(), verify=False)
         return resp.json()
 
-    def getRangeOfIntensityGrid(self, gridID, devel=True):
+    def getRangeOfIntensityGrid(self, gridID, magLevel='square', devel=False):
         '''
         route: element you request for
         id: identification of the requested element
@@ -199,15 +200,14 @@ class MainPyClient():
         '''
         apiRoute = 'selector_viewer/api'
         selector = 'Graylevel%20selector'
-        getLimits = 'getlimits'
-        request = f'{self.getMainEndpoint()}{apiRoute}/{gridID}/{selector}/{getLimits}'
+        request = f'{self.getMainEndpoint()}{apiRoute}/{gridID}/{selector}/{magLevel}/'
         if devel==True: print(f'Requested url: {request}')
         resp = requests.get(request, headers=self.getHeaders(), verify=False)
         if resp.status_code == 200 and devel:
             return True, resp.json()
         elif resp.status_code != 200:
             print('Error code: {}'.format(resp.status_code))
-            return False, '', ''
+            return False, ''
 
     def getRouteFromName(self, route, from_name, name, detailed=False, selected=False, completed=False, dev=False):
         '''
@@ -281,7 +281,7 @@ class MainPyClient():
         url = f'{self.getMainEndpoint()}{apiRoute}/{ID}/{grayScaleRoute}'
         if devel:
             print(url)
-        r = requests.patch(url, verify=False, headers=self.getHeaders(), data=data)
+        r = requests.post(url, verify=False, headers=self.getHeaders(), data=data)
         if r.status_code == 200 and devel:
             print('Element status updated')
         elif r.status_code != 200:
@@ -318,13 +318,14 @@ if __name__ == "__main__":
     #grid j = 1jCzmOdx1ZaxaBbMhqut7B9mcTeKQr
     #grid testMario1 = 6FRO30_3uT8U2W539noHcC4J3i6onI
 
-    pyClient = MainPyClient('cf566e4846930c9097db38acdd4775001609f831',    ' http://localhost:48000/',)
+    pyClient = MainPyClient('df3bda5b5d1bd0bb808a780e798ef7da4b318af4',    ' http://localhost:48000/',)
     #pyClient.postRangeIntensity(route='', ID='6FRO30_3uT8U2W539noHcC4J3i6onI', data={"low_limit": 100.0, "high_limit": 400.0}, devel=True)
     #url = pyClient.getURLFromGrid('6FRO30_3uT8U2W539noHcC4J3i6onI')
     #limits = pyClient.getRangeOfIntensityGrid('1jCzmOdx1ZaxaBbMhqut7B9mcTeKQr', devel=True)
     #print(limits)
     # pyClient.postRangeIntensity(ID='1jCzmOdx1ZaxaBbMhqut7B9mcTeKQr', data={"low_limit": 100.0, "high_limit": 400.0}, devel=True)
-    #limits = pyClient.getRangeOfIntensityGrid('1jCzmOdx1ZaxaBbMhqut7B9mcTeKQr', devel=True)
+    limits = pyClient.getRangeOfIntensityGrid('1PostIntl3ABv3AA9beyNXxgZPE9S1', magLevel='square', devel=True)
+    pyClient.postRangeIntensity(ID='1PostIntl3ABv3AA9beyNXxgZPE9S1', data={"low_limit": 0.2, "high_limit": 0.7}, devel=True)
     #print(limits)
     # metadataSession = {'microscopes': None,'detectors': None, 'sessions': None}
     # for key, value in metadataSession.items():
@@ -337,7 +338,7 @@ if __name__ == "__main__":
     #hole = pyClient.getRouteFromID('hole', 'hole', 'aaa_square15_hole0Fq2BoTroLv24', dev=True)
 
     #allHM = pyClient.getDetailsFromParameter('grids')
-    allHM = pyClient.getRouteFromID('highmag', 'grid', '1LH11_3Mio1NcEGg7tDmRLmY7sUFgg', dev=True, pageSize=500)
+    #allHM = pyClient.getRouteFromID('highmag', 'grid', '6FRO30_3yS1wRa1phy1mOI30gHto2Y', dev=True, pageSize=500)
 
     # print(allHM)
     # print(len(allHM))

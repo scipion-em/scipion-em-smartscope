@@ -41,6 +41,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import webbrowser
 
+
 class DataViewer_smartscope(ProtocolViewer):
     _targets = [smartscopeConnection]
     _label = 'viewer feedback holes filter'
@@ -118,15 +119,11 @@ class DataViewer_smartscope(ProtocolViewer):
 
 
     def _visualizeHoles(self, e=None):
+        from pwem.viewers.mdviewer.viewer import MDView
         views = []
-        labels = ('_rawDir _hole_id _grid_id _selector_value _status _selected _completion_time _shape_x _shape_y _sampligRate _number _area')
+        #labels = ('_pngDir _rawDir _hole_id _grid_id _selector_value _status _selected _completion_time _shape_x _shape_y _sampligRate _number _area')
         if hasattr(self.protocol, 'Holes'):
-            views.append(ObjectView(self._project,
-                                    self.protocol.Holes.strId(),
-                                    self.protocol.Holes.getFileName(),
-                                    viewParams={VISIBLE: labels,
-                                                RENDER: '_rawDir',
-                                                SORT_BY: labels}))
+            views.append(MDView(self.protocol.Holes, self.protocol, self._project.port))
             return views
 
     def _visualizeMovies(self, e=None):
@@ -187,7 +184,7 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
                                     self.protocol.SetOfHolesPassFilter.strId(),
                                     self.protocol.SetOfHolesPassFilter.getFileName(),
                                     viewParams={VISIBLE: labels,
-                                                RENDER: '_pngDir',
+                                                RENDER: '_rawDir',
                                                 SORT_BY: labels}))
             return views
 
@@ -200,7 +197,7 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
                                           self.protocol.SetOfHolesRejected.strId(),
                                           self.protocol.SetOfHolesRejected.getFileName(),
                                           viewParams={VISIBLE: labels,
-                                                      RENDER: '_pngDir',
+                                                      RENDER: '_rawDir',
                                                       SORT_BY: labels}))
             return views
 
@@ -237,7 +234,7 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
             x_positions = (bin_edges[:-1] + bin_edges[1:]) / 2
             fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10), sharex=True)
             fig.canvas.manager.set_window_title('Histograms holes smartscope')
-            ax1.bar(x_positions, listRanges['totalHist'], color='black', edgecolor='black', width=bin_width * 0.95,linewidth=2, label='Total Micrographs', alpha=0.2)
+            ax1.bar(x_positions, listRanges['totalHist'], color='black', edgecolor='black', width=bin_width * 0.95,linewidth=2, label='Total possible Micrographs (based on holes availability)', alpha=0.2)
             bars_with_mics = ax1.bar(x_positions, listRanges['withMicsHist'], color='blue', edgecolor='blue', width=bin_width * 0.95,linewidth=2,  label='Micrographs acquired', alpha=0.2)
             bars_pass = ax1.bar(x_positions, listRanges['passHist'], color='green', edgecolor='green', width=bin_width * 0.95, linewidth=2, label='Micrographs pass filters', alpha=0.2)
             ax1.set_ylabel('Number of Micrographs')
@@ -254,7 +251,7 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
                         bar.get_x() + bar.get_width() / 2,
                         height,
                         f'{height:.0f}',
-                        ha='center', va='bottom', fontsize=8, color='blue'
+                        ha='left', va='bottom', fontsize=8, color='blue', rotation=45
                     )
             for bar in bars_pass:
                 height = bar.get_height()
@@ -263,7 +260,7 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
                         bar.get_x() + bar.get_width() / 2,
                         height,
                         f'{height:.0f}',
-                        ha='center', va='bottom', fontsize=8, color='green'
+                        ha='right', va='bottom', fontsize=8, color='green', rotation=45
                     )
 
 
@@ -271,7 +268,7 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
             ratioHist = np.divide(listRanges['passHist'], listRanges['withMicsHist'], out=np.zeros_like(listRanges['withMicsHist'], dtype=float),
                                   where=(listRanges['passHist'] != 0))
             barHist = ax2.bar(x_positions, ratioHist, color='indigo', edgecolor='indigo', linewidth=2, width=bin_width * 0.95,
-                    label='Total Micrographs / Micrographs pass filters', alpha=0.2)
+                    label='Micrographs pass filters / Total Micrographs', alpha=0.2)
             ax2.set_ylabel('Micrographs acquired / Micrographs pass filters')
             ax2.legend(loc='upper right')
             ax2.set_ylim(0, 1)

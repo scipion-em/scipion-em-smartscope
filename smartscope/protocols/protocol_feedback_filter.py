@@ -1,7 +1,6 @@
 # **************************************************************************
 # *
 # * Authors: Alberto Garcia Mena   (alberto.garcia@cnb.csic.es)
-# *          Daniel Marchan (da.marchan@cnb.csic.es)
 # *
 # *
 # * Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC
@@ -40,6 +39,7 @@ from pyworkflow.protocol import params, BooleanParam
 from ..objects.dataCollection import *
 from . import smartscopeConnection
 from collections import defaultdict
+import pyworkflow.protocol.constants as cons
 
 #external imports
 import time
@@ -54,9 +54,10 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
     """
     _label = 'Feedback filter'
     _devStatus = BETA
-    _possibleOutputs = {'SetOfHolesRejected': SetOfHoles, 'SetOfHolesPassFilter': SetOfHoles}
-    percentBins = ['0','10','20', '30', '40', '50', '60', '70']
-    percentShots = ['1','25','50', '75', '100']
+    _possibleOutputs = {'SetOfHolesRejected': SetOfHoles,
+                        'SetOfHolesPassFilter': SetOfHoles,
+                        'IntensityRange': Integer}
+    percentBins = ['0','10','20', '30', '40', '50', '60', '70', '80', '90']
 
     def __init__(self, **args):
         ProtImport.__init__(self, **args)
@@ -93,6 +94,14 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                       label="Percent empty bins in the histogram",
                       help="In the histogram of number of holes acquired (with movies), this parameter represent the"
                             " percent of empty bins allowed to feedback Smartscope (10% by default). Higher less restrictive")
+        form.addParam('simulator', params.BooleanParam, default=False,
+                      expertLevel=cons.LEVEL_ADVANCED,
+                      label="Enable to simulate the screening",
+                      help='If True the number of movies available will be the ones related to the micrographs. If False the number of movies will be the number reported by SmartscopeConnection')
+        form.addParam('micsAll', params.PointerParam, pointerClass='SetOfMicrographs',
+                      expertLevel=cons.LEVEL_ADVANCED, allowsNull=True,
+                      label='Micrographs',
+                      help='Select a set of micrographs from any protocol.')
 
         form.addSection('Streaming')
         form.addParam('refreshMethod', params.EnumParam, default=0,
@@ -103,20 +112,23 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         form.addParam('refreshTime', params.IntParam, default=240,
                       condition='refreshMethod==1',
                       label="Time to refresh protocol",
-                      help = "Time to refresh data collected (secs) and update the feedback if neccesary")
+                      help = "Time to refresh data collected (minimum 240 secs) and update the feedback if neccesary")
         form.addParam('refreshMics', params.IntParam, default=200,
                       condition='refreshMethod==0',
                       label = 'Input micrographs to refresh protocol',
                       help="Number of new micrographs to refresh data collected and update the feedback if neccesary")
 
+
     def _initialize(self):
+        self.intensityRangeSet = False
         self.initialNumMics = 0
         self.finish = False
         self.runningPrevious = False
         self.zeroTime = time.time()
+        self.firtsFlag = True
         self.rTime = self.refreshTime.get()
         if self.rTime < 240:
-            self.rTime = 1240
+            self.rTime = 240
         self.smartscopeConnectionProtocol = self.getInputProtocol()
         updatedProt = getUpdatedProtocol(self.smartscopeConnectionProtocol)
         if hasattr(updatedProt, 'Grids'):
@@ -125,6 +137,8 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             self.holes = updatedProt.Holes
         if hasattr(updatedProt, 'MoviesSS'):
             self.movies = updatedProt.MoviesSS
+        if hasattr(updatedProt, 'Session'):
+            self.sessionId = updatedProt.Session
 
     def getInputProtocol(self):
         prot = self.inputProtocol.get()
@@ -155,9 +169,10 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         # DEBUGALBERTO END
         while not self.finish:
             self.fMics = self.micsPassFilter.get()
-            if self.conditionRefresh():
+            if self.conditionRefresh() or self.firtsFlag:
                 if self.runningPrevious == False:
                     if len(self.micsPassFilter.get()) >= self.triggerMicrograph.get():
+                        self.firtsFlag = False
                         self.runningPrevious = True
                         self.timeMainSteps = time.time()
                         self.collectHoles()
@@ -182,6 +197,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                         self.info('Waiting enought micrographs to launch protocol.'
                                   ' triggerMicrograph: {}, micrographsFiltered: {}'.format(self.triggerMicrograph.get(), len(self.micsPassFilter.get())))
 
+            time.sleep(30)
 
     def conditionRefresh(self):
         if self.refreshMethod == 0:
@@ -208,15 +224,32 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         self.dictPassHoles = {}
         self.dictRejectHoles = {}
         sessionshots = self.collectSessionShots()
+        #Collect session holes (all grids)
+        # for g in self.grids:
+        #     gridId = g.getGridId()
+        #     if g.getSessionId() == self.sessionId.get():
         for hole in self.holes:
-            holeC = hole.clone()
-            self.dictHoles[hole.getHoleId()] = {'Hole':  holeC, 'GridID': holeC.getGridId(), 'Shots': sessionshots, 'Acquired': 0, 'Pass': 0, 'Rejected': 0, 'Intensity': holeC.getSelectorValue()}
+        #    if hole.getGridId() == gridId:
+                holeC = hole.clone()
+                self.dictHoles[hole.getHoleId()] = {'Hole':  holeC, 'GridID': hole.getGridId(), 'Shots': sessionshots, 'Acquired': 0, 'Pass': 0, 'Rejected': 0, 'Intensity': holeC.getSelectorValue()}
 
-        for m in self.movies:
-            self.dictMovies[m.getMicName()] = m.clone()
-            if m.getHoleId() not in self.dictHolesWithMic:
-                self.dictHolesWithMic[m.getHoleId()] = self.dictHoles[m.getHoleId()]['Hole'].clone()
-            self.dictHoles[m.getHoleId()]['Acquired'] += 1
+        if self.simulator.get():
+            for m in self.movies:
+                for mic in self.micsAll.get():
+                    try:
+                        movie = self.movies.getItem("_micName", mic.getMicName())
+                        self.dictMovies[m.getMicName()] = movie.clone()
+                        if movie.getHoleId() not in self.dictHolesWithMic:
+                            self.dictHolesWithMic[m.getHoleId()] = self.dictHoles[movie.getHoleId()]['Hole'].clone()
+                        self.dictHoles[m.getHoleId()]['Acquired'] += 1
+                    except Exception:
+                        pass
+        else:
+            for m in self.movies:
+                self.dictMovies[m.getMicName()] = m.clone()
+                if m.getHoleId() not in self.dictHolesWithMic:
+                    self.dictHolesWithMic[m.getHoleId()] = self.dictHoles[m.getHoleId()]['Hole'].clone()
+                self.dictHoles[m.getHoleId()]['Acquired'] += 1
 
         for mic in self.fMics:
             H_ID = self.dictMovies[mic.getMicName()].getHoleId()
@@ -247,11 +280,14 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 
         for holeID, hole_data in self.dictHoles.items():
             h = hole_data['Hole']
-            shots = hole_data['Shots']
+            shots = hole_data['Shots'] #TODO Jonathan has to fix this value. now is the shots for the hole bis group
+            if shots > 3:shots = 3 #TODO remove when fixed getShots
             acqs = hole_data['Acquired']
             passF = hole_data['Pass']
             reject = hole_data['Rejected']
             intensity = hole_data['Intensity']
+            if intensity == None or intensity == '':
+                print(f'hole without intensity: {holeID}')
             grid_id = h.getGridId()
 
             for s in range(shots):
@@ -274,6 +310,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
     # --------------------------- STATISTICS functions -----------------------------------
     def statistics(self):
         self.info('\n-Calculating statistics...')
+
         for grid in self.grids:
             self.listGridsStatistics[grid.getName()] = {}
             self.info('\n################\nGRID: {}\n################\n'.format(grid.getName()))
@@ -297,6 +334,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                 continue
             #NORMAL DISTRIBUTION
             else:
+                self.intensityRangeSet = True
                 self.info('{}% of bins empty <= {}% configured.\nRanges of empty bins: {}'.format(
                     round(percentEmptyBins_Mics, 1),  self.percentBins[self.emptyBinsPercent.get()], empty_bin_ranges_Mics))
                 mu, sigma = self.normalDistribution(minI, maxI, nBins, gridId)
@@ -309,7 +347,8 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                 self.listGridsStatistics[grid.getName()]['sigma'] = sigma
 
             #Posting Smartscope
-            #self.postingBack2Smartscope()
+            if not self.simulator.get():
+                self.postingBack2Smartscope()
             #Prepare viewer
             self.prepareViewer(gridId, grid.getName(), nBins, minI, maxI)
 
@@ -358,6 +397,8 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         histRatio[np.isnan(histRatio)] = 0.0
         mu = np.sum(ranges[:-1] * histRatio) / np.sum(histRatio)
         sigma = np.sqrt(np.sum(histRatio * (ranges[:-1] - mu) ** 2) / np.sum(histRatio))
+        if sigma == 0:
+            sigma = ranges[1] - ranges[0]
         return mu, sigma
 
 
@@ -399,14 +440,16 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         for grid in self.grids:
             self.info('\n -Posting Back to Smartscope ...')
             gridID = grid.getGridId()
-            status, currentMinRange, currentMaxRange = self.pyClient.getRangeOfIntensityGrid(gridID)
+            status, currentRange = self.pyClient.getRangeOfIntensityGrid(gridID, magLevel='square', devel=True)
+            currentMinRange, currentMaxRange  = currentRange['low_limit'],  currentRange['high_limit']
             if status:
                 self.info('ranges before feedback: {} - {}'.format(currentMinRange, currentMaxRange))
             minI = self.listGridsStatistics[grid.getName()]['minIntensityL']
             maxI = self.listGridsStatistics[grid.getName()]['maxIntensityL']
             self.pyClient.postRangeIntensity(ID=gridID, data={"low_limit": minI, "high_limit": maxI})
             time.sleep(10) #wait until Smartscope manage the posting
-            status, currentMinRange, currentMaxRange = self.pyClient.getRangeOfIntensityGrid(gridID)
+            status, currentRange = self.pyClient.getRangeOfIntensityGrid(gridID, magLevel='square',devel=True)
+            currentMinRange, currentMaxRange  = currentRange['low_limit'],  currentRange['high_limit']
             if status and currentMinRange == minI and currentMaxRange == maxI:
                 # SUMMARY INFO
                 summaryF = self._getExtraPath("summary.txt")
@@ -433,14 +476,25 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         self.info('\n-Generating outputs ...')
         SOHR = SetOfHoles.create(outputPath=self._getPath(), prefix='Rejected')#baseName
         SOHPF = SetOfHoles.create(outputPath=self._getPath(), prefix='Pass')
-        self.outputsToDefine = {'SetOfHolesPassFilter': SOHPF, 'SetOfHolesRejected': SOHR}
+        if self.intensityRangeSet:
+            minI = list(self.listGridsStatistics.values())[0]['minIntensityL'] #TODO just provide the IntensityRange od the first grid
+            maxI = list(self.listGridsStatistics.values())[0]['maxIntensityL']
+            IntensityRange = f'{minI} - {maxI}'
+            self.outputsToDefine = {'SetOfHolesPassFilter': SOHPF, 'SetOfHolesRejected': SOHR, 'IntensityRange': String(IntensityRange)}
+
+        else:
+            self.outputsToDefine = {'SetOfHolesPassFilter': SOHPF, 'SetOfHolesRejected': SOHR}
+
         self._defineOutputs(**self.outputsToDefine)
+
+
         if self.dictPassHoles:
             for h in self.dictPassHoles:
                 self.createOutputStepPassFilter(SOHPF,self.dictPassHoles[h]['Hole'])
         if self.dictRejectHoles:
             for h in self.dictRejectHoles:
-                self.createOutputStepRejected(SOHR,self.dictRejectHoles[h]['Hole'])
+                self.createOutputStepRejected(SOHR,self.dictRejectHoles[h])
+
 
     def createOutputStepRejected(self, SOHR, hole):
         SOHR.copyInfo(self.holes)
@@ -497,11 +551,16 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         if Plugin.getVar(SMARTSCOPE_LOCALHOST) == None:
             errors.append(
         	    'SMARTSCOPE_LOCALHOST has not been configured, please visit https://github.com/scipion-em/scipion-em-smartscope#configuration \n')
-        if Plugin.getVar(
-        	    SMARTSCOPE_DATA_SESSION_PATH) == 'Path assigned to the data in the Smartscope installation':
+        dataPath = Plugin.getVar(SMARTSCOPE_DATA_SESSION_PATH)
+        if dataPath == 'Path assigned to the data in the Smartscope installation':
             errors.append(
         	    'SMARTSCOPE_DATA_SESSION_PATH has not been configured, '
         	    'please visit https://github.com/scipion-em/scipion-em-smartscope#configuration \n')
+        if not os.path.isdir(dataPath):
+            errors.append(
+        	    f'SMARTSCOPE_DATA_SESSION_PATH: {dataPath} has wrong configuration, '
+        	    'please visit https://github.com/scipion-em/scipion-em-smartscope#configuration \n')
+
 
         if self.getInputProtocol() == False:
             errors.append('Protocol imnported is not the SmartscopeConnection one')

@@ -25,20 +25,24 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
+from sqlite3 import OperationalError
+
 from pyworkflow.utils import Message
 from pyworkflow import BETA, UPDATED, NEW, PROD
 from pwem.protocols.protocol_import.base import ProtImport
 from pyworkflow.protocol import ProtStreamingBase
 import pyworkflow.utils as pwutils
 from smartscope import Plugin
+from scipy.ndimage import gaussian_filter
+from scipy.optimize import minimize
+import numpy as np
+import mrcfile
 from pyworkflow.object import Set
 
 from pyworkflow.protocol import params
 from ..objects.dataCollection import *
 import time
 from ..constants import *
-
-CROP_DIVISION = 8 #Higher small boxSize
 
 
 class smartscopeConnection(ProtImport, ProtStreamingBase):
@@ -49,11 +53,12 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
     """
     _label = 'Connection'
     _devStatus = BETA
-    _possibleOutputs = {'Squares': SetOfSquares,
-                        'Atlas': SetOfAtlas,
-                        'Grids': SetOfGrids,
-                        'Holes': SetOfHoles,
-                        'MoviesSS': SetOfMoviesSS}
+    _possibleOutputs = {
+                'Grids': SetOfGrids,
+                'Atlas': SetOfAtlas,
+                'Squares': SetOfSquares,
+                'Holes': SetOfHoles,
+                'MoviesSS': SetOfMoviesSS}
     def __init__(self, **args):
         ProtImport.__init__(self, **args)
         self.newSteps = []
@@ -114,24 +119,24 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         call the self._insertFunctionStep method.
         """
         self._initialize()
+        # DEBUGALBERTO START
+        import os
+        fname = "/home/agarcia/Documents/attachActionDebug.txt"
+        if os.path.exists(fname):
+            os.remove(fname)
+        fjj = open(fname, "a+")
+        fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+        fjj.close()
+        print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+        time.sleep(10)
+        # DEBUGALBERTO END
         while True:
-            # DEBUGALBERTO START
-            import os
-            fname = "/home/agarcia/Documents/attachActionDebug.txt"
-            if os.path.exists(fname):
-                os.remove(fname)
-            fjj = open(fname, "a+")
-            fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
-            fjj.close()
-            print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
-            time.sleep(10)
-            # DEBUGALBERTO END
             delayInit = int(time.time() - self.startTime)
             #self.info('Time to Finish Smartscope: {} delayInit: {}s'.format(self.TotalTime, delayInit))
             inputMovies = self.inputMovies.get()
             if self.TotalTime <= delayInit:  # End of the protocol
                 break
-            if self.conditionRefresh(len(inputMovies)):
+            if self.conditionRefresh(inputMovies):
                 startTime = time.time()
                 if not self.metadataCollected:
                     self.metadataCollection()
@@ -139,15 +144,15 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                 self.screeningCollection()
                 screenTime = time.time()
                 self.importMoviesSS(inputMovies)
+                moviesTime = time.time()
                 timeCrop0 = time.time()
                 self.cropHolePNG()
                 timeCrop1 = time.time()
-                moviesTime = time.time()
                 self.info(f'Metadata Time: {round((metaTime - startTime), 1)}s')
                 self.info(f'Screening Time: {round((screenTime - metaTime), 1)}s')
                 self.info(f'ImportMovies Time: {round((moviesTime - screenTime), 1)}s')
                 self.info(f'Crop Holes Time: {round((timeCrop1 - timeCrop0), 1)}s')
-                self.info(f'Total Time: {round((moviesTime - startTime), 1)}s')
+                self.info(f'Total Time: {round((timeCrop1 - startTime), 1)}s')
             if not inputMovies.isStreamOpen():
                 self.info('Not more movies are expected; input setOfMovies closed')
                 break
@@ -161,6 +166,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         self.detectorDict = {}
         self.sessionDict = {}
         self.initialNumMovies = 0
+        self.listHoleCropedID = []
         self.zeroTime = time.time()
         self.rTime = self.refreshTime.get()
         if self.rTime < 240:
@@ -186,10 +192,12 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         self.reStartTime = time.time()
         self.ListMoviesImported = []
 
-    def conditionRefresh(self, lenInputMovies):
+    def conditionRefresh(self, inputMovies):
         if self.refreshMethod == 0:
-            if lenInputMovies - self.initialNumMovies >= self.refreshMovies.get():
-                self.initialNumMovies = lenInputMovies
+            if len(inputMovies) - self.initialNumMovies >= self.refreshMovies.get():
+                self.initialNumMovies = len(inputMovies)
+                return True
+            elif inputMovies.isStreamOpen() == False:
                 return True
             else:
                 return False
@@ -289,13 +297,14 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         summaryF2.close()
 
     def cropHolePNG(self):
+        self.info('Cropping hole images...')
         pathcrop = os.path.join(self._getExtraPath(), 'cropedHoles')
         if not os.path.exists(pathcrop):
             os.makedirs(pathcrop)
-        self.listHoleCropedID = []
         import re
-        for m in self.MoviesSS:#TODO: with n multishot, we calculate the same hole crop n times
-            movieHoleId = m.getHoleId()
+        counter = 0
+        for m in self.MoviesSS:
+            movieHoleId = m.getHoleId() #TODO in detailed of hm there is no hole_id has to be included by Jonathan
             hole = self.SOH.getItem("_hole_id", m.getHoleId())
             movieName = m.getName()
             matchHole = re.search(r'hole(\d+)', movieName)
@@ -303,56 +312,111 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             rawDir = hole.getRawDir()
             baseNameRaw = os.path.basename(rawDir)
             rawCroped = re.sub(r'(hole)\d+', 'hole{}'.format(holeNum), baseNameRaw)
-            rawCroped = os.path.splitext(rawCroped)[0] + '.mrc'
-            pathRawCroped = os.path.join(pathcrop, rawCroped)
+            pathRawCroped = os.path.join(pathcrop, os.path.splitext(rawCroped)[0] + '.mrc')
             if not movieHoleId in self.listHoleCropedID:
-                if self.cropImage(hole, pathRawCroped, rawDir):
-                    hole.setRawDir(pathRawCroped)
-                    self.SOH.update(hole)
-                    self.listHoleCropedID.append(movieHoleId)
-            else:
-                hole.setRawDir(pathRawCroped)
-                self.SOH.update(hole)
-
+                fileName  = os.path.splitext(os.path.basename(rawDir))[0]
+                if not fileName.startswith('holeUnacquired'):
+                    # if hole.getShots() > 1: #TODO Jonathan have to fix this field, now is the shots for the bis hole-group
+                    #     pathRawPartial = os.path.join(pathcrop, os.path.splitext(rawCroped)[0] + 'partial' + '.mrc')
+                    #     self.cropImage(hole, m.getX(), m.getY(), pathRawPartial, rawDir, separationDiv=2)
+                    #     status, x, y = self.detect_circle_center_scipy(pathRawPartial, radius_estimate=hole.getHoleDiam())
+                    #     if not status:
+                    #         continue
+                    #     self.cropImage(hole, x, y, pathRawCroped, pathRawPartial, separationDiv=3)
+                    #     os.remove(pathRawPartial)
+                    if self.cropImage(hole, m.getX(), m.getY(), pathRawCroped, rawDir):
+                        counter += 1
+                        self.info(f'Croped {counter} hole images')
+                        hole.setRawDir(pathRawCroped)
+                        # self.info(f'holeID append: {movieHoleId} movieName: {movieName}')
+                self.listHoleCropedID.append(movieHoleId)
+            self.SOH.update(hole)
         self.SOH.write()
         self._store(self.SOH)
 
+    def detect_circle_center_scipy(self, img, radius_estimate, sigma=5):
+        """
+        Detect the center of a bright or dark circular object using edge detection and centroid optimization.
+        """
+        try:
+            # Step 1: Smooth and detect edges
+            with mrcfile.open(img) as mrc:
+                img = mrc.data
+                smoothed = gaussian_filter(img, sigma=sigma)
+                edges = np.gradient(smoothed)
+                edge_magnitude = np.hypot(edges[0], edges[1])
+                edge_binary = edge_magnitude > edge_magnitude.mean() + edge_magnitude.std()
 
-    def cropImage(self, hole, pathRawCroped, rawDir):
+                # Step 2: Get coordinates of edges
+                y_coords, x_coords = np.nonzero(edge_binary)
+
+                # Step 3: Define loss: sum of squared differences between radius and distance from (cx, cy)
+                def circle_loss(center):
+                    cx, cy = center
+                    distances = np.sqrt((x_coords - cx) ** 2 + (y_coords - cy) ** 2)
+                    return np.mean((distances - radius_estimate) ** 2)
+
+                # Step 4: Minimize loss
+                h, w = img.shape
+                initial_guess = (w // 2, h // 2)
+                result = minimize(circle_loss, initial_guess, method='Powell')
+
+                x_center, y_center = map(int, result.x)
+                return True, x_center, y_center
+        except Exception as e:
+            self.error(e)
+            return False
+
+    def cropImage(self, hole, X, Y, pathRawCroped, rawDir, separationDiv=3):
         '''Split the png image based on the position of the hole (x,y) and a boxSize'''
-        from PIL import Image
         import numpy as np
         import mrcfile
 
         if os.path.isfile(rawDir):
             try:
-                xPng = int(hole.getX())
-                yPng = int(hole.getY())
                 with mrcfile.open(rawDir, permissive=True) as mrc:
                     arr = mrc.data
+                    if arr is None or arr.size == 0:
+                        self.error("MRC data is empty or unreadable.")
+                        return False
                 height, width = arr.shape[:2]
-                Range = int(np.mean([height, width]) / CROP_DIVISION)
-                if yPng - Range < 0:
-                    arr_y = 0, Range
-                elif yPng + Range > height:
-                    arr_y = height - Range, height
-                else:
-                    arr_y = yPng - Range, yPng + Range
-                if xPng - Range < 0:
-                    arr_x = 0, Range
-                elif xPng + Range > width:
-                    arr_x = width - Range, width
-                else:
-                    arr_x = xPng - Range, xPng + Range
+                #print(f'[x - y]: [{X} - {Y}]      [width - height]: [{width} - {height}] ')
+                try:
+                    Range = int((hole.getHoleDiam() / 2) + (hole.getHoleSeparation() / separationDiv) )# radius + (separation / 2)
+                except Exception:
+                    print(f'rawDir: {rawDir}\nhole: {hole.getName()}\n')
+                    return False
+                # Calculate initial crop boundaries
+                y_start = Y - Range
+                y_end = Y + Range
+                x_start = X - Range
+                x_end = X + Range
+                # Adjust boundaries if they extend past the image edges
+                if y_start < 0:
+                    y_end -= y_start  # Shift the end coordinate by the amount the start was off
+                    y_start = 0
 
-                rawCrop = arr[arr_y[0]:arr_y[1], arr_x[0]:arr_x[1]]
-                # if rawCrop.dtype != np.uint8:
-                #     rawCrop = (255 * (rawCrop - np.min(rawCrop)) / (np.ptp(rawCrop))).astype(np.uint8)
-                #cropted_img = Image.fromarray(rawCrop)
+                if x_start < 0:
+                    x_end -= x_start  # Shift the end coordinate
+                    x_start = 0
 
-                #cropted_img.save(pathRawCroped)#, optimize=True, compress_level=2)
-                with mrcfile.new(pathRawCroped, overwrite=True) as mrc:
-                    mrc.set_data(rawCrop.astype(np.float32))
+                if y_end > height:
+                    y_start -= (y_end - height)  # Shift the start coordinate
+                    y_end = height
+
+                if x_end > width:
+                    x_start -= (x_end - width)  # Shift the start coordinate
+                    x_end = width
+
+                # Final check to prevent negative indices if the image is smaller than the crop size
+                y_start = max(0, y_start)
+                x_start = max(0, x_start)
+
+                # Perform the crop using the corrected coordinates
+                rawCrop = arr[y_start:y_end, x_start:x_end]
+
+                with mrcfile.new(pathRawCroped, overwrite=True) as mrc_out:
+                    mrc_out.set_data(rawCrop.astype(np.float32))
                 return True
             except Exception as e:
                 print(e)
@@ -412,20 +476,21 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         sizeMoviesInput = len(inputMovies)
         counterMoviesChecked = 1
         for gr in self.SOG:
-            dictMAPI = self.pyClient.getRouteFromID('highmag', 'grid', gr.getGridId(), pageSize=500)
+            dictMAPI = self.pyClient.getRouteFromID('highmag', 'grid', gr.getGridId(), pageSize=500, endpoint='detailed')
             for m in dictMAPI:
                 try:
                     inputMovies.getItem("_micName", m['frames'])
-                    try:
-                        SOMSS.getItem("_micName", m['frames'])#highMag movie from Smartscope imported previously
-                    except Exception:
-                        self.info(f"Collectiong ({counterMoviesChecked}/{sizeMoviesInput}) movie: {m['frames']}")
-                        counterMoviesChecked += 1
-                        time0= time.time()
-                        self.addMovieSS(SOMSS, inputMovies.getItem("_micName", m['frames']), m)
-                        #print(f'time movie {counterMoviesChecked}: {time.time() - time0} s')
                 except UnboundLocalError:
-                    pass #highMag movie from Smartscope not in the inputMoviesSet
+                    continue  # highMag movie from Smartscope not in the inputMoviesSet
+                try:
+                    SOMSS.getItem("_micName", m['frames'])#highMag movie from Smartscope imported previously?
+                except (UnboundLocalError, OperationalError) :
+                    self.info(f"Collecting ({counterMoviesChecked}/{sizeMoviesInput}) movie: {m['frames']}")
+                    counterMoviesChecked += 1
+                    #time0= time.time()
+                    self.addMovieSS(SOMSS, inputMovies.getItem("_micName", m['frames']), m)
+                    #print(f'time movie {counterMoviesChecked}: {time.time() - time0} s')
+
 
             # STORE SQLITE
             SOMSS.write()  # persist on sqlite
@@ -451,6 +516,12 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         movie2Add.setHmId(movieSS['hm_id'])
         movie2Add.setName(movieSS['name'])
         movie2Add.setNumber(movieSS['number'])
+        if movieSS['finders']:
+            finder = movieSS['finders'][0]
+            movie2Add.setX(finder['x'])
+            movie2Add.setY(finder['y'])
+
+
         if movieSS['pixel_size'] == None or movieSS['pixel_size'] == 'null':
             movie2Add.setSamplingRate(movieImport.getSamplingRate())
         else:
@@ -521,10 +592,15 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         if Plugin.getVar(SMARTSCOPE_LOCALHOST) == None:
             errors.append(
                 'SMARTSCOPE_LOCALHOST has not been configured, please visit https://github.com/scipion-em/scipion-em-smartscope#configuration')
-        if Plugin.getVar(SMARTSCOPE_DATA_SESSION_PATH) == 'Path assigned to the data in the Smartscope installation':
+        dataPath = Plugin.getVar(SMARTSCOPE_DATA_SESSION_PATH)
+        if dataPath == 'Path assigned to the data in the Smartscope installation':
             errors.append(
-                'SMARTSCOPE_DATA_SESSION_PATH has not been configured, please visit https://github.com/scipion-em/scipion-em-smartscope#configuration')
-
+        	    'SMARTSCOPE_DATA_SESSION_PATH has not been configured, '
+        	    'please visit https://github.com/scipion-em/scipion-em-smartscope#configuration \n')
+        if not os.path.isdir(dataPath):
+            errors.append(
+        	    f'SMARTSCOPE_DATA_SESSION_PATH: {dataPath} has wrong configuration, '
+        	    'please visit https://github.com/scipion-em/scipion-em-smartscope#configuration \n')
         response = self.checkSmartscopeConnection()
         try:
             response[0]['username']

@@ -41,7 +41,11 @@ import time
 import  logging
 
 logger = logging.getLogger(__name__)
-
+HOLE_TYPE = {'R0.6/1': {'hole_diam': 6000, 'hole_separation': 10000},
+             'R1.2/1.3': {'hole_diam': 12000, 'hole_separation': 13000},
+             'R2/1': {'hole_diam': 20000, 'hole_separation': 10000},
+             'R2/2': {'hole_diam': 20000, 'hole_separation': 20000},
+             'R2/4': {'hole_diam': 20000, 'hole_separation': 40000}} # in Amstrongs
 
 
 class dataCollection():
@@ -49,6 +53,7 @@ class dataCollection():
         self.pyClient = pyClient
         self.holeUnacquired =  join(dirname(__file__), 'holeUnacquired.png')
         self.squareUnacquired =  join(dirname(__file__), 'squareUnacquired.png')
+        self.pixelSize = None
 
     def sessionCollection(self):
         sessionList = []
@@ -180,7 +185,7 @@ class dataCollection():
                 at.setFileName(join(pathGrid, 'raw', a['name'] + '.mrc'))
                 setOfAtlas.append(at)
                 startSquares = time.time()
-                squares = self.pyClient.getRouteFromID('squares', 'atlas', at.getAtlasId())
+                squares = self.pyClient.getRouteFromID('squares', 'atlas', at.getAtlasId(), dev=False)
 
                 if squares != []:
                     logger.info('\t\tNumber squares in the atlas: {}'.format(len(squares)))
@@ -211,14 +216,22 @@ class dataCollection():
                     if holes != []:
                         #logger.info('square name: {}'.format(sq.getName()))
                         logger.info(f'\t\t\tNumber holes in the square ({i}/{len(squares)}) {sq.getName()}  {sq.getSquareId()}: {len(holes)}')
-                        logger.info(f'\t\t\t  Request hole time: {round(time.time() - startHoles, 1)}')
+                        #logger.info(f'\t\t\t  Request hole time: {round(time.time() - startHoles, 1)}')
                     for h in holes:
                         startHoleTime = time.time()
                         ho = Hole()
                         ho.setHoleId(h['hole_id']) #TODO parece que aveces no se genera ese campo de hole_id, square_id, grid_id
                         ho.setName(h['name'])
                         ho.setNumber(h['number'])
-                        ho.setSamplingRate(h['pixel_size'])
+                        ho.setPixelSize(h['pixel_size'])
+                        pixelSize = h['pixel_size']
+                        if not pixelSize:
+                            pixelSize = self.pixelSize
+                        holeType = gr.getHoleType()
+                        if holeType in HOLE_TYPE and pixelSize:
+                            self.pixelSize = pixelSize
+                            ho.setHoleDiam(HOLE_TYPE[holeType]['hole_diam'] / pixelSize)
+                            ho.setHoleSeparation(HOLE_TYPE[holeType]['hole_separation'] / pixelSize)
                         ho.setShapeX(h['shape_x'])
                         ho.setShapeY(h['shape_y'])
                         ho.setSelected(h['selected'])
@@ -240,12 +253,17 @@ class dataCollection():
                             name = bisGroup.join(nameL)
                             pathPNG = os.path.join(pathGrid, 'pngs', name + '.png')
                             pathRaw = os.path.join(pathGrid, 'raw', name + '.mrc')
+                        else:
+                            pathRaw = ''
                         if isfile(pathPNG):
                             ho.setPngDir(pathPNG)
+                        else:
+                            ho.setPngDir(self.holeUnacquired)
                         if isfile(pathRaw):
                             ho.setRawDir(pathRaw)
                         else:
-                            ho.setPngDir(self.holeUnacquired)
+                            ho.setRawDir(self.holeUnacquired)
+
                         ho.setFileName(os.path.join(pathGrid, 'raw', h['name'] + '.mrc'))
                         #holeDetail = self.pyClient.getDetailFromItem('holes', h['hole_id'])
                         if 'finders' in h and h['finders']:
@@ -253,10 +271,8 @@ class dataCollection():
                             ho.setFinderName(finder['method_name'])
                             ho.setX(finder['x'])
                             ho.setY(finder['y'])
-                        selectors = h['selectors'][-1]
-                        ho.setSelectorName(selectors['method_name'])
-                        ho.setSelectorLabel(selectors['label'])
-                        ho.setSelectorValue(selectors['value'])
+                        selectors = h['selectors']
+                        ho.setSelectorValue([d['value'] for d in selectors if d['method_name'] == 'Graylevel selector'][0])
                         #hm = self.pyClient.getRouteFromID('highmag', 'hole', h['hole_id'], detailed=False)#could be several hm for one hole
                         setOfHoles.append(ho)
                         timeFillHoles = time.time() - startHoleTime
