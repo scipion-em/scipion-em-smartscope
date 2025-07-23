@@ -52,7 +52,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
     on the micrographs filtered by alignment, CTF estimations.... After knowing the good holes, will
     send the range of intensities of hole that Smartscope uses.
     """
-    _label = 'Feedback filter'
+    _label = 'Feedback from micrographs'
     _devStatus = BETA
     _possibleOutputs = {'SetOfHolesRejected': SetOfHoles,
                         'SetOfHolesPassFilter': SetOfHoles,
@@ -469,6 +469,8 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                 summaryF.write('Could not configure in Smartscope the range of intensities calculated {}-{} '.format(
                                      self.listGridsStatistics[grid.getName()]['minIntensityL'],
                                             self.listGridsStatistics[grid.getName()]['maxIntensityL']))
+                summaryF.close()
+
 
 
     # --------------------------- CREATE OUTPUTS functions -----------------------------------

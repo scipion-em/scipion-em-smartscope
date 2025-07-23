@@ -58,8 +58,7 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
     """
     _label = 'Feedback from particles'
     _devStatus = BETA
-    _possibleOutputs = {'SetOfHolesRejected': SetOfHoles,
-                        'SetOfHolesPassFilter': SetOfHoles,
+    _possibleOutputs = {'SetOfHoles': SetOfHoles,
                         'IntensityRange': Integer}
     percentBins = ['0','10','20', '30', '40', '50', '60', '70', '80', '90']
 
@@ -128,6 +127,8 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         import time
         time.sleep(10)
         # DEBUGALBERTO END
+        self.SOH = SetOfHoles.create(outputPath=self._getPath(), prefix='Pass')
+        self.outputsToDefine = {'SetOfHoles': self.SOH}
 
         self.smartscopeConnectionProtocol = self.getInputProtocol()
         updatedProt = getUpdatedProtocol(self.smartscopeConnectionProtocol)
@@ -141,6 +142,7 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         self.totalC = self.totalClasses2D.get()
         self.goodC = self.goodClasses2D.get()
         self.badC = []
+        self.dictHoles2Add = {}
 
         for t in self.totalC:
             flag = False
@@ -162,17 +164,16 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
     def _insertAllSteps(self):
         self._insertFunctionStep(self._initialize, needsGPU=False)
         self._insertFunctionStep(self.readClasses, needsGPU=False)
+        self._insertFunctionStep(self.holesStatistis, needsGPU=False)
+        self._insertFunctionStep(self.smartscopeFeedback, needsGPU=False)
+        self._insertFunctionStep(self.createOutputStep, needsGPU=False)
 
 
     def readClasses(self):
         self.info('\nReading inputs...')
         self.info(f'Total classe: {len(self.totalC)} Good Classe: {len(self.goodC)}')
-        SOH = SetOfHoles.create(outputPath=self._getPath())
-        SOHR = SetOfHoles.create(outputPath=self._getPath())
-        self.outputsToDefine = {'SetOfHolesPassFilter': SOH, 'SetOfHolesRejected': SOHR}
         self._defineOutputs(**self.outputsToDefine)
 
-        dictHoles2Add = {}
         totalParticlesNum = sum(c.getSize() for c in self.totalC.iterItems())
         goodParticlesNum = sum(c.getSize() for c in self.goodC.iterItems())
         self.info(f'Total particles: {totalParticlesNum}\n'
@@ -183,55 +184,53 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         self.info('\nCollecting particles from good classes...')
         good_ids = set(p.getObjId() for p in self.goodC.iterClassItems())
         time1 = time.time()
-        self.info(f'good classes particles Time: {round(time1 - time0, 0)} s')
-
+        self.info(f'Collect particles from good classes Time: {round(time1 - time0, 0)} s')
         self.info('\nAssigning good/bad particles to holes...')
         #particles = list(self.totalC.iterClassItems())
-        time2 = time.time()
-        self.info(f'collecting all particles Time: {round(time2 - time1, 0)} s')
-        #TODO Assigna mal los holes: {'LH11_3_square386_holXEZjZogOFw': [180366, 66024], 'LH11_3_square386_holAztiwnsCIa': [0, 77], 'LH11_3_square386_holzZfSm7jRF3': [0, 588], 'LH11_3_square386_holrUjBES1gSF': [50930, 19425], 'LH11_3_square386_hol929tIJ390T': [1396, 945], 'LH11_3_square386_holMTwXvE57NR': [0, 937], 'LH11_3_square407_hol3DEBuxJg8d': [0, 49], 'LH11_3_square386_hol7hjl1W6ZhS': [0, 367], 'LH11_3_square386_holpNyyHkWKC2': [0, 450], 'LH11_3_square386_holCdWRh4lEDt': [0, 1843], 'LH11_3_square386_hol9fBjbaa63T': [0, 198]}
-        #TODO el bucle de abajo tarda como 1 hora...
         movie_cache = {}
 
         for p in self.totalC.iterClassItems(): #iterRows
-            timeA = time.time()
             mic_name = p.getCoordinate().getMicName()
             if mic_name in movie_cache:
                 movie = movie_cache[mic_name]
             else:
                 movie = self.movies.getItem("_micName", mic_name)
                 movie_cache[mic_name] = movie
-
-            timeB = time.time()
-            self.info(f'time getItem: {timeB - timeA}\n') #TODO to sloww. 0.01 sec each time
             H_ID = movie.getHoleId()
             #self.debug(f"micName: {p.getCoordinate().getMicName()} | H_ID: {H_ID}")
             obj_id = p.getObjId()
             is_good = obj_id in good_ids
-            if H_ID not in dictHoles2Add:
-                dictHoles2Add[H_ID] = [0, 0]
+            if H_ID not in self.dictHoles2Add:
+                self.dictHoles2Add[H_ID] = [0, 0]
             if is_good:
-                dictHoles2Add[H_ID][0] += 1
+                self.dictHoles2Add[H_ID][0] += 1
                 #self.debug('H_ID: {}  resolution: {}'.format(H_ID, p.getCTF().getResolution()))
             else:
-                dictHoles2Add[H_ID][1] += 1
+                self.dictHoles2Add[H_ID][1] += 1
                 #self.debug('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(movie.getMicName())))
 
 
-        time3 = time.time()
-        self.info(f'iter to assign holes to particles Time: {round(time3 - time2, 0)} s')
-        for key, value in dictHoles2Add.items():
+        time2 = time.time()
+        self.info(f'Assign good/bad particles to holes Time: {round(time2 - time1, 0)} s')
+        for key, value in self.dictHoles2Add.items():
             self.debug(f'{key} {value}')
             hole = self.holes.getItem('_hole_id', key)
             hole.setGoodParticles(int(hole.getGoodParticles()) + value[0])
             hole.setBadParticles(int(hole.getBadParticles()) + value[1])
             hole.setTotalParticles(int(hole.getGoodParticles()) + value[0] + int(hole.getBadParticles()) + value[1])
-            #self.createOutputStep(SOH, hole, self.holes) #TODO in time develope the statistics
 
         time4 = time.time()
-        self.info(f'iter to create outputs Time: {round(time4 - time3, 0)} s')
+        self.info(f'iter to set holes particles Time: {round(time4 - time2, 0)} s')
         self.info(f'Total collecting time: {round(time4 - time0, 0)} s')
 
+        summaryF = self._getExtraPath("summary.txt")
+        summaryF = open(summaryF, "w")
+        summaryF.write(f'Total classe: {len(self.totalC)} Good Classe: {len(self.goodC)}\n')
+
+        summaryF.write(f'Total particles: {totalParticlesNum}\n ' +
+                       f'Good particles: {goodParticlesNum}\n' +
+                       f'Bad particles: {totalParticlesNum - goodParticlesNum}')
+        summaryF.close()
 
     def holesStatistis(self):
         '''
@@ -240,26 +239,33 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         '''
         pass
 
-    def sortSmartscopeQueue(self):
+    def smartscopeFeedback(self):
         '''
         connect to the Smartscope API and provide the sorted queue
         :return:
         '''
         pass
 
-    def createOutputStep(self, SOH, hole, Setholes):
-        SOH.copyInfo(Setholes)
-        hole2Add_copy = Hole()
-        hole2Add_copy.copy(hole, copyId=False)
-        SOH.append(hole2Add_copy)
+    def createOutputStep(self):
+        self.SOH.copyInfo(self.holes)
 
-        if self.hasAttribute('SetOfHoles'):
-            SOH.write()
-            outputAttr = getattr(self, 'SetOfHoles')
-            outputAttr.copy(SOH, copyId=False)
-            self._store(outputAttr)
-        # STORE SQLITE
-        self._store(SOH)
+        for key, value in self.dictHoles2Add.items():
+            self.debug(key)
+            self.debug(value)
+            h = self.holes.getItem("_hole_id", key)
+            h.setGoodParticles(int(h.getGoodParticles()) + value[0])
+            h.setBadParticles(int(h.getBadParticles()) + value[1])
+            hole2Add_copy = Hole()
+            hole2Add_copy.copy(h, copyId=False)
+            self.SOH.append(hole2Add_copy)
+            if self.hasAttribute('SetOfHoles'):
+                self.SOH.write()
+                outputAttr = getattr(self, 'SetOfHoles')
+                outputAttr.copy(self.SOH, copyId=False)
+                self._store(outputAttr)
+
+        self._store(self.SOH)
+
 
     def checkSmartscopeConnection(self):
         response = self.pyClient.getDetailsFromParameter('users')
@@ -268,7 +274,14 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
 
     def _summary(self):
         summary = []
-
+        summaryF = self._getExtraPath("summary.txt")
+        if not os.path.exists(summaryF):
+            summary.append("No summary file yet.")
+        else:
+            summaryF = open(summaryF, "r")
+            for line in summaryF.readlines():
+                summary.append(line.rstrip())
+            summaryF.close()
         return summary
 
 
