@@ -47,6 +47,8 @@ from pyworkflow.protocol import params, STEPS_PARALLEL
 from ..objects.dataCollection import *
 import time
 from ..constants import *
+from collections import defaultdict
+import numpy as np
 
 
 
@@ -236,8 +238,11 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         Determine good and bad holes and sort the holes for the acquisition
         :return:
         '''
-        self.dictHoles2Add
-        pass
+        self.info('\n-Calculating statistics...')
+
+        for grid in self.grids:
+            self.dictHoles2Add
+
 
     def smartscopeFeedback(self):
         '''
