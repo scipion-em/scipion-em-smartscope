@@ -127,8 +127,9 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         import time
         time.sleep(10)
         # DEBUGALBERTO END
-        self.SOH = SetOfHoles.create(outputPath=self._getPath(), prefix='Pass')
+        self.SOH = SetOfHoles.create(outputPath=self._getPath())
         self.outputsToDefine = {'SetOfHoles': self.SOH}
+        self._defineOutputs(**self.outputsToDefine)
 
         self.smartscopeConnectionProtocol = self.getInputProtocol()
         updatedProt = getUpdatedProtocol(self.smartscopeConnectionProtocol)
@@ -172,7 +173,6 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
     def readClasses(self):
         self.info('\nReading inputs...')
         self.info(f'Total classe: {len(self.totalC)} Good Classe: {len(self.goodC)}')
-        self._defineOutputs(**self.outputsToDefine)
 
         totalParticlesNum = sum(c.getSize() for c in self.totalC.iterItems())
         goodParticlesNum = sum(c.getSize() for c in self.goodC.iterItems())
@@ -185,7 +185,7 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         good_ids = set(p.getObjId() for p in self.goodC.iterClassItems())
         time1 = time.time()
         self.info(f'Collect particles from good classes Time: {round(time1 - time0, 0)} s')
-        self.info('\nAssigning good/bad particles to holes...')
+        self.info('Assigning good/bad particles to holes...')
         #particles = list(self.totalC.iterClassItems())
         movie_cache = {}
 
@@ -201,7 +201,7 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
             obj_id = p.getObjId()
             is_good = obj_id in good_ids
             if H_ID not in self.dictHoles2Add:
-                self.dictHoles2Add[H_ID] = [0, 0]
+                self.dictHoles2Add[H_ID] = [0, 0, self.holes.getItem("_hole_id", H_ID).getSelectorValue()]
             if is_good:
                 self.dictHoles2Add[H_ID][0] += 1
                 #self.debug('H_ID: {}  resolution: {}'.format(H_ID, p.getCTF().getResolution()))
@@ -226,8 +226,7 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         summaryF = self._getExtraPath("summary.txt")
         summaryF = open(summaryF, "w")
         summaryF.write(f'Total classe: {len(self.totalC)} Good Classe: {len(self.goodC)}\n')
-
-        summaryF.write(f'Total particles: {totalParticlesNum}\n ' +
+        summaryF.write(f'Total particles: {totalParticlesNum}\n' +
                        f'Good particles: {goodParticlesNum}\n' +
                        f'Bad particles: {totalParticlesNum - goodParticlesNum}')
         summaryF.close()
@@ -237,6 +236,7 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         Determine good and bad holes and sort the holes for the acquisition
         :return:
         '''
+        self.dictHoles2Add
         pass
 
     def smartscopeFeedback(self):
@@ -247,6 +247,8 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         pass
 
     def createOutputStep(self):
+        time0 = time.time()
+
         self.SOH.copyInfo(self.holes)
 
         for key, value in self.dictHoles2Add.items():
@@ -264,8 +266,9 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
                 outputAttr.copy(self.SOH, copyId=False)
                 self._store(outputAttr)
 
-        self._store(self.SOH)
-
+        #self._store(self.SOH)
+        time1 = time.time()
+        self.info(f'Create output step Time: {round(time1 - time0, 0)} s')
 
     def checkSmartscopeConnection(self):
         response = self.pyClient.getDetailsFromParameter('users')
