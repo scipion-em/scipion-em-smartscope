@@ -95,10 +95,10 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
                        pointerClass='SetOfClasses2D',
                        label="Good Classes2D",
                        help='Set of good Classes2D calculated by a ranker')
-        form.addParam('percentBadPartcilesHole', params.EnumParam,
-                      choices=self.percentBins, default=8, display=params.EnumParam.DISPLAY_COMBO,
-                      label="Percent bad particles to consider bad Hole",
-                      help="Percent of bad particles in a Hole to consider that the hole is a bad Hole or a Hole to reject. Default 80%")
+        form.addParam('percentGoodPartcilesHole', params.EnumParam,
+                      choices=self.percentBins, default=5, display=params.EnumParam.DISPLAY_COMBO,
+                      label="Percent good particles to consider good Hole",
+                      help="Percent of good particles in a Hole to consider that the hole is a good Hole or a Hole to consider. Default 50%")
 
         form.addSection('Streaming')
         form.addParam('refreshMethod', params.EnumParam, default=0,
@@ -241,8 +241,26 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         self.info('\n-Calculating statistics...')
 
         for grid in self.grids:
-            self.dictHoles2Add
+            values = np.array(list(self.dictHoles2Add.values()))
+            goodParticles = values[:, 0]
+            badParticles = values[:, 1]
+            percentGood = goodParticles / (goodParticles + badParticles)
+            intensity = values[:, 2]
+            bins = 5
+            bin_edges = np.linspace(intensity.min(), intensity.max(), bins + 1)
+            y_bin = np.zeros(bins)
+            for i in range(bins):
+                mask = (intensity >= bin_edges[i]) & (intensity < bin_edges[i + 1])
+                maskNoZero = mask != 0
+                y_bin[i] = goodParticles[maskNoZero].mean()
+            x_bin = (bin_edges[:-1] + bin_edges[1:]) / 2
 
+            import matplotlib.pyplot as plt
+
+            plt.bar(x_bin, percentGood, width=(bin_edges[1] - bin_edges[0]) * 0.9)
+            plt.xlabel('Intensity')
+            plt.ylabel('Mean good particles')
+            plt.show()
 
     def smartscopeFeedback(self):
         '''
