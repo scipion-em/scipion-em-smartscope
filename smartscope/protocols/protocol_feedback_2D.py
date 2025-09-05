@@ -233,6 +233,57 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
                        f'Bad particles: {totalParticlesNum - goodParticlesNum}')
         summaryF.close()
 
+    def sturgesBinsCalc(self, numElementes):
+        import math
+        return int(round(1 + math.log2(numElementes)))
+
+
+    def saveStatistics(self, gridName):
+        File = self._getExtraPath("{}-holeCount.txt".format(gridName))
+        np.savetxt(File, self.y_count, fmt='%.8f', delimiter=' ')
+        File = self._getExtraPath("{}-goodParticles.txt".format(gridName))
+        np.savetxt(File, self.good_bin, fmt='%.8f', delimiter=' ')
+        File = self._getExtraPath("{}-stdgoodParticles.txt".format(gridName))
+        np.savetxt(File, self.good_std_bin, fmt='%.8f', delimiter=' ')
+        File = self._getExtraPath("{}-badParticles.txt".format(gridName))
+        np.savetxt(File, self.bad_bin, fmt='%.8f', delimiter=' ')
+        File = self._getExtraPath("{}-totalParticles.txt".format(gridName))
+        np.savetxt(File, self.totalParticles_bin, fmt='%.8f', delimiter=' ')
+        File = self._getExtraPath("{}-stdTotalParticles.txt".format(gridName))
+        np.savetxt(File, self.totalParticles_std_bin, fmt='%.8f', delimiter=' ')
+        File = self._getExtraPath("{}-percentGood.txt".format(gridName))
+        np.savetxt(File, self.percentGood_bin, fmt='%.8f', delimiter=' ')
+
+    def plotsTemporal(self):
+
+        import matplotlib.pyplot as plt
+
+        fig, axs = plt.subplots(2, 2, figsize=(10, 8))
+        axs[0, 0].bar(x_bin, self.y_count, width=(bin_edges[1] - bin_edges[0]) * 0.9)
+        axs[0, 0].set_title("Num holes")
+        axs[0, 0].set_xlabel("Intensity")
+        axs[0, 0].set_ylabel("Count")
+
+        axs[0, 1].bar(x_bin, self.totalParticles_bin, width=(bin_edges[1] - bin_edges[0]) * 0.9,
+                      yerr=self.totalParticles_std_bin, capsize=5, color='skyblue', edgecolor='black')
+        axs[0, 1].set_title("Mean num particles")
+        axs[0, 1].set_xlabel("Intensity")
+        axs[0, 1].set_ylabel("particles")
+
+        axs[1, 0].bar(x_bin, self.percentGood_bin, width=(bin_edges[1] - bin_edges[0]) * 0.9)
+        axs[1, 0].set_title("Media de percent good")
+        axs[1, 0].set_xlabel("Intensity")
+        axs[1, 0].set_ylabel("Percent good")
+
+        axs[1, 1].bar(x_bin, self.good_bin, width=(bin_edges[1] - bin_edges[0]) * 0.9,
+                      yerr=self.good_std_bin, capsize=5, color='skyblue', edgecolor='black')
+        axs[1, 1].set_title("Mean good Particles")
+        axs[1, 1].set_xlabel("Intensity")
+        axs[1, 1].set_ylabel("goodParticles")
+
+        plt.tight_layout()
+        plt.show()
+
     def holesStatistis(self):
         '''
         Determine good and bad holes and sort the holes for the acquisition
@@ -241,26 +292,37 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         self.info('\n-Calculating statistics...')
 
         for grid in self.grids:
+            gridName = grid.getName()
             values = np.array(list(self.dictHoles2Add.values()))
+            totalParticles = values[:, 0] + values[:, 1]
             goodParticles = values[:, 0]
             badParticles = values[:, 1]
-            percentGood = goodParticles / (goodParticles + badParticles)
             intensity = values[:, 2]
-            bins = 5
+            bins = self.sturgesBinsCalc(len(self.dictHoles2Add))
             bin_edges = np.linspace(intensity.min(), intensity.max(), bins + 1)
-            y_bin = np.zeros(bins)
+            self.y_count, _ = np.histogram(intensity, bins=bin_edges)
+            self.totalParticles_bin = np.zeros(bins)
+            self.totalParticles_std_bin = np.zeros(bins)
+            self.good_bin = np.zeros(bins)
+            self.good_std_bin = np.zeros(bins)
+            self.bad_bin = np.zeros(bins)
+            self.percentGood_bin = np.zeros(bins)
+
             for i in range(bins):
                 mask = (intensity >= bin_edges[i]) & (intensity < bin_edges[i + 1])
                 maskNoZero = mask != 0
-                y_bin[i] = goodParticles[maskNoZero].mean()
+                self.totalParticles_bin[i] = totalParticles[mask].mean()
+                self.totalParticles_std_bin[i] = totalParticles[mask].std()
+                self.good_bin[i] = goodParticles[mask].mean()
+                self.good_std_bin[i] = goodParticles[mask].std()
+                self.bad_bin[i] = badParticles[mask].mean()
+                self.percentGood_bin[i] = self.good_bin[i] / (self.good_bin[i] + self.bad_bin[i])
+
             x_bin = (bin_edges[:-1] + bin_edges[1:]) / 2
 
-            import matplotlib.pyplot as plt
+            self.saveStatistics(gridName)
+            self.plotsTemporal()
 
-            plt.bar(x_bin, percentGood, width=(bin_edges[1] - bin_edges[0]) * 0.9)
-            plt.xlabel('Intensity')
-            plt.ylabel('Mean good particles')
-            plt.show()
 
     def smartscopeFeedback(self):
         '''
