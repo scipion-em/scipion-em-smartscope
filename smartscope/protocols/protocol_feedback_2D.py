@@ -146,6 +146,9 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         self.goodC = self.goodClasses2D.get()
         self.badC = []
         self.dictHoles2Add = {}
+        self.dictHolesNoAcquired = {}
+        self.dictHolesAcquired = {}
+
 
         for t in self.totalC:
             flag = False
@@ -223,7 +226,19 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
 
         time4 = time.time()
         self.info(f'iter to set holes particles Time: {round(time4 - time2, 0)} s')
-        self.info(f'Total collecting time: {round(time4 - time0, 0)} s')
+        for h in self.holes:
+            H_ID = h.getHoleId()
+            if not self.dictHoles2Add.get(H_ID, False):
+                intensity = h.getSelectorValue()
+                if intensity != None:
+                    self.dictHolesAcquired[H_ID] = [0, 0, intensity]
+                else:
+                    self.dictHolesNoAcquired[H_ID] = [0, 0, None]
+
+        time5 = time.time()
+
+        self.info(f'iter to collect all holes  Time: {round(time5 - time4, 0)} s')
+        self.info(f'Total collecting time: {round(time5 - time0, 0)} s')
 
         summaryF = self._getExtraPath("summary.txt")
         summaryF = open(summaryF, "w")
@@ -254,7 +269,7 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         File = self._getExtraPath("{}-percentGood.txt".format(gridName))
         np.savetxt(File, self.percentGood_bin, fmt='%.8f', delimiter=' ')
 
-    def plotsTemporal(self):
+    def plotsTemporal(self, x_bin, bin_edges):
 
         import matplotlib.pyplot as plt
 
@@ -300,7 +315,7 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
             intensity = values[:, 2]
             bins = self.sturgesBinsCalc(len(self.dictHoles2Add))
             bin_edges = np.linspace(intensity.min(), intensity.max(), bins + 1)
-            self.y_count, _ = np.histogram(intensity, bins=bin_edges)
+            self.y_count, _ = np.histogram(intensity, bins=bin_edges)#TODO consider the holes without movie and the holes with movie but without partiles
             self.totalParticles_bin = np.zeros(bins)
             self.totalParticles_std_bin = np.zeros(bins)
             self.good_bin = np.zeros(bins)
@@ -321,7 +336,7 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
             x_bin = (bin_edges[:-1] + bin_edges[1:]) / 2
 
             self.saveStatistics(gridName)
-            self.plotsTemporal()
+            self.plotsTemporal(x_bin, bin_edges)
 
 
     def smartscopeFeedback(self):
