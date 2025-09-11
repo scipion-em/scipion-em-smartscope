@@ -50,6 +50,7 @@ from ..constants import *
 from collections import defaultdict
 import numpy as np
 
+NUMBER_HOLES_TO_VIEW = 1000
 
 
 class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
@@ -99,7 +100,9 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
                       choices=self.percentBins, default=5, display=params.EnumParam.DISPLAY_COMBO,
                       label="Percent good particles to consider good Hole",
                       help="Percent of good particles in a Hole to consider that the hole is a good Hole or a Hole to consider. Default 50%")
-
+        form.addParam('triggerMovies', params.IntParam, default=200,
+                      label="Movies to launch the protocol",
+                      help='Number of movies that pass the filters to launch the statistics')
         form.addSection('Streaming')
         form.addParam('refreshMethod', params.EnumParam, default=0,
                       choices=['Input micrographs', 'Time'],
@@ -110,10 +113,10 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
                       condition='refreshMethod==1',
                       label="Time to refresh protocol",
                       help = "Time to refresh data collected (minimum 240 secs) and update the feedback if neccesary")
-        form.addParam('refreshMics', params.IntParam, default=200,
+        form.addParam('refreshMovies', params.IntParam, default=200,
                       condition='refreshMethod==0',
-                      label = 'Input micrographs to refresh protocol',
-                      help="Number of new micrographs to refresh data collected and update the feedback if neccesary")
+                      label = 'Input movies to refresh protocol',
+                      help="Number of new movies to refresh data collected and update the feedback if neccesary")
 
 
     def _initialize(self):
@@ -130,8 +133,11 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         time.sleep(10)
         # DEBUGALBERTO END
         self.SOH = SetOfHoles.create(outputPath=self._getPath())
-        self.outputsToDefine = {'SetOfHoles': self.SOH}
+        self.SOBestH = SetOfHoles.create(outputPath=self._getPath(),suffix='Best')
+        self.outputsToDefine = {'SetOfHoles': self.SOH, 'SetOfBestHoles': self.SOBestH}
         self._defineOutputs(**self.outputsToDefine)
+        self.zeroTime = time.time()
+        self.runningPrevious = False
 
         self.smartscopeConnectionProtocol = self.getInputProtocol()
         updatedProt = getUpdatedProtocol(self.smartscopeConnectionProtocol)
@@ -141,14 +147,15 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
             self.holes = updatedProt.Holes
         if hasattr(updatedProt, 'MoviesSS'):
             self.movies = updatedProt.MoviesSS
+        self.firtsFlag = True
+        self.finish = False
+        self.initialNumMovies = 0
 
         self.totalC = self.totalClasses2D.get()
         self.goodC = self.goodClasses2D.get()
         self.badC = []
-        self.dictHoles2Add = {}
-        self.dictHolesNoAcquired = {}
-        self.dictHolesAcquired = {}
-
+        self.dictHolesWithMic = {}
+        self.dictHolesWithoutMic = {}
 
         for t in self.totalC:
             flag = False
@@ -167,13 +174,42 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         else:
             return False
 
-    def _insertAllSteps(self):
-        self._insertFunctionStep(self._initialize, needsGPU=False)
-        self._insertFunctionStep(self.readClasses, needsGPU=False)
-        self._insertFunctionStep(self.holesStatistis, needsGPU=False)
-        self._insertFunctionStep(self.smartscopeFeedback, needsGPU=False)
-        self._insertFunctionStep(self.createOutputStep, needsGPU=False)
+    def stepsGeneratorStep(self):
+        """
+        This step should be implemented by any streaming protocol.
+        It should check its input and when ready conditions are met
+        call the self._insertFunctionStep method.
+        """
+        self._initialize()
 
+        while not self.finish:
+            if self.conditionRefresh() or self.firtsFlag:
+                if self.runningPrevious == False:
+                    if len(self.movies) >= self.triggerMovies.get():
+                        self.firtsFlag = False
+                        self.runningPrevious = True
+                        self.readClasses()
+                        self.holesStatistis()
+                        self.smartscopeFeedback()
+                        self.createOutputStep()
+                        self.finish = True #TODO handle when to  finish it, a streaming workflow is needed
+
+
+    def conditionRefresh(self):
+        if self.refreshMethod == 0:
+            numMovies = len(self.movies)
+            if numMovies - self.initialNumMovies >= self.refreshMovies.get():
+                self.initialNumMovies = numMovies
+                return True
+            else:
+                return False
+        else:
+            rTime = time.time() - self.zeroTime
+            if rTime >= self.rTime:
+                self.zeroTime = time.time()
+                return True
+            else:
+                return False
 
     def readClasses(self):
         self.info('\nReading inputs...')
@@ -191,8 +227,19 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         time1 = time.time()
         self.info(f'Collect particles from good classes Time: {round(time1 - time0, 0)} s')
         self.info('Assigning good/bad particles to holes...')
-        #particles = list(self.totalC.iterClassItems())
         movie_cache = {}
+
+        for hole in self.holes:
+            H_ID = hole.getHoleId()
+            intensity = hole.getSelectorValue()
+            try:
+                if self.movies.getItem("_hole_id", H_ID):
+                    self.dictHolesWithMic[H_ID] = [0, 0, intensity]
+            except UnboundLocalError:
+                self.dictHolesWithoutMic[H_ID] = [0, 0,intensity]
+
+        time2 = time.time()
+        self.info(f'iter to collect all holes  Time: {round(time2 - time1, 0)} s')
 
         for p in self.totalC.iterClassItems(): #iterRows
             mic_name = p.getCoordinate().getMicName()
@@ -205,19 +252,17 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
             #self.debug(f"micName: {p.getCoordinate().getMicName()} | H_ID: {H_ID}")
             obj_id = p.getObjId()
             is_good = obj_id in good_ids
-            if H_ID not in self.dictHoles2Add:
-                self.dictHoles2Add[H_ID] = [0, 0, self.holes.getItem("_hole_id", H_ID).getSelectorValue()]
             if is_good:
-                self.dictHoles2Add[H_ID][0] += 1
-                #self.debug('H_ID: {}  resolution: {}'.format(H_ID, p.getCTF().getResolution()))
+                self.dictHolesWithMic[H_ID][0] += 1
+            #self.debug('H_ID: {}  resolution: {}'.format(H_ID, p.getCTF().getResolution()))
             else:
-                self.dictHoles2Add[H_ID][1] += 1
+                self.dictHolesWithMic[H_ID][1] += 1
                 #self.debug('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(movie.getMicName())))
 
 
-        time2 = time.time()
-        self.info(f'Assign good/bad particles to holes Time: {round(time2 - time1, 0)} s')
-        for key, value in self.dictHoles2Add.items():
+        time3 = time.time()
+        self.info(f'Assign good/bad particles to holes Time: {round(time3 - time2, 0)} s')
+        for key, value in self.dictHolesWithMic.items():
             self.debug(f'{key} {value}')
             hole = self.holes.getItem('_hole_id', key)
             hole.setGoodParticles(int(hole.getGoodParticles()) + value[0])
@@ -225,20 +270,8 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
             hole.setTotalParticles(int(hole.getGoodParticles()) + value[0] + int(hole.getBadParticles()) + value[1])
 
         time4 = time.time()
-        self.info(f'iter to set holes particles Time: {round(time4 - time2, 0)} s')
-        for h in self.holes:
-            H_ID = h.getHoleId()
-            if not self.dictHoles2Add.get(H_ID, False):
-                intensity = h.getSelectorValue()
-                if intensity != None:
-                    self.dictHolesAcquired[H_ID] = [0, 0, intensity]
-                else:
-                    self.dictHolesNoAcquired[H_ID] = [0, 0, None]
-
-        time5 = time.time()
-
-        self.info(f'iter to collect all holes  Time: {round(time5 - time4, 0)} s')
-        self.info(f'Total collecting time: {round(time5 - time0, 0)} s')
+        self.info(f'iter to set holes particles Time: {round(time4 - time3, 0)} s')
+        self.info(f'Total collecting time: {round(time4 - time0, 0)} s')
 
         summaryF = self._getExtraPath("summary.txt")
         summaryF = open(summaryF, "w")
@@ -254,12 +287,20 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
 
 
     def saveStatistics(self, gridName):
+        with open(os.path.join(self._getExtraPath(),'gridsName.txt'), 'w') as fi:
+            for g in self.grids:
+                fi.write(g.getName())
+                fi.write('\n')
+        File = self._getExtraPath("{}-xBin.txt".format(gridName))
+        np.savetxt(File, self.x_bin , fmt='%.8f', delimiter=' ')
         File = self._getExtraPath("{}-holeCount.txt".format(gridName))
         np.savetxt(File, self.y_count, fmt='%.8f', delimiter=' ')
-        File = self._getExtraPath("{}-goodParticles.txt".format(gridName))
+        File = self._getExtraPath("{}-holeTotalCount.txt".format(gridName))
+        np.savetxt(File, self.y_countTotal, fmt='%.8f', delimiter=' ')
+        File = self._getExtraPath("{}-good_bin.txt".format(gridName))
         np.savetxt(File, self.good_bin, fmt='%.8f', delimiter=' ')
-        File = self._getExtraPath("{}-stdgoodParticles.txt".format(gridName))
-        np.savetxt(File, self.good_std_bin, fmt='%.8f', delimiter=' ')
+        File = self._getExtraPath("{}-good_binTotal.txt".format(gridName))
+        np.savetxt(File, self.good_binTotal, fmt='%.8f', delimiter=' ')
         File = self._getExtraPath("{}-badParticles.txt".format(gridName))
         np.savetxt(File, self.bad_bin, fmt='%.8f', delimiter=' ')
         File = self._getExtraPath("{}-totalParticles.txt".format(gridName))
@@ -268,31 +309,37 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         np.savetxt(File, self.totalParticles_std_bin, fmt='%.8f', delimiter=' ')
         File = self._getExtraPath("{}-percentGood.txt".format(gridName))
         np.savetxt(File, self.percentGood_bin, fmt='%.8f', delimiter=' ')
+        File = self._getExtraPath("{}-bin_edges.txt".format(gridName))
+        np.savetxt(File, self.bin_edges, fmt='%.8f', delimiter=' ')
 
-    def plotsTemporal(self, x_bin, bin_edges):
+
+    def plotsTemporal(self):
 
         import matplotlib.pyplot as plt
 
         fig, axs = plt.subplots(2, 2, figsize=(10, 8))
-        axs[0, 0].bar(x_bin, self.y_count, width=(bin_edges[1] - bin_edges[0]) * 0.9)
+        axs[0, 0].bar(self.x_bin, self.y_countTotal, width=(self.bin_edges[1] - self.bin_edges[0]) * 0.9)
+        axs[0, 0].bar(self.x_bin, self.y_count, width=(self.bin_edges[1] - self.bin_edges[0]) * 0.9)
         axs[0, 0].set_title("Num holes")
         axs[0, 0].set_xlabel("Intensity")
         axs[0, 0].set_ylabel("Count")
 
-        axs[0, 1].bar(x_bin, self.totalParticles_bin, width=(bin_edges[1] - bin_edges[0]) * 0.9,
-                      yerr=self.totalParticles_std_bin, capsize=5, color='skyblue', edgecolor='black')
-        axs[0, 1].set_title("Mean num particles")
+        axs[0, 1].bar(self.x_bin, self.totalParticles_bin, width=(self.bin_edges[1] - self.bin_edges[0]) * 0.9,
+                      #yerr=self.totalParticles_std_bin,
+                      capsize=5, color='skyblue', edgecolor='black')
+        axs[0, 1].set_title("Sum num particles")
         axs[0, 1].set_xlabel("Intensity")
         axs[0, 1].set_ylabel("particles")
 
-        axs[1, 0].bar(x_bin, self.percentGood_bin, width=(bin_edges[1] - bin_edges[0]) * 0.9)
+        axs[1, 0].bar(self.x_bin, self.percentGood_bin, width=(self.bin_edges[1] - self.bin_edges[0]) * 0.9)
         axs[1, 0].set_title("Media de percent good")
         axs[1, 0].set_xlabel("Intensity")
         axs[1, 0].set_ylabel("Percent good")
 
-        axs[1, 1].bar(x_bin, self.good_bin, width=(bin_edges[1] - bin_edges[0]) * 0.9,
-                      yerr=self.good_std_bin, capsize=5, color='skyblue', edgecolor='black')
-        axs[1, 1].set_title("Mean good Particles")
+        axs[1, 1].bar(self.x_bin, self.good_binTotal, width=(self.bin_edges[1] - self.bin_edges[0]) * 0.9,
+                      #yerr=self.good_std_bin,
+                      capsize=5, color='skyblue', edgecolor='black')
+        axs[1, 1].set_title("Sum good Particles")
         axs[1, 1].set_xlabel("Intensity")
         axs[1, 1].set_ylabel("goodParticles")
 
@@ -305,38 +352,57 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         :return:
         '''
         self.info('\n-Calculating statistics...')
-
+        self.dictTotalHoles = self.dictHolesWithMic.copy()
+        self.dictTotalHoles.update(self.dictHolesWithoutMic)
         for grid in self.grids:
             gridName = grid.getName()
-            values = np.array(list(self.dictHoles2Add.values()))
+            values = np.array(list(self.dictHolesWithMic.values()))
             totalParticles = values[:, 0] + values[:, 1]
             goodParticles = values[:, 0]
             badParticles = values[:, 1]
             intensity = values[:, 2]
-            bins = self.sturgesBinsCalc(len(self.dictHoles2Add))
-            bin_edges = np.linspace(intensity.min(), intensity.max(), bins + 1)
-            self.y_count, _ = np.histogram(intensity, bins=bin_edges)#TODO consider the holes without movie and the holes with movie but without partiles
+            valuesTotal = np.array(list(self.dictTotalHoles.values()))#
+            valuesNoMic = np.array(list(self.dictHolesWithoutMic.values()))
+            intensityTotal = valuesTotal[:, 2]
+            intensityNoMic = valuesNoMic[:, 2]
+            bins = self.sturgesBinsCalc(len(self.dictTotalHoles))
+            self.bin_edges = np.linspace(intensityTotal.min(), intensityTotal.max(), bins + 1)
+            self.y_count, _ = np.histogram(intensity, bins=self.bin_edges)#TODO consider the holes without movie and the holes with movie but without partiles
+            self.y_countTotal, _ = np.histogram(intensityTotal, bins=self.bin_edges)#TODO consider the holes without movie and the holes with movie but without partiles
             self.totalParticles_bin = np.zeros(bins)
             self.totalParticles_std_bin = np.zeros(bins)
             self.good_bin = np.zeros(bins)
+            self.good_binTotal = np.zeros(bins)
             self.good_std_bin = np.zeros(bins)
             self.bad_bin = np.zeros(bins)
             self.percentGood_bin = np.zeros(bins)
 
             for i in range(bins):
-                mask = (intensity >= bin_edges[i]) & (intensity < bin_edges[i + 1])
+                mask = (intensity >= self.bin_edges[i]) & (intensity < self.bin_edges[i + 1])
                 maskNoZero = mask != 0
-                self.totalParticles_bin[i] = totalParticles[mask].mean()
-                self.totalParticles_std_bin[i] = totalParticles[mask].std()
-                self.good_bin[i] = goodParticles[mask].mean()
-                self.good_std_bin[i] = goodParticles[mask].std()
-                self.bad_bin[i] = badParticles[mask].mean()
-                self.percentGood_bin[i] = self.good_bin[i] / (self.good_bin[i] + self.bad_bin[i])
+                self.totalParticles_bin[i] = totalParticles[mask].sum()
+                #self.totalParticles_std_bin[i] = totalParticles[mask].std()
+                self.good_binTotal[i] = goodParticles[mask].sum()
+                valsGood = goodParticles[mask]
+                if valsGood.size > 0:
+                    self.good_bin[i] = valsGood.mean()
+                    self.good_std_bin[i] = goodParticles[mask].std()
+                else:
+                    self.good_bin[i] = 0
+                    self.good_std_bin[i] = 0
+                valsBad = badParticles[mask]
+                if valsBad.size > 0:
+                    self.bad_bin[i] = valsBad.mean()
+                else:
+                    self.bad_bin[i] = 0
 
-            x_bin = (bin_edges[:-1] + bin_edges[1:]) / 2
+                if self.good_bin[i] != 0 or self.bad_bin[i] != 0:
+                    self.percentGood_bin[i] = self.good_bin[i] / (self.good_bin[i] + self.bad_bin[i])
+
+            self.x_bin = (self.bin_edges[:-1] + self.bin_edges[1:]) / 2
 
             self.saveStatistics(gridName)
-            self.plotsTemporal(x_bin, bin_edges)
+            #self.plotsTemporal()
 
 
     def smartscopeFeedback(self):
@@ -348,10 +414,9 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
 
     def createOutputStep(self):
         time0 = time.time()
-
         self.SOH.copyInfo(self.holes)
-
-        for key, value in self.dictHoles2Add.items():
+        self.SOBestH.copyInfo(self.holes)
+        for key, value in self.dictHolesWithMic.items():
             self.debug(key)
             self.debug(value)
             h = self.holes.getItem("_hole_id", key)
@@ -364,7 +429,18 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
                 self.SOH.write()
                 outputAttr = getattr(self, 'SetOfHoles')
                 outputAttr.copy(self.SOH, copyId=False)
-                self._store(outputAttr)
+        self._store(self.SOH)
+
+
+        for hole in self.holes.iterItems(orderBy='_goodParticles', direction='DESC', limit=NUMBER_HOLES_TO_VIEW):#TODO the direction is not correct, try DESC
+            hole2Add_copy = Hole()
+            hole2Add_copy.copy(hole, copyId=False)
+            self.SOBestH.append(hole2Add_copy)
+            if self.hasAttribute('SetOfBestHoles'):
+                self.SOBestH.write()
+                outputAttr = getattr(self, 'SetOfBestHoles')
+                outputAttr.copy(self.SOBestH, copyId=False)
+        self._store(self.SOBestH)
 
         #self._store(self.SOH)
         time1 = time.time()

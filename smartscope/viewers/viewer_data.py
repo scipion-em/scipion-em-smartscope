@@ -35,6 +35,7 @@ from pwem.viewers.showj import ORDER, VISIBLE, MODE, RENDER, MODE_MD, ZOOM, SORT
 from pwem.viewers.showj import *
 from pyworkflow.viewer import DESKTOP_TKINTER, WEB_DJANGO, ProtocolViewer
 from smartscope.protocols.protocol_feedback_filter import smartscopeFeedbackFilter
+from smartscope.protocols.protocol_feedback_2D import smartscopeFeedback2D
 from smartscope.protocols.protocol_smartscope import smartscopeConnection
 from pyworkflow.protocol.params import IntParam, LabelParam
 import numpy as np
@@ -220,6 +221,8 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
                     dictFiles['passHist'] = f
                 elif f.find('{}-rejectedHist'.format(grid)) != -1:
                     dictFiles['rejectedHist'] = f
+
+
             listRanges = {'rangeI': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['rangeI'])),
             'totalHist': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['totalHist'])),
             'withMicsHist': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['withMicsHist'])),
@@ -288,4 +291,142 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
 
             plt.tight_layout()
 
+            plt.show()
+
+
+class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
+    """
+
+    """
+    _label = 'viewer feedback holes particles'
+    _environments = [DESKTOP_TKINTER, WEB_DJANGO]
+    _targets = [smartscopeFeedback2D]
+
+    def _defineParams(self, form):
+        form.addSection(label='Visualization')
+        group = form.addGroup('Holes')
+        group.addParam('visualizeBestHolesWithParticles', LabelParam,
+                       label="Visualize best 100 holes by good particles",
+                       help="")
+        group2 = form.addGroup('Statistics')
+        group2.addParam('holeIntensityDistribution', LabelParam,
+                       label="Visualize holes distribution by intensity",
+                       help="")
+        group2.addParam('visualizeHistograms', LabelParam,
+                       label="Visualize the histograms of intensity",
+                       help="Visualize the histograms of intensity per holes and particles.")
+
+    def _getVisualizeDict(self):
+        return {
+                 'visualizeBestHolesWithParticles': self._visualizePassFilteredHoles,
+                 'holeIntensityDistribution': self._visualizeRejectedHoles,
+                 'visualizeHistograms': self._visualizeHistograms,
+                }
+
+    def visualizeBestHolesWithParticles(self, e=None):
+        views = []
+        if hasattr(self.protocol, 'SetOfBestHoles'):
+            labels = ('_pngDir _hole_id _grid_id _goodParticles _badParticles _totalParticles')
+            views.append(ObjectView(self._project,
+                                    self.protocol.SetOfBestHoles.strId(),
+                                    self.protocol.SetOfBestHoles.getFileName(),
+                                    viewParams={VISIBLE: labels,
+                                                RENDER: '_rawDir',
+                                                SORT_BY: labels}))
+            return views
+
+    def holeIntensityDistribution(self, e=None):
+        import os
+        with open(os.path.join(self.protocol._getExtraPath(),'gridsName.txt'), 'r') as fi:
+            gridsList = [line.strip() for line in fi]
+        for grid in gridsList:
+            pass
+
+    def _visualizeHistograms(self, e=None):
+        import os
+        import matplotlib.pyplot as plt
+        # DEBUGALBERTO START
+        import os
+        fname = "/home/agarcia/Documents/attachActionDebug.txt"
+        if os.path.exists(fname):
+            os.remove(fname)
+        fjj = open(fname, "a+")
+        fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+        fjj.close()
+        print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+        import time
+        time.sleep(10)
+        # DEBUGALBERTO END
+
+        with open(os.path.join(self.protocol._getExtraPath(),'gridsName.txt'), 'r') as fi:
+            gridsList = [line.strip() for line in fi]
+        for grid in gridsList:
+            dictFiles = {}
+            files = os.listdir(self.protocol._getExtraPath())
+
+            for f in files:
+                if f.find('{}-xBin'.format(grid)) != -1:
+                    dictFiles['xBin'] = f
+                elif f.find('{}-holeCount'.format(grid)) != -1:
+                    dictFiles['holeCount'] = f
+                elif f.find('{}-holeTotalCount'.format(grid)) != -1:
+                    dictFiles['holeTotalCount'] = f
+                elif f.find('{}-good_bin'.format(grid)) != -1:
+                    dictFiles['good_bin'] = f
+                elif f.find('{}-good_binTotal'.format(grid)) != -1:
+                    dictFiles['good_binTotal'] = f
+                elif f.find('{}-badParticles'.format(grid)) != -1:
+                    dictFiles['badParticles'] = f
+                elif f.find('{}-totalParticles'.format(grid)) != -1:
+                    dictFiles['totalParticles'] = f
+                elif f.find('{}-stdTotalParticles'.format(grid)) != -1:
+                    dictFiles['stdTotalParticles'] = f
+                elif f.find('{}-percentGood'.format(grid)) != -1:
+                    dictFiles['percentGood'] = f
+                elif f.find('{}-bin_edges'.format(grid)) != -1:
+                    dictFiles['bin_edges'] = f
+
+            listRanges = {'xBin': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['xBin'])),
+            'holeCount': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['holeCount'])),
+            'holeTotalCount': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['holeTotalCount'])),
+            'good_bin': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['good_bin'])),
+            'good_binTotal': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['good_binTotal'])),
+            'badParticles': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['badParticles'])),
+            'totalParticles': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['totalParticles'])),
+            'stdTotalParticles': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['stdTotalParticles'])),
+            'bin_edges': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['bin_edges'])),
+            'percentGood': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['percentGood']))}
+
+
+            fig, axs = plt.subplots(2, 2, figsize=(10, 8))
+            axs[0, 0].bar(listRanges['xBin'], self.y_countTotal, width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9)
+            axs[0, 0].bar(listRanges['xBin'], self.y_count, width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9)
+            axs[0, 0].set_title("Num holes")
+            axs[0, 0].set_xlabel("Intensity")
+            axs[0, 0].set_ylabel("Count")
+
+            axs[0, 1].bar(listRanges['xBin'], listRanges['totalParticles'], width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9,
+                          # yerr=self.totalParticles_std_bin,
+                          capsize=5, color='skyblue', edgecolor='black')
+            axs[0, 1].set_title("Sum num particles")
+            axs[0, 1].set_xlabel("Intensity")
+            axs[0, 1].set_ylabel("particles")
+            axs[0, 1].set_xlim(0, listRanges['bin_edges'][-1])
+
+            axs[1, 0].bar(listRanges['xBin'], listRanges['percentGood'], width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9)
+            axs[1, 0].set_title("Media de percent good")
+            axs[1, 0].set_xlabel("Intensity")
+            axs[1, 0].set_ylabel("Percent good")
+            axs[1, 0].set_xlim(0, listRanges['bin_edges'][-1])
+            axs[1, 0].set_ylim(0, 1)
+
+
+            axs[1, 1].bar(listRanges['xBin'], listRanges['good_binTotal'], width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9,
+                          # yerr=self.good_std_bin,
+                          capsize=5, color='skyblue', edgecolor='black')
+            axs[1, 1].set_title("Sum good Particles")
+            axs[1, 1].set_xlabel("Intensity")
+            axs[1, 1].set_ylabel("goodParticles")
+
+            plt.tight_layout()
             plt.show()
