@@ -318,12 +318,12 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
 
     def _getVisualizeDict(self):
         return {
-                 'visualizeBestHolesWithParticles': self._visualizePassFilteredHoles,
-                 'holeIntensityDistribution': self._visualizeRejectedHoles,
-                 'visualizeHistograms': self._visualizeHistograms,
+                 'visualizeBestHolesWithParticles': self._visualizeBestHolesWithParticles,
+                 'holeIntensityDistribution': self._holeIntensityDistribution,
+                 'visualizeHistograms': self._visualizeHistograms
                 }
 
-    def visualizeBestHolesWithParticles(self, e=None):
+    def _visualizeBestHolesWithParticles(self, e=None):
         views = []
         if hasattr(self.protocol, 'SetOfBestHoles'):
             labels = ('_pngDir _hole_id _grid_id _goodParticles _badParticles _totalParticles')
@@ -335,7 +335,7 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
                                                 SORT_BY: labels}))
             return views
 
-    def holeIntensityDistribution(self, e=None):
+    def _holeIntensityDistribution(self, e=None):
         import os
         with open(os.path.join(self.protocol._getExtraPath(),'gridsName.txt'), 'r') as fi:
             gridsList = [line.strip() for line in fi]
@@ -343,8 +343,6 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
             pass
 
     def _visualizeHistograms(self, e=None):
-        import os
-        import matplotlib.pyplot as plt
         # DEBUGALBERTO START
         import os
         fname = "/home/agarcia/Documents/attachActionDebug.txt"
@@ -357,6 +355,8 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
         import time
         time.sleep(10)
         # DEBUGALBERTO END
+        import os
+        import matplotlib.pyplot as plt
 
         with open(os.path.join(self.protocol._getExtraPath(),'gridsName.txt'), 'r') as fi:
             gridsList = [line.strip() for line in fi]
@@ -371,8 +371,8 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
                     dictFiles['holeCount'] = f
                 elif f.find('{}-holeTotalCount'.format(grid)) != -1:
                     dictFiles['holeTotalCount'] = f
-                elif f.find('{}-good_bin'.format(grid)) != -1:
-                    dictFiles['good_bin'] = f
+                elif f.find('{}-goodBin'.format(grid)) != -1:
+                    dictFiles['goodBin'] = f
                 elif f.find('{}-good_binTotal'.format(grid)) != -1:
                     dictFiles['good_binTotal'] = f
                 elif f.find('{}-badParticles'.format(grid)) != -1:

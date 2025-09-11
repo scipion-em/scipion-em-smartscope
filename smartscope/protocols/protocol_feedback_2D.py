@@ -50,7 +50,7 @@ from ..constants import *
 from collections import defaultdict
 import numpy as np
 
-NUMBER_HOLES_TO_VIEW = 1000
+NUMBER_HOLES_TO_VIEW = 100
 
 
 class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
@@ -265,9 +265,11 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         for key, value in self.dictHolesWithMic.items():
             self.debug(f'{key} {value}')
             hole = self.holes.getItem('_hole_id', key)
-            hole.setGoodParticles(int(hole.getGoodParticles()) + value[0])
-            hole.setBadParticles(int(hole.getBadParticles()) + value[1])
-            hole.setTotalParticles(int(hole.getGoodParticles()) + value[0] + int(hole.getBadParticles()) + value[1])
+            good = int(hole.getGoodParticles()) + int(value[0])
+            bad = int(hole.getBadParticles()) + int(value[1])
+            hole.setGoodParticles(good)
+            hole.setBadParticles(good)
+            hole.setTotalParticles(good + bad)
 
         time4 = time.time()
         self.info(f'iter to set holes particles Time: {round(time4 - time3, 0)} s')
@@ -297,7 +299,7 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         np.savetxt(File, self.y_count, fmt='%.8f', delimiter=' ')
         File = self._getExtraPath("{}-holeTotalCount.txt".format(gridName))
         np.savetxt(File, self.y_countTotal, fmt='%.8f', delimiter=' ')
-        File = self._getExtraPath("{}-good_bin.txt".format(gridName))
+        File = self._getExtraPath("{}-goodBin.txt".format(gridName))
         np.savetxt(File, self.good_bin, fmt='%.8f', delimiter=' ')
         File = self._getExtraPath("{}-good_binTotal.txt".format(gridName))
         np.savetxt(File, self.good_binTotal, fmt='%.8f', delimiter=' ')
@@ -420,8 +422,12 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
             self.debug(key)
             self.debug(value)
             h = self.holes.getItem("_hole_id", key)
-            h.setGoodParticles(int(h.getGoodParticles()) + value[0])
-            h.setBadParticles(int(h.getBadParticles()) + value[1])
+            good = int(h.getGoodParticles()) + int(value[0])
+            bad = int(h.getBadParticles()) + int(value[1])
+            total = int(h.getTotalParticles())
+            h.setGoodParticles(good)
+            h.setBadParticles(bad)
+            h.setTotalParticles(total)
             hole2Add_copy = Hole()
             hole2Add_copy.copy(h, copyId=False)
             self.SOH.append(hole2Add_copy)
@@ -432,7 +438,7 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         self._store(self.SOH)
 
 
-        for hole in self.holes.iterItems(orderBy='_goodParticles', direction='DESC', limit=NUMBER_HOLES_TO_VIEW):#TODO the direction is not correct, try DESC
+        for hole in self.SOH.iterItems(orderBy='_goodParticles', direction='DESC', limit=NUMBER_HOLES_TO_VIEW):#
             hole2Add_copy = Hole()
             hole2Add_copy.copy(hole, copyId=False)
             self.SOBestH.append(hole2Add_copy)
