@@ -353,7 +353,7 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
         fjj.close()
         print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
         import time
-        time.sleep(10)
+        time.sleep(5)
         # DEBUGALBERTO END
         import os
         import matplotlib.pyplot as plt
@@ -389,7 +389,7 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
             listRanges = {'xBin': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['xBin'])),
             'holeCount': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['holeCount'])),
             'holeTotalCount': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['holeTotalCount'])),
-            'good_bin': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['good_bin'])),
+            'good_bin': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['goodBin'])),
             'good_binTotal': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['good_binTotal'])),
             'badParticles': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['badParticles'])),
             'totalParticles': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['totalParticles'])),
@@ -399,11 +399,12 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
 
 
             fig, axs = plt.subplots(2, 2, figsize=(10, 8))
-            axs[0, 0].bar(listRanges['xBin'], self.y_countTotal, width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9)
-            axs[0, 0].bar(listRanges['xBin'], self.y_count, width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9)
+            axs[0, 0].bar(listRanges['xBin'], listRanges['holeTotalCount'], width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9)
+            axs[0, 0].bar(listRanges['xBin'], listRanges['holeCount'], width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9)
             axs[0, 0].set_title("Num holes")
             axs[0, 0].set_xlabel("Intensity")
             axs[0, 0].set_ylabel("Count")
+            axs[0, 0].set_xlim(0, listRanges['bin_edges'][-1])
 
             axs[0, 1].bar(listRanges['xBin'], listRanges['totalParticles'], width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9,
                           # yerr=self.totalParticles_std_bin,
@@ -427,6 +428,7 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
             axs[1, 1].set_title("Sum good Particles")
             axs[1, 1].set_xlabel("Intensity")
             axs[1, 1].set_ylabel("goodParticles")
+            axs[1, 1].set_xlim(0, listRanges['bin_edges'][-1])
 
             plt.tight_layout()
             plt.show()

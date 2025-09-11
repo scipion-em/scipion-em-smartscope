@@ -422,9 +422,9 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
             self.debug(key)
             self.debug(value)
             h = self.holes.getItem("_hole_id", key)
-            good = int(h.getGoodParticles()) + int(value[0])
-            bad = int(h.getBadParticles()) + int(value[1])
-            total = int(h.getTotalParticles())
+            good = int(value[0])
+            bad = int(value[1])
+            total = good + bad
             h.setGoodParticles(good)
             h.setBadParticles(bad)
             h.setTotalParticles(total)
