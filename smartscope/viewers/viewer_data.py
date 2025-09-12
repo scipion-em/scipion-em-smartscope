@@ -42,6 +42,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import webbrowser
 import re
+import os
+import matplotlib.pyplot as plt
+
 
 class DataViewer_smartscope(ProtocolViewer):
     _targets = [smartscopeConnection]
@@ -309,8 +312,8 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
                        label="Visualize best 100 holes by good particles",
                        help="")
         group2 = form.addGroup('Statistics')
-        group2.addParam('holeIntensityDistribution', LabelParam,
-                       label="Visualize holes distribution by intensity",
+        group2.addParam('classesDistribution', LabelParam,
+                       label="Visualize class distribution of particles by intensity",
                        help="")
         group2.addParam('visualizeHistograms', LabelParam,
                        label="Visualize the histograms of intensity",
@@ -319,7 +322,7 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
     def _getVisualizeDict(self):
         return {
                  'visualizeBestHolesWithParticles': self._visualizeBestHolesWithParticles,
-                 'holeIntensityDistribution': self._holeIntensityDistribution,
+                 'classesDistribution': self._classesDistribution,
                  'visualizeHistograms': self._visualizeHistograms
                 }
 
@@ -335,8 +338,20 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
                                                 SORT_BY: labels}))
             return views
 
+
     def _classesDistribution(self, e=None):
+        # DEBUGALBERTO START
         import os
+        fname = "/home/agarcia/Documents/attachActionDebug.txt"
+        if os.path.exists(fname):
+            os.remove(fname)
+        fjj = open(fname, "a+")
+        fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+        fjj.close()
+        print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+        import time
+        time.sleep(8)
+        # DEBUGALBERTO END
         with open(os.path.join(self.protocol._getExtraPath(),'gridsName.txt'), 'r') as fi:
             gridsList = [line.strip() for line in fi]
         for grid in gridsList:
@@ -372,20 +387,7 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
 
 
     def _visualizeHistograms(self, e=None):
-        # DEBUGALBERTO START
-        import os
-        fname = "/home/agarcia/Documents/attachActionDebug.txt"
-        if os.path.exists(fname):
-            os.remove(fname)
-        fjj = open(fname, "a+")
-        fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
-        fjj.close()
-        print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
-        import time
-        time.sleep(2)
-        # DEBUGALBERTO END
-        import os
-        import matplotlib.pyplot as plt
+
 
         with open(os.path.join(self.protocol._getExtraPath(),'gridsName.txt'), 'r') as fi:
             gridsList = [line.strip() for line in fi]

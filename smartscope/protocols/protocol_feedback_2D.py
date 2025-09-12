@@ -325,7 +325,7 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         File = self._getExtraPath("{}-bin_edges.txt".format(gridName))
         np.savetxt(File, self.bin_edges, fmt='%.8f', delimiter=' ')
         for c in self.classes_bin_dict:
-            File = self._getExtraPath("{}-classes-{}_bin.txt".format(c, gridName))
+            File = self._getExtraPath("{}-classes-{}_bin.txt".format(gridName, c))
             np.savetxt(File, self.classes_bin_dict[c], fmt='%.8f', delimiter=' ')
 
 
