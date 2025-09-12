@@ -41,7 +41,7 @@ from pyworkflow.protocol.params import IntParam, LabelParam
 import numpy as np
 import matplotlib.pyplot as plt
 import webbrowser
-
+import re
 
 class DataViewer_smartscope(ProtocolViewer):
     _targets = [smartscopeConnection]
@@ -335,12 +335,41 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
                                                 SORT_BY: labels}))
             return views
 
-    def _holeIntensityDistribution(self, e=None):
+    def _classesDistribution(self, e=None):
         import os
         with open(os.path.join(self.protocol._getExtraPath(),'gridsName.txt'), 'r') as fi:
             gridsList = [line.strip() for line in fi]
         for grid in gridsList:
-            pass
+            dictFiles = {}
+            files = os.listdir(self.protocol._getExtraPath())
+            for f in files:
+                if f.find('{}-xBin'.format(grid)) != -1:
+                    dictFiles['xBin'] = f
+                elif f.find('{}-holeCount'.format(grid)) != -1:
+                    dictFiles['holeCount'] = f
+                elif f.find('{}-holeTotalCount'.format(grid)) != -1:
+                    dictFiles['holeTotalCount'] = f
+                elif f.find('{}-bin_edges'.format(grid)) != -1:
+                    dictFiles['bin_edges'] = f
+                elif f.find('{}-classes-'.format(grid)) != -1:
+                    match = re.search(r"\d+", f)
+                    if match:
+                        dictFiles[f'class-{int(match.group())}'] = f
+
+
+        numClasses = range(sum(1 for key in dictFiles if "class" in key))
+        listRanges = {'xBin': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['xBin'])),
+                      'holeCount': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['holeCount'])),
+                      'holeTotalCount': np.loadtxt(
+                          os.path.join(self.protocol._getExtraPath(), dictFiles['holeTotalCount'])),
+
+                      'bin_edges': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['bin_edges']))}
+
+        classesDict = [c for c in dictFiles if "-classes-" in c]
+        for c in classesDict.items():
+            listRanges[c] = np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles[c]))
+
+
 
     def _visualizeHistograms(self, e=None):
         # DEBUGALBERTO START
@@ -353,7 +382,7 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
         fjj.close()
         print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
         import time
-        time.sleep(5)
+        time.sleep(2)
         # DEBUGALBERTO END
         import os
         import matplotlib.pyplot as plt
@@ -386,6 +415,7 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
                 elif f.find('{}-bin_edges'.format(grid)) != -1:
                     dictFiles['bin_edges'] = f
 
+
             listRanges = {'xBin': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['xBin'])),
             'holeCount': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['holeCount'])),
             'holeTotalCount': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['holeTotalCount'])),
@@ -397,38 +427,34 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
             'bin_edges': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['bin_edges'])),
             'percentGood': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['percentGood']))}
 
+            fig, axs = plt.subplots(1, 3, figsize=(14, 5))
+            fig.canvas.manager.set_window_title("Visualize the histogram of intensity")
+            axs[0].bar(listRanges['xBin'], listRanges['holeTotalCount'],color='gray', width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9, label='Total holes')
+            axs[0].bar(listRanges['xBin'], listRanges['holeCount'],  edgecolor='black', color='skyblue', width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9, label='Holes acquired')
+            axs[0].set_title("Num holes")
+            axs[0].set_xlabel("Holes Intensity")
+            axs[0].set_ylabel("Count")
+            axs[0].set_xlim(0, listRanges['bin_edges'][-1])
+            axs[0].legend()
 
-            fig, axs = plt.subplots(2, 2, figsize=(10, 8))
-            axs[0, 0].bar(listRanges['xBin'], listRanges['holeTotalCount'], width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9)
-            axs[0, 0].bar(listRanges['xBin'], listRanges['holeCount'], width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9)
-            axs[0, 0].set_title("Num holes")
-            axs[0, 0].set_xlabel("Intensity")
-            axs[0, 0].set_ylabel("Count")
-            axs[0, 0].set_xlim(0, listRanges['bin_edges'][-1])
+            axs[1].bar(listRanges['xBin'], listRanges['totalParticles'], width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9,
+                       # yerr=self.totalParticles_std_bin,
+                       capsize=5, color='gray', label='Total particles')
+            axs[1].bar(listRanges['xBin'], listRanges['good_binTotal'], width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9,
+                       # yerr=self.good_std_bin,
+                       capsize=5, color='green', edgecolor='black', label='Good particles')
+            axs[1].set_title("Sum num particles")
+            axs[1].set_xlabel("Holes Intensity")
+            axs[1].set_ylabel("particles")
+            axs[1].set_xlim(0, listRanges['bin_edges'][-1])
+            axs[1].legend()
 
-            axs[0, 1].bar(listRanges['xBin'], listRanges['totalParticles'], width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9,
-                          # yerr=self.totalParticles_std_bin,
-                          capsize=5, color='skyblue', edgecolor='black')
-            axs[0, 1].set_title("Sum num particles")
-            axs[0, 1].set_xlabel("Intensity")
-            axs[0, 1].set_ylabel("particles")
-            axs[0, 1].set_xlim(0, listRanges['bin_edges'][-1])
-
-            axs[1, 0].bar(listRanges['xBin'], listRanges['percentGood'], width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9)
-            axs[1, 0].set_title("Media de percent good")
-            axs[1, 0].set_xlabel("Intensity")
-            axs[1, 0].set_ylabel("Percent good")
-            axs[1, 0].set_xlim(0, listRanges['bin_edges'][-1])
-            axs[1, 0].set_ylim(0, 1)
-
-
-            axs[1, 1].bar(listRanges['xBin'], listRanges['good_binTotal'], width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9,
-                          # yerr=self.good_std_bin,
-                          capsize=5, color='skyblue', edgecolor='black')
-            axs[1, 1].set_title("Sum good Particles")
-            axs[1, 1].set_xlabel("Intensity")
-            axs[1, 1].set_ylabel("goodParticles")
-            axs[1, 1].set_xlim(0, listRanges['bin_edges'][-1])
+            axs[2].bar(listRanges['xBin'], listRanges['percentGood'], color='green', width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9)
+            axs[2].set_title("Media de percent good")
+            axs[2].set_xlabel("Holes Intensity")
+            axs[2].set_ylabel("Percent good")
+            axs[2].set_xlim(0, listRanges['bin_edges'][-1])
+            axs[2].set_ylim(0, 1)
 
             plt.tight_layout()
             plt.show()
