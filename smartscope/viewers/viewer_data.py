@@ -352,6 +352,8 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
         import time
         time.sleep(8)
         # DEBUGALBERTO END
+
+
         with open(os.path.join(self.protocol._getExtraPath(),'gridsName.txt'), 'r') as fi:
             gridsList = [line.strip() for line in fi]
         for grid in gridsList:
@@ -367,7 +369,8 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
                 elif f.find('{}-bin_edges'.format(grid)) != -1:
                     dictFiles['bin_edges'] = f
                 elif f.find('{}-classes-'.format(grid)) != -1:
-                    match = re.search(r"\d+", f)
+                    classNum = f[f.find('class'):]
+                    match = re.search(r"\d+", classNum)
                     if match:
                         dictFiles[f'class-{int(match.group())}'] = f
 
@@ -375,14 +378,71 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
         numClasses = range(sum(1 for key in dictFiles if "class" in key))
         listRanges = {'xBin': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['xBin'])),
                       'holeCount': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['holeCount'])),
-                      'holeTotalCount': np.loadtxt(
-                          os.path.join(self.protocol._getExtraPath(), dictFiles['holeTotalCount'])),
-
+                      'holeTotalCount': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['holeTotalCount'])),
                       'bin_edges': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['bin_edges']))}
 
-        classesDict = [c for c in dictFiles if "-classes-" in c]
-        for c in classesDict.items():
-            listRanges[c] = np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles[c]))
+        classesList = [c for c, v in dictFiles.items() if "-classes-" in v]
+        for v in classesList:
+            listRanges[v] = np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles[v]))
+        classesList = sorted(classesList, key=lambda x: int(x.split('-')[1]))
+        #Images
+        classImagesDict = {}
+        for c in self.protocol.goodClasses2D.get():
+            path_mrc = c.getRepresentative().getFileName()
+            classNumber = c.getRepresentative().getIndex()
+            classImagesDict[classNumber] = f"{classNumber}@{path_mrc}"
+
+
+
+        #PLOTS
+        fig, ax = plt.subplots(figsize=(12, 6))
+        # Dibujar barras agrupadas
+        x = np.arange(len(listRanges['xBin']))  # posiciones en eje X
+        width = 0.12  # ancho de cada barra
+        for i, cls in enumerate(classesList):
+            ax.bar(x + i * width, listRanges[cls], width, label=cls)
+        # Etiquetas y formato
+        ax.set_xticks(x + width * (len(classesList) / 2))
+        ax.set_xticklabels(np.round(listRanges['xBin'], 1), rotation=45)
+        ax.set_xlabel("xBin")
+        ax.set_ylabel("Frecuencia")
+        ax.set_title("Distribución por clase en función de xBin")
+        ax.legend()
+        plt.tight_layout()
+        plt.show()
+
+
+        ###OTRO PLOT
+        # --- Filtrar bins vacíos ---
+        matrix = np.vstack([listRanges[c] for c in classesList])  # shape (n_classes, n_bins)
+        mask = matrix.sum(axis=0) > 0                   # bins con algún valor
+        xBin_filtered = listRanges['xBin'][mask]
+        matrix_filtered = matrix[:, mask]
+
+        # --- Normalización a porcentajes ---
+        col_sums = matrix_filtered.sum(axis=0)
+        percent_matrix = matrix_filtered / col_sums * 100
+
+        # --- Gráfico apilado ---
+        x = np.arange(len(xBin_filtered))
+        fig, ax = plt.subplots(figsize=(12,6))
+
+        bottom = np.zeros(len(x))
+        for i, cls in enumerate(classesList):
+            ax.bar(x, percent_matrix[i], bottom=bottom, label=cls)
+            bottom += percent_matrix[i]
+
+        # --- Etiquetas ---
+        ax.set_xticks(x)
+        ax.set_xticklabels(np.round(xBin_filtered,1), rotation=45)
+        ax.set_xlabel("xBin")
+        ax.set_ylabel("Porcentaje (%)")
+        ax.set_title("Distribución porcentual por clase en bins con valores")
+        ax.legend()
+
+        plt.tight_layout()
+        plt.show()
+
 
 
 
