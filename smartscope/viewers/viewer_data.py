@@ -44,7 +44,7 @@ import webbrowser
 import re
 import os
 import matplotlib.pyplot as plt
-
+import math
 
 class DataViewer_smartscope(ProtocolViewer):
     _targets = [smartscopeConnection]
@@ -312,12 +312,12 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
                        label="Visualize best 100 holes by good particles",
                        help="")
         group2 = form.addGroup('Statistics')
-        group2.addParam('classesDistribution', LabelParam,
-                       label="Visualize class distribution of particles by intensity",
-                       help="")
         group2.addParam('visualizeHistograms', LabelParam,
                        label="Visualize the histograms of intensity",
                        help="Visualize the histograms of intensity per holes and particles.")
+        group2.addParam('classesDistribution', LabelParam,
+                       label="Visualize class distribution of particles by intensity",
+                       help="")
 
     def _getVisualizeDict(self):
         return {
@@ -350,7 +350,7 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
         fjj.close()
         print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
         import time
-        time.sleep(8)
+        time.sleep(5)
         # DEBUGALBERTO END
 
 
@@ -393,7 +393,6 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
             classImagesDict[classNumber] = f"{classNumber}@{path_mrc}"
 
 
-
         #PLOTS
         fig, ax = plt.subplots(figsize=(12, 6))
         # Dibujar barras agrupadas
@@ -404,46 +403,51 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
         # Etiquetas y formato
         ax.set_xticks(x + width * (len(classesList) / 2))
         ax.set_xticklabels(np.round(listRanges['xBin'], 1), rotation=45)
-        ax.set_xlabel("xBin")
+        ax.set_xlabel("Intensity")
         ax.set_ylabel("Frecuencia")
-        ax.set_title("Distribución por clase en función de xBin")
+        ax.set_title("Distribución por clase en función de intensity")
         ax.legend()
         plt.tight_layout()
         plt.show()
 
 
-        ###OTRO PLOT
+
         # --- Filtrar bins vacíos ---
         matrix = np.vstack([listRanges[c] for c in classesList])  # shape (n_classes, n_bins)
-        mask = matrix.sum(axis=0) > 0                   # bins con algún valor
+        mask = matrix.sum(axis=0) > 0  # bins con algún valor
         xBin_filtered = listRanges['xBin'][mask]
         matrix_filtered = matrix[:, mask]
 
         # --- Normalización a porcentajes ---
         col_sums = matrix_filtered.sum(axis=0)
-        percent_matrix = matrix_filtered / col_sums * 100
+        percent_matrix = matrix_filtered / col_sums * 100  # cada columna suma 100%
 
-        # --- Gráfico apilado ---
+        # --- Subplots en grid ---
+        n_classes = len(classesList)
+        n_cols = 4
+        n_rows = math.ceil(n_classes / n_cols)
+
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(15, 4 * n_rows), sharex=True, sharey=True)
+        axes = axes.flatten()  # convertir a lista para indexar fácilmente
+
         x = np.arange(len(xBin_filtered))
-        fig, ax = plt.subplots(figsize=(12,6))
 
-        bottom = np.zeros(len(x))
         for i, cls in enumerate(classesList):
-            ax.bar(x, percent_matrix[i], bottom=bottom, label=cls)
-            bottom += percent_matrix[i]
+            ax = axes[i]
+            ax.bar(x, percent_matrix[i], color=f"C{i % 10}")
+            ax.set_title(f"{cls}")
+            ax.set_ylim(0, 30)  # porque son porcentajes
 
-        # --- Etiquetas ---
-        ax.set_xticks(x)
-        ax.set_xticklabels(np.round(xBin_filtered,1), rotation=45)
-        ax.set_xlabel("xBin")
-        ax.set_ylabel("Porcentaje (%)")
-        ax.set_title("Distribución porcentual por clase en bins con valores")
-        ax.legend()
+            ax.set_xticks(x)
+            ax.set_xticklabels(np.round(xBin_filtered, 1), rotation=45)
 
-        plt.tight_layout()
+        # Ocultar ejes vacíos si sobran
+        for j in range(len(classesList), len(axes)):
+            fig.delaxes(axes[j])
+
+        fig.suptitle("Distribución porcentual por clase en bins con valores", fontsize=16)
+        plt.tight_layout(rect=[0, 0, 1, 0.97])
         plt.show()
-
-
 
 
     def _visualizeHistograms(self, e=None):
