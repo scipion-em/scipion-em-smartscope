@@ -378,14 +378,14 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
                 self.good_binTotal[i] = goodParticles[mask].sum()
                 valsGood = goodParticles[mask]
                 if valsGood.size > 0:
-                    self.good_bin[i] = valsGood.mean()
+                    self.good_bin[i] = valsGood.sum()
                     self.good_std_bin[i] = goodParticles[mask].std()
                 else:
                     self.good_bin[i] = 0
                     self.good_std_bin[i] = 0
                 valsBad = badParticles[mask]
                 if valsBad.size > 0:
-                    self.bad_bin[i] = valsBad.mean()
+                    self.bad_bin[i] = valsBad.sum()
                 else:
                     self.bad_bin[i] = 0
 
