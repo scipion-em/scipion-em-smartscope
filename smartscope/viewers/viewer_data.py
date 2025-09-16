@@ -340,6 +340,10 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
 
 
     def _classesDistribution(self, e=None):
+        import math
+        import numpy as np
+        import mrcfile
+
         # DEBUGALBERTO START
         import os
         fname = "/home/agarcia/Documents/attachActionDebug.txt"
@@ -374,43 +378,26 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
                     if match:
                         dictFiles[f'class-{int(match.group())}'] = f
 
-
+        # --- Preparación de datos ---
         numClasses = range(sum(1 for key in dictFiles if "class" in key))
-        listRanges = {'xBin': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['xBin'])),
-                      'holeCount': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['holeCount'])),
-                      'holeTotalCount': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['holeTotalCount'])),
-                      'bin_edges': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['bin_edges']))}
+        listRanges = {
+            'xBin': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['xBin'])),
+            'holeCount': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['holeCount'])),
+            'holeTotalCount': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['holeTotalCount'])),
+            'bin_edges': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['bin_edges']))
+        }
 
         classesList = [c for c, v in dictFiles.items() if "-classes-" in v]
         for v in classesList:
             listRanges[v] = np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles[v]))
         classesList = sorted(classesList, key=lambda x: int(x.split('-')[1]))
-        #Images
+
+        # --- Diccionario de imágenes representativas ---
         classImagesDict = {}
         for c in self.protocol.goodClasses2D.get():
             path_mrc = c.getRepresentative().getFileName()
             classNumber = c.getRepresentative().getIndex()
             classImagesDict[classNumber] = f"{classNumber}@{path_mrc}"
-
-
-        #PLOTS
-        fig, ax = plt.subplots(figsize=(12, 6))
-        # Dibujar barras agrupadas
-        x = np.arange(len(listRanges['xBin']))  # posiciones en eje X
-        width = 0.12  # ancho de cada barra
-        for i, cls in enumerate(classesList):
-            ax.bar(x + i * width, listRanges[cls], width, label=cls)
-        # Etiquetas y formato
-        ax.set_xticks(x + width * (len(classesList) / 2))
-        ax.set_xticklabels(np.round(listRanges['xBin'], 1), rotation=45)
-        ax.set_xlabel("Intensity")
-        ax.set_ylabel("Frecuencia")
-        ax.set_title("Distribución por clase en función de intensity")
-        ax.legend()
-        plt.tight_layout()
-        plt.show()
-
-
 
         # --- Filtrar bins vacíos ---
         matrix = np.vstack([listRanges[c] for c in classesList])  # shape (n_classes, n_bins)
@@ -432,23 +419,69 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
 
         x = np.arange(len(xBin_filtered))
 
+        max_val = np.max(percent_matrix)
+        ymax = int(np.ceil(max_val / 10) * 10)
+
         for i, cls in enumerate(classesList):
             ax = axes[i]
-            ax.bar(x, percent_matrix[i], color=f"C{i % 10}")
-            ax.set_title(f"{cls}")
-            ax.set_ylim(0, 30)  # porque son porcentajes
 
+            # --- Añadir imagen de fondo ---
+            class_idx = int(cls.split('-')[1])  # ej: "class-3" -> 3
+            img_ref = classImagesDict.get(class_idx)
+            if img_ref:
+                idx, path_mrc = img_ref.split('@')
+                idx = int(idx)
+
+                with mrcfile.open(path_mrc) as mrc:
+                    idx = idx % mrc.data.shape[0]
+                    img_data = mrc.data[idx]
+                # Mostrar imagen como fondo, ajustada al rango de las barras
+                ax.imshow(
+                    img_data,
+                    cmap='gray',
+                    extent=[-0.5, len(x) - 0.5, 0, 30],
+                    alpha=0.7,
+                    aspect='auto'
+                )
+            y = percent_matrix[i]
+
+            # Línea de tendencia lineal
+            linear_coeff = np.polyfit(x, y, 1)
+            linear_fit = np.poly1d(linear_coeff)
+            y_linear = linear_fit(x)
+            r2_linear = self.r2_numpy(y, y_linear)
+            ax.plot(x, y_linear, color='black', linestyle='-', linewidth=1.5)
+
+            # Línea de tendencia cuadrática
+            quad_coeff = np.polyfit(x, y, 2)
+            quad_fit = np.poly1d(quad_coeff)
+            y_quad = quad_fit(x)
+            r2_quad = self.r2_numpy(y, y_quad)
+            ax.plot(x, y_quad, color='gray', linestyle='-.', linewidth=1.5)
+
+            # --- Mostrar R² en el subplot ---
+            ax.text(0.02, 0.95, f"R² linear: {r2_linear:.2f}\nR² quad: {r2_quad:.2f}",
+                    transform=ax.transAxes, fontsize=8,
+                    verticalalignment='top', horizontalalignment='left',
+                    bbox=dict(facecolor='white', alpha=0.5, edgecolor='none'))
+
+            # --- Dibujar las barras por encima ---
+            ax.bar(x, percent_matrix[i], facecolor='green', edgecolor=f"green", linewidth=2.5, alpha =0.1)
+            ax.set_title(f"{cls}")
+            ax.set_ylim(0, ymax)
             ax.set_xticks(x)
             ax.set_xticklabels(np.round(xBin_filtered, 1), rotation=45)
+
+            if i == 0:
+                ax.legend()
 
         # Ocultar ejes vacíos si sobran
         for j in range(len(classesList), len(axes)):
             fig.delaxes(axes[j])
 
-        fig.suptitle("Distribución porcentual por clase en bins con valores", fontsize=16)
+        fig.suptitle("Percentage Distribution of Particles per Bin for Each 2D Class", fontsize=16)
         plt.tight_layout(rect=[0, 0, 1, 0.97])
         plt.show()
-
 
     def _visualizeHistograms(self, e=None):
 
@@ -524,3 +557,8 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
 
             plt.tight_layout()
             plt.show()
+
+    def r2_numpy(self, y, y_fit):
+        ss_res = np.sum((y - y_fit) ** 2)
+        ss_tot = np.sum((y - np.mean(y)) ** 2)
+        return 1 - ss_res / ss_tot
