@@ -313,10 +313,10 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
                        help="")
         group2 = form.addGroup('Statistics')
         group2.addParam('visualizeHistograms', LabelParam,
-                       label="Visualize the histograms of intensity",
+                       label="Histograms of intensity",
                        help="Visualize the histograms of intensity per holes and particles.")
         group2.addParam('classesDistribution', LabelParam,
-                       label="Visualize class distribution of particles by intensity",
+                       label="Class distribution of particles by intensity",
                        help="")
 
     def _getVisualizeDict(self):
@@ -415,7 +415,7 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
         n_rows = math.ceil(n_classes / n_cols)
 
         fig, axes = plt.subplots(n_rows, n_cols, figsize=(15, 4 * n_rows), sharex=True, sharey=True)
-        axes = axes.flatten()  # convertir a lista para indexar fácilmente
+        axes = axes.flatten()
 
         x = np.arange(len(xBin_filtered))
 
@@ -425,55 +425,38 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
         for i, cls in enumerate(classesList):
             ax = axes[i]
 
-            # --- Añadir imagen de fondo ---
-            class_idx = int(cls.split('-')[1])  # ej: "class-3" -> 3
+            # --- Imagen de fondo ---
+            class_idx = int(cls.split('-')[1])
             img_ref = classImagesDict.get(class_idx)
             if img_ref:
                 idx, path_mrc = img_ref.split('@')
                 idx = int(idx)
-
                 with mrcfile.open(path_mrc) as mrc:
                     idx = idx % mrc.data.shape[0]
                     img_data = mrc.data[idx]
-                # Mostrar imagen como fondo, ajustada al rango de las barras
-                ax.imshow(
-                    img_data,
-                    cmap='gray',
-                    extent=[-0.5, len(x) - 0.5, 0, 30],
-                    alpha=0.7,
-                    aspect='auto'
-                )
+                ax.imshow(img_data, cmap='gray', extent=[-0.5, len(x) - 0.5, 0, ymax], alpha=0.9, aspect='auto')
+
             y = percent_matrix[i]
 
-            # Línea de tendencia lineal
-            linear_coeff = np.polyfit(x, y, 1)
-            linear_fit = np.poly1d(linear_coeff)
-            y_linear = linear_fit(x)
-            r2_linear = self.r2_numpy(y, y_linear)
-            ax.plot(x, y_linear, color='black', linestyle='-', linewidth=1.5)
+            # --- Área ---
+            fill_color = (0, 0.6, 0, 0.3)  # relleno verde semitransparente
+            edge_color = (0, 0.4, 0, 1)  # borde verde más oscuro, opaco
+            ax.fill_between(x, 0, y, facecolor=fill_color, edgecolor=edge_color, linewidth=2)
 
-            # Línea de tendencia cuadrática
-            quad_coeff = np.polyfit(x, y, 2)
-            quad_fit = np.poly1d(quad_coeff)
-            y_quad = quad_fit(x)
-            r2_quad = self.r2_numpy(y, y_quad)
-            ax.plot(x, y_quad, color='gray', linestyle='-.', linewidth=1.5)
+            # --- Puntos en cada valor ---
+            ax.plot(x, y, 'o', color=(0, 0.3, 0, 1), markersize=4)
 
-            # --- Mostrar R² en el subplot ---
-            ax.text(0.02, 0.95, f"R² linear: {r2_linear:.2f}\nR² quad: {r2_quad:.2f}",
-                    transform=ax.transAxes, fontsize=8,
-                    verticalalignment='top', horizontalalignment='left',
-                    bbox=dict(facecolor='white', alpha=0.5, edgecolor='none'))
-
-            # --- Dibujar las barras por encima ---
-            ax.bar(x, percent_matrix[i], facecolor='green', edgecolor=f"green", linewidth=2.5, alpha =0.1)
             ax.set_title(f"{cls}")
             ax.set_ylim(0, ymax)
             ax.set_xticks(x)
             ax.set_xticklabels(np.round(xBin_filtered, 1), rotation=45)
+            # Eje Y solo para la primera columna
+            if i % n_cols == 0:
+                ax.set_ylabel("Percent (%)", fontsize=11)
 
-            if i == 0:
-                ax.legend()
+            # Eje X solo para la última fila
+            if i // n_cols == n_rows - 1:
+                ax.set_xlabel("Intensity (Ice Thickness)", fontsize=11)
 
         # Ocultar ejes vacíos si sobran
         for j in range(len(classesList), len(axes)):
