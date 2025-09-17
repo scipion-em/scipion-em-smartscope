@@ -45,6 +45,9 @@ import re
 import os
 import matplotlib.pyplot as plt
 import math
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import numpy as np
 
 class DataViewer_smartscope(ProtocolViewer):
     _targets = [smartscopeConnection]
@@ -296,8 +299,318 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
 
             plt.show()
 
+#
+# class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
+#     """
+#
+#     """
+#     _label = 'viewer feedback holes particles'
+#     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
+#     _targets = [smartscopeFeedback2D]
+#
+#     def _defineParams(self, form):
+#         form.addSection(label='Visualization')
+#         group = form.addGroup('Holes')
+#         group.addParam('visualizeBestHolesWithParticles', LabelParam,
+#                        label="Visualize best 100 holes by good particles",
+#                        help="")
+#         group2 = form.addGroup('Statistics')
+#         group2.addParam('visualizeHistograms', LabelParam,
+#                        label="Histograms of intensity",
+#                        help="Visualize the histograms of intensity per holes and particles.")
+#         group2.addParam('classesDistribution', LabelParam,
+#                        label="Class distribution of particles by intensity",
+#                        help="")
+#
+#     def _getVisualizeDict(self):
+#         return {
+#                  'visualizeBestHolesWithParticles': self._visualizeBestHolesWithParticles,
+#                  'classesDistribution': self._classesDistribution,
+#                  'visualizeHistograms': self._visualizeHistograms
+#                 }
+#
+#     def _visualizeBestHolesWithParticles(self, e=None):
+#         views = []
+#         if hasattr(self.protocol, 'SetOfBestHoles'):
+#             labels = ('_pngDir _hole_id _grid_id _goodParticles _badParticles _totalParticles')
+#             views.append(ObjectView(self._project,
+#                                     self.protocol.SetOfBestHoles.strId(),
+#                                     self.protocol.SetOfBestHoles.getFileName(),
+#                                     viewParams={VISIBLE: labels,
+#                                                 RENDER: '_rawDir',
+#                                                 SORT_BY: labels}))
+#             return views
+#
+#
+#     def _classesDistribution(self, e=None):
+#         import math
+#         import numpy as np
+#         import mrcfile
+#         from matplotlib.widgets import RangeSlider, Button
+#
+#         # DEBUGALBERTO START
+#         import os
+#         fname = "/home/agarcia/Documents/attachActionDebug.txt"
+#         if os.path.exists(fname):
+#             os.remove(fname)
+#         fjj = open(fname, "a+")
+#         fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+#         fjj.close()
+#         print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+#         import time
+#         time.sleep(2)
+#         # DEBUGALBERTO END
+#
+#
+#         with open(os.path.join(self.protocol._getExtraPath(),'gridsName.txt'), 'r') as fi:
+#             gridsList = [line.strip() for line in fi]
+#         for grid in gridsList:
+#             dictFiles = {}
+#             files = os.listdir(self.protocol._getExtraPath())
+#             for f in files:
+#                 if f.find('{}-xBin'.format(grid)) != -1:
+#                     dictFiles['xBin'] = f
+#                 elif f.find('{}-holeCount'.format(grid)) != -1:
+#                     dictFiles['holeCount'] = f
+#                 elif f.find('{}-holeTotalCount'.format(grid)) != -1:
+#                     dictFiles['holeTotalCount'] = f
+#                 elif f.find('{}-bin_edges'.format(grid)) != -1:
+#                     dictFiles['bin_edges'] = f
+#                 elif f.find('{}-classes-'.format(grid)) != -1:
+#                     classNum = f[f.find('class'):]
+#                     match = re.search(r"\d+", classNum)
+#                     if match:
+#                         dictFiles[f'class-{int(match.group())}'] = f
+#
+#         # --- Preparación de datos ---
+#         numClasses = range(sum(1 for key in dictFiles if "class" in key))
+#         listRanges = {
+#             'xBin': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['xBin'])),
+#             'holeCount': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['holeCount'])),
+#             'holeTotalCount': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['holeTotalCount'])),
+#             'bin_edges': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['bin_edges']))
+#         }
+#
+#         classesList = [c for c, v in dictFiles.items() if "-classes-" in v]
+#         for v in classesList:
+#             listRanges[v] = np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles[v]))
+#         classesList = sorted(classesList, key=lambda x: int(x.split('-')[1]))
+#
+#         # -----------------------------
+#         # DATA manipulation
+#         # -----------------------------
+#
+#         # 1. Build dictionary of representative images
+#         classImagesDict = {}
+#         for c in self.protocol.goodClasses2D.get():
+#             path_mrc = c.getRepresentative().getFileName()
+#             classNumber = c.getRepresentative().getIndex()
+#             classImagesDict[classNumber] = f"{classNumber}@{path_mrc}"
+#
+#         # 2. Filter empty bins
+#         matrix = np.vstack([listRanges[c] for c in classesList])  # shape (n_classes, n_bins)
+#         mask = matrix.sum(axis=0) > 0  # only bins with some value
+#         xBin_filtered = listRanges['xBin'][mask]
+#         matrix_filtered = matrix[:, mask]
+#         particles_per_class = matrix_filtered.sum(axis=1)
+#
+#         # 3. Normalize to percentages
+#         col_sums = matrix_filtered.sum(axis=0)
+#         percent_matrix = matrix_filtered / col_sums * 100  # each column sums to 100%
+#
+#         # 4. Prepare subplots grid
+#         n_classes = len(classesList)
+#         n_cols = 4 if n_classes <= 12 else 5
+#         n_rows = math.ceil(n_classes / n_cols)
+#
+#
+#         # -----------------------------
+#         #FIGURE Creation
+#         # -----------------------------
+#
+#         fig, axes = plt.subplots(n_rows, n_cols, figsize=(15, 4 * n_rows), sharex=True, sharey=True)
+#
+#         # 1. Slider for intensity range
+#         # fig.text(0.5, 0.98, "Select range of intensity", ha="center", va="center", fontsize=14, fontweight="bold")
+#
+#         # # Slider axes
+#         # ax_slider = fig.add_axes([0.15, 0.92, 0.5, 0.03])
+#         # slider = RangeSlider(
+#         #     ax_slider,
+#         #     "",  # no label since title is above
+#         #     valmin=float(np.min(xBin_filtered)),
+#         #     valmax=float(np.max(xBin_filtered)),
+#         #     valinit=(float(np.min(xBin_filtered)), float(np.max(xBin_filtered))),
+#         #     facecolor="blue"
+#         # )
+#         # slider.track.set_color("lightgray")  # color of unselected range
+#         # ax_button = fig.add_axes([0.75, 0.92, 0.15, 0.04])
+#         # button = Button(ax_button, "Apply")
+#
+#         # # Callback function
+#         # def apply_range(event):
+#         #     vmin, vmax = slider.val
+#         #     for ax in axes:
+#         #         ax.set_xlim(vmin, vmax)  # update x-limits for all subplots
+#         #     fig.canvas.draw_idle()
+#
+#         fig.suptitle("Percentage Distribution of Particles per Bin for Each 2D Class",
+#             fontsize=14, fontweight="bold", y=0.98)
+#         #plt.subplots_adjust(top=0.65) # leave space for slider and titles
+#         axes = axes.flatten()
+#
+#         x = np.arange(len(xBin_filtered))
+#         ymax = int(np.ceil(np.max(percent_matrix) / 10) * 10)
+#
+#         # highlight_areas = []        # 5. Plot each class
+#         for i, cls in enumerate(classesList):
+#             ax = axes[i]
+#
+#             # --- Background image ---
+#             class_idx = int(cls.split('-')[1])
+#             img_ref = classImagesDict.get(class_idx)
+#             # area = ax.axvspan(0, 3, color='blue', alpha=0.3)
+#             # highlight_areas.append(area)
+#             if img_ref:
+#                 idx, path_mrc = img_ref.split('@')
+#                 idx = int(idx)
+#                 with mrcfile.open(path_mrc) as mrc:
+#                     idx = idx % mrc.data.shape[0]
+#                     img_data = mrc.data[idx]
+#                 ax.imshow(img_data, cmap='gray', extent=[-0.5, len(x) - 0.5, 0, ymax], alpha=0.9, aspect='auto')
+#
+#             y = percent_matrix[i]
+#
+#             # # --- Filled area ---
+#             fill_color = (0, 0.6, 0, 0.3)  # semi-transparent green fill
+#             edge_color = (0, 0.4, 0, 1)  # darker green border
+#             ax.fill_between(x, 0, y, facecolor=fill_color, edgecolor=edge_color, linewidth=2)
+#
+#             # --- Display number of particles ---
+#             n_particles = int(particles_per_class[i])
+#             ax.text(
+#                 0.95, 0.9, f"Particles: {n_particles}",
+#                 transform=ax.transAxes,
+#                 ha='right', va='top',
+#                 fontsize=10, fontweight='bold',
+#                 bbox=dict(facecolor='white', alpha=0.6, edgecolor='none', boxstyle='round,pad=0.3')
+#             )
+#
+#             # --- Points on each value ---
+#             ax.plot(x, y, 'o', color=(0, 0.3, 0, 1), markersize=4)
+#             ax.set_title(f"{cls}")
+#             ax.set_ylim(0, ymax)
+#             ax.set_xticks(x)
+#             ax.set_xticklabels(np.round(xBin_filtered, 1), rotation=45)
+#
+#             # --- Y-axis only for first column ---
+#             if i % n_cols == 0:
+#                 ax.set_ylabel("Percent (%)", fontsize=11)
+#
+#             # --- X-axis only for last row ---
+#             if i // n_cols == n_rows - 1:
+#                 ax.set_xlabel("Intensity (Ice Thickness)", fontsize=11)
+#
+#         # --- Remove extra axes if any ---
+#         for j in range(len(classesList), len(axes)):
+#             fig.delaxes(axes[j])
+#
+#         # button.on_clicked(apply_range)
+#         #
+#         # def update(val):
+#         #     vmin, vmax = slider.val
+#         #     for area in highlight_areas:
+#         #         area.set_xy([[vmin, 0], [vmin, 1], [vmax, 1], [vmax, 0], [vmin, 0]])  # actualizar coords del área
+#         #     fig.canvas.draw_idle()
+#         #
+#         # slider.on_changed(update)
+#
+#         plt.tight_layout(rect=[0, 0, 1, 0.87])
+#         plt.show()
+#
+#     def _visualizeHistograms(self, e=None):
+#
+#
+#         with open(os.path.join(self.protocol._getExtraPath(),'gridsName.txt'), 'r') as fi:
+#             gridsList = [line.strip() for line in fi]
+#         for grid in gridsList:
+#             dictFiles = {}
+#             files = os.listdir(self.protocol._getExtraPath())
+#
+#             for f in files:
+#                 if f.find('{}-xBin'.format(grid)) != -1:
+#                     dictFiles['xBin'] = f
+#                 elif f.find('{}-holeCount'.format(grid)) != -1:
+#                     dictFiles['holeCount'] = f
+#                 elif f.find('{}-holeTotalCount'.format(grid)) != -1:
+#                     dictFiles['holeTotalCount'] = f
+#                 elif f.find('{}-goodBin'.format(grid)) != -1:
+#                     dictFiles['goodBin'] = f
+#                 elif f.find('{}-good_binTotal'.format(grid)) != -1:
+#                     dictFiles['good_binTotal'] = f
+#                 elif f.find('{}-badParticles'.format(grid)) != -1:
+#                     dictFiles['badParticles'] = f
+#                 elif f.find('{}-totalParticles'.format(grid)) != -1:
+#                     dictFiles['totalParticles'] = f
+#                 elif f.find('{}-stdTotalParticles'.format(grid)) != -1:
+#                     dictFiles['stdTotalParticles'] = f
+#                 elif f.find('{}-percentGood'.format(grid)) != -1:
+#                     dictFiles['percentGood'] = f
+#                 elif f.find('{}-bin_edges'.format(grid)) != -1:
+#                     dictFiles['bin_edges'] = f
+#
+#
+#             listRanges = {'xBin': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['xBin'])),
+#             'holeCount': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['holeCount'])),
+#             'holeTotalCount': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['holeTotalCount'])),
+#             'good_bin': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['goodBin'])),
+#             'good_binTotal': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['good_binTotal'])),
+#             'badParticles': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['badParticles'])),
+#             'totalParticles': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['totalParticles'])),
+#             'stdTotalParticles': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['stdTotalParticles'])),
+#             'bin_edges': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['bin_edges'])),
+#             'percentGood': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['percentGood']))}
+#
+#             fig, axs = plt.subplots(1, 3, figsize=(14, 5))
+#             fig.canvas.manager.set_window_title("Visualize the histogram of intensity")
+#             axs[0].bar(listRanges['xBin'], listRanges['holeTotalCount'],color='gray', width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9, label='Total holes')
+#             axs[0].bar(listRanges['xBin'], listRanges['holeCount'],  edgecolor='black', color='skyblue', width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9, label='Holes acquired')
+#             axs[0].set_title("Num holes")
+#             axs[0].set_xlabel("Holes Intensity")
+#             axs[0].set_ylabel("Count")
+#             axs[0].set_xlim(0, listRanges['bin_edges'][-1])
+#             axs[0].legend()
+#
+#             axs[1].bar(listRanges['xBin'], listRanges['totalParticles'], width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9,
+#                        # yerr=self.totalParticles_std_bin,
+#                        capsize=5, color='gray', label='Total particles')
+#             axs[1].bar(listRanges['xBin'], listRanges['good_binTotal'], width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9,
+#                        # yerr=self.good_std_bin,
+#                        capsize=5, color='green', edgecolor='black', label='Good particles')
+#             axs[1].set_title("Sum num particles")
+#             axs[1].set_xlabel("Holes Intensity")
+#             axs[1].set_ylabel("particles")
+#             axs[1].set_xlim(0, listRanges['bin_edges'][-1])
+#             axs[1].legend()
+#
+#             axs[2].bar(listRanges['xBin'], listRanges['percentGood'], color='green', width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9)
+#             axs[2].set_title("Media de percent good")
+#             axs[2].set_xlabel("Holes Intensity")
+#             axs[2].set_ylabel("Percent good")
+#             axs[2].set_xlim(0, listRanges['bin_edges'][-1])
+#             axs[2].set_ylim(0, 1)
+#
+#             plt.tight_layout()
+#             plt.show()
+#
+#     def r2_numpy(self, y, y_fit):
+#         ss_res = np.sum((y - y_fit) ** 2)
+#         ss_tot = np.sum((y - np.mean(y)) ** 2)
+#         return 1 - ss_res / ss_tot
+#
+#
 
-class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
+class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
     """
 
     """
@@ -312,18 +625,14 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
                        label="Visualize best 100 holes by good particles",
                        help="")
         group2 = form.addGroup('Statistics')
-        group2.addParam('visualizeHistograms', LabelParam,
-                       label="Histograms of intensity",
-                       help="Visualize the histograms of intensity per holes and particles.")
-        group2.addParam('classesDistribution', LabelParam,
+        group2.addParam('interactiveClassHoles', LabelParam,
                        label="Class distribution of particles by intensity",
                        help="")
 
     def _getVisualizeDict(self):
         return {
                  'visualizeBestHolesWithParticles': self._visualizeBestHolesWithParticles,
-                 'classesDistribution': self._classesDistribution,
-                 'visualizeHistograms': self._visualizeHistograms
+                 'interactiveClassHoles': self._interactiveClassHoles,
                 }
 
     def _visualizeBestHolesWithParticles(self, e=None):
@@ -338,210 +647,139 @@ class SmartscopeParticlesFeedbackViewer(ProtocolViewer):
                                                 SORT_BY: labels}))
             return views
 
+    def _interactiveClassHoles(self, e=None):
+        self.dataCollection()
+        self.dataManipulation()
+        self.plotlySetup()
 
-    def _classesDistribution(self, e=None):
-        import math
-        import numpy as np
-        import mrcfile
+    def dataCollection(self):
 
-        # DEBUGALBERTO START
-        import os
-        fname = "/home/agarcia/Documents/attachActionDebug.txt"
-        if os.path.exists(fname):
-            os.remove(fname)
-        fjj = open(fname, "a+")
-        fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
-        fjj.close()
-        print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
-        import time
-        time.sleep(5)
-        # DEBUGALBERTO END
+            with open(os.path.join(self.protocol._getExtraPath(),'gridsName.txt'), 'r') as fi:
+                gridsList = [line.strip() for line in fi]
+            for grid in gridsList:
+                dictFiles = {}
+                files = os.listdir(self.protocol._getExtraPath())
+                for f in files:
+                    if f.find('{}-xBin'.format(grid)) != -1:
+                        dictFiles['xBin'] = f
+                    elif f.find('{}-holeCount'.format(grid)) != -1:
+                        dictFiles['holeCount'] = f
+                    elif f.find('{}-holeTotalCount'.format(grid)) != -1:
+                        dictFiles['holeTotalCount'] = f
+                    elif f.find('{}-bin_edges'.format(grid)) != -1:
+                        dictFiles['bin_edges'] = f
+                    elif f.find('{}-classes-'.format(grid)) != -1:
+                        classNum = f[f.find('class'):]
+                        match = re.search(r"\d+", classNum)
+                        if match:
+                            dictFiles[f'class-{int(match.group())}'] = f
 
+            # --- Preparación de datos ---
+            self.numClasses = range(sum(1 for key in dictFiles if "class" in key))
+            self.listRanges = {
+                'xBin': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['xBin'])),
+                'holeCount': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['holeCount'])),
+                'holeTotalCount': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['holeTotalCount'])),
+                'bin_edges': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['bin_edges']))
+            }
 
-        with open(os.path.join(self.protocol._getExtraPath(),'gridsName.txt'), 'r') as fi:
-            gridsList = [line.strip() for line in fi]
-        for grid in gridsList:
-            dictFiles = {}
-            files = os.listdir(self.protocol._getExtraPath())
-            for f in files:
-                if f.find('{}-xBin'.format(grid)) != -1:
-                    dictFiles['xBin'] = f
-                elif f.find('{}-holeCount'.format(grid)) != -1:
-                    dictFiles['holeCount'] = f
-                elif f.find('{}-holeTotalCount'.format(grid)) != -1:
-                    dictFiles['holeTotalCount'] = f
-                elif f.find('{}-bin_edges'.format(grid)) != -1:
-                    dictFiles['bin_edges'] = f
-                elif f.find('{}-classes-'.format(grid)) != -1:
-                    classNum = f[f.find('class'):]
-                    match = re.search(r"\d+", classNum)
-                    if match:
-                        dictFiles[f'class-{int(match.group())}'] = f
+            self.classesList = [c for c, v in dictFiles.items() if "-classes-" in v]
+            for v in self.classesList:
+                self.listRanges[v] = np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles[v]))
+            self.classesList = sorted(self.classesList, key=lambda x: int(x.split('-')[1]))
 
-        # --- Preparación de datos ---
-        numClasses = range(sum(1 for key in dictFiles if "class" in key))
-        listRanges = {
-            'xBin': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['xBin'])),
-            'holeCount': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['holeCount'])),
-            'holeTotalCount': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['holeTotalCount'])),
-            'bin_edges': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['bin_edges']))
-        }
+            self.classImagesDict = {}
+            for c in self.protocol.goodClasses2D.get():
+                path_mrc = c.getRepresentative().getFileName()
+                classNumber = c.getRepresentative().getIndex()
+                self.classImagesDict[classNumber] = f"{classNumber}@{path_mrc}"
 
-        classesList = [c for c, v in dictFiles.items() if "-classes-" in v]
-        for v in classesList:
-            listRanges[v] = np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles[v]))
-        classesList = sorted(classesList, key=lambda x: int(x.split('-')[1]))
+    def dataManipulation(self):
+        self.matrix = np.vstack([self.listRanges[c] for c in self.classesList])  # shape (n_classes, n_bins)
+        self.xBin = self.listRanges['xBin']
+        self.particles_per_class = self.matrix.sum(axis=1)
 
-        # --- Diccionario de imágenes representativas ---
-        classImagesDict = {}
-        for c in self.protocol.goodClasses2D.get():
-            path_mrc = c.getRepresentative().getFileName()
-            classNumber = c.getRepresentative().getIndex()
-            classImagesDict[classNumber] = f"{classNumber}@{path_mrc}"
+        self.col_sums = self.matrix.sum(axis=0)
+        self.percent_matrix = self.matrix / self.col_sums * 100  # each column sums to 100%
 
-        # --- Filtrar bins vacíos ---
-        matrix = np.vstack([listRanges[c] for c in classesList])  # shape (n_classes, n_bins)
-        mask = matrix.sum(axis=0) > 0  # bins con algún valor
-        xBin_filtered = listRanges['xBin'][mask]
-        matrix_filtered = matrix[:, mask]
+    def plotlySetup(self):
+        # -----------------------------
+        # Datos de ejemplo
+        # -----------------------------
+        x = np.linspace(0, 10, 50)
+        y_main1 = np.sin(x)
+        y_main2 = np.cos(x)
+        y_main3 = np.sin(x * 2)
 
-        # --- Normalización a porcentajes ---
-        col_sums = matrix_filtered.sum(axis=0)
-        percent_matrix = matrix_filtered / col_sums * 100  # cada columna suma 100%
+        n_subplots = 12
+        y_subplots = [np.random.rand(len(x)) for _ in range(n_subplots)]
+        sub_titles = [f"Class-{i}" for i in range(n_subplots)]
 
-        # --- Subplots en grid ---
-        n_classes = len(classesList)
-        n_cols = 4
-        n_rows = math.ceil(n_classes / n_cols)
+        # -----------------------------
+        # Crear subplots
+        # -----------------------------
+        # Layout: 3 filas principales + espacio slider + subplots (3 filas x 4 cols)
+        fig = make_subplots(
+            rows=3 + 3,  # 3 para main, 3 para subplots
+            cols=4,
+            row_heights=[0.2, 0.2, 0.2, 0.2, 0.2, 0.2],  # ajustable
+            subplot_titles=sub_titles,
+            horizontal_spacing=0.05,
+            vertical_spacing=0.07
+        )
 
-        fig, axes = plt.subplots(n_rows, n_cols, figsize=(15, 4 * n_rows), sharex=True, sharey=True)
-        axes = axes.flatten()
+        # -----------------------------
+        # Gráficos principales (filas 1-3)
+        # -----------------------------
+        fig.add_trace(go.Scatter(x=x, y=y_main1, mode='lines', name='Main1'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=x, y=y_main2, mode='lines', name='Main2'), row=1, col=2)
+        fig.add_trace(go.Scatter(x=x, y=y_main3, mode='lines', name='Main3'), row=1, col=3)
 
-        x = np.arange(len(xBin_filtered))
+        # -----------------------------
+        # Subplots (filas 4-6)
+        # -----------------------------
+        for i in range(n_subplots):
+            row = 4 + i // 4
+            col = (i % 4) + 1
+            fig.add_trace(
+                go.Scatter(x=x, y=y_subplots[i], mode='lines+markers', name=sub_titles[i]),
+                row=row, col=col
+            )
 
-        max_val = np.max(percent_matrix)
-        ymax = int(np.ceil(max_val / 10) * 10)
+        # -----------------------------
+        # Slider y botón (layout con shapes)
+        # -----------------------------
+        # Plotly no tiene slider de matplotlib, se usa sliders de layout
+        fig.update_layout(
+            sliders=[{
+                "active": 0,
+                "currentvalue": {"prefix": "Intensity: "},
+                "pad": {"t": 50},
+                "steps": [
+                    {"label": str(i), "method": "update", "args": [{"visible": [True] * fig.data.__len__()}, {}]}
+                    for i in range(0, 10)
+                ]
+            }],
+            updatemenus=[{
+                "type": "buttons",
+                "buttons": [
+                    {"label": "Apply", "method": "update", "args": [{"visible": [True] * fig.data.__len__()}, {}]}
+                ],
+                "direction": "left",
+                "pad": {"r": 10, "t": 10},
+                "x": 0.7,
+                "y": 0.05
+            }],
+            height=1200,  # altura grande para scroll
+            width=1200,
+            title_text="Plantilla: Principales + Slider + Subplots",
+            title_x=0.5,
+        )
 
-        for i, cls in enumerate(classesList):
-            ax = axes[i]
+        # -----------------------------
+        # Mostrar figura
+        # -----------------------------
+        fig.show()
 
-            # --- Imagen de fondo ---
-            class_idx = int(cls.split('-')[1])
-            img_ref = classImagesDict.get(class_idx)
-            if img_ref:
-                idx, path_mrc = img_ref.split('@')
-                idx = int(idx)
-                with mrcfile.open(path_mrc) as mrc:
-                    idx = idx % mrc.data.shape[0]
-                    img_data = mrc.data[idx]
-                ax.imshow(img_data, cmap='gray', extent=[-0.5, len(x) - 0.5, 0, ymax], alpha=0.9, aspect='auto')
-
-            y = percent_matrix[i]
-
-            # --- Área ---
-            fill_color = (0, 0.6, 0, 0.3)  # relleno verde semitransparente
-            edge_color = (0, 0.4, 0, 1)  # borde verde más oscuro, opaco
-            ax.fill_between(x, 0, y, facecolor=fill_color, edgecolor=edge_color, linewidth=2)
-
-            # --- Puntos en cada valor ---
-            ax.plot(x, y, 'o', color=(0, 0.3, 0, 1), markersize=4)
-
-            ax.set_title(f"{cls}")
-            ax.set_ylim(0, ymax)
-            ax.set_xticks(x)
-            ax.set_xticklabels(np.round(xBin_filtered, 1), rotation=45)
-            # Eje Y solo para la primera columna
-            if i % n_cols == 0:
-                ax.set_ylabel("Percent (%)", fontsize=11)
-
-            # Eje X solo para la última fila
-            if i // n_cols == n_rows - 1:
-                ax.set_xlabel("Intensity (Ice Thickness)", fontsize=11)
-
-        # Ocultar ejes vacíos si sobran
-        for j in range(len(classesList), len(axes)):
-            fig.delaxes(axes[j])
-
-        fig.suptitle("Percentage Distribution of Particles per Bin for Each 2D Class", fontsize=16)
-        plt.tight_layout(rect=[0, 0, 1, 0.97])
-        plt.show()
-
-    def _visualizeHistograms(self, e=None):
-
-
-        with open(os.path.join(self.protocol._getExtraPath(),'gridsName.txt'), 'r') as fi:
-            gridsList = [line.strip() for line in fi]
-        for grid in gridsList:
-            dictFiles = {}
-            files = os.listdir(self.protocol._getExtraPath())
-
-            for f in files:
-                if f.find('{}-xBin'.format(grid)) != -1:
-                    dictFiles['xBin'] = f
-                elif f.find('{}-holeCount'.format(grid)) != -1:
-                    dictFiles['holeCount'] = f
-                elif f.find('{}-holeTotalCount'.format(grid)) != -1:
-                    dictFiles['holeTotalCount'] = f
-                elif f.find('{}-goodBin'.format(grid)) != -1:
-                    dictFiles['goodBin'] = f
-                elif f.find('{}-good_binTotal'.format(grid)) != -1:
-                    dictFiles['good_binTotal'] = f
-                elif f.find('{}-badParticles'.format(grid)) != -1:
-                    dictFiles['badParticles'] = f
-                elif f.find('{}-totalParticles'.format(grid)) != -1:
-                    dictFiles['totalParticles'] = f
-                elif f.find('{}-stdTotalParticles'.format(grid)) != -1:
-                    dictFiles['stdTotalParticles'] = f
-                elif f.find('{}-percentGood'.format(grid)) != -1:
-                    dictFiles['percentGood'] = f
-                elif f.find('{}-bin_edges'.format(grid)) != -1:
-                    dictFiles['bin_edges'] = f
-
-
-            listRanges = {'xBin': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['xBin'])),
-            'holeCount': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['holeCount'])),
-            'holeTotalCount': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['holeTotalCount'])),
-            'good_bin': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['goodBin'])),
-            'good_binTotal': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['good_binTotal'])),
-            'badParticles': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['badParticles'])),
-            'totalParticles': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['totalParticles'])),
-            'stdTotalParticles': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['stdTotalParticles'])),
-            'bin_edges': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['bin_edges'])),
-            'percentGood': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['percentGood']))}
-
-            fig, axs = plt.subplots(1, 3, figsize=(14, 5))
-            fig.canvas.manager.set_window_title("Visualize the histogram of intensity")
-            axs[0].bar(listRanges['xBin'], listRanges['holeTotalCount'],color='gray', width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9, label='Total holes')
-            axs[0].bar(listRanges['xBin'], listRanges['holeCount'],  edgecolor='black', color='skyblue', width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9, label='Holes acquired')
-            axs[0].set_title("Num holes")
-            axs[0].set_xlabel("Holes Intensity")
-            axs[0].set_ylabel("Count")
-            axs[0].set_xlim(0, listRanges['bin_edges'][-1])
-            axs[0].legend()
-
-            axs[1].bar(listRanges['xBin'], listRanges['totalParticles'], width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9,
-                       # yerr=self.totalParticles_std_bin,
-                       capsize=5, color='gray', label='Total particles')
-            axs[1].bar(listRanges['xBin'], listRanges['good_binTotal'], width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9,
-                       # yerr=self.good_std_bin,
-                       capsize=5, color='green', edgecolor='black', label='Good particles')
-            axs[1].set_title("Sum num particles")
-            axs[1].set_xlabel("Holes Intensity")
-            axs[1].set_ylabel("particles")
-            axs[1].set_xlim(0, listRanges['bin_edges'][-1])
-            axs[1].legend()
-
-            axs[2].bar(listRanges['xBin'], listRanges['percentGood'], color='green', width=(listRanges['bin_edges'][1] - listRanges['bin_edges'][0]) * 0.9)
-            axs[2].set_title("Media de percent good")
-            axs[2].set_xlabel("Holes Intensity")
-            axs[2].set_ylabel("Percent good")
-            axs[2].set_xlim(0, listRanges['bin_edges'][-1])
-            axs[2].set_ylim(0, 1)
-
-            plt.tight_layout()
-            plt.show()
-
-    def r2_numpy(self, y, y_fit):
-        ss_res = np.sum((y - y_fit) ** 2)
-        ss_tot = np.sum((y - np.mean(y)) ** 2)
-        return 1 - ss_res / ss_tot
+        # Opcional: guardar como HTML
+        # fig.write_html("template_plotly.html")
