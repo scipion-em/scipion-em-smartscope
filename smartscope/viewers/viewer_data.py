@@ -727,13 +727,12 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
         # Preparar datos y figura
         # -----------------------------
         bin_width = (self.listRanges['bin_edges'][1] - self.listRanges['bin_edges'][0]) * 0.9
-        n_subplots = 3
         n_cols = 4
-        n_rows_sub = int(math.ceil(n_subplots / n_cols))
+        n_rows_sub = int(math.ceil(len(self.classesList) / n_cols))
         total_rows = 1 + n_rows_sub
 
         titles = ["Num holes", "Sum num particles", "Media de percent good"]
-        row_heights = [0.7] + [0.3]
+        row_heights = [0.6]   + [.3 / n_rows_sub] * n_rows_sub
 
         fig = make_subplots(
             rows=total_rows,
@@ -762,14 +761,14 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                              name="Total particles",marker=dict(color="gray",       # color de fondo
                             pattern_shape=".",               # patrón de puntitos
                             pattern_fgcolor="#a9a9a9",         # darkgray a9a9a9 color de los puntitos
-                            pattern_size=10                  # tamaño de los puntitos
+                            pattern_size=8                  # tamaño de los puntitos
                         ), width=bin_width), row=1, col=2)
         fig.add_trace(go.Bar(x=self.xBin, y=self.listRanges['good_binTotal'],
                              name="Good particles",
                              marker=dict(color="rgba(0,150,0,0.3)",       # color de fondo
                             pattern_shape=".",               # patrón de puntitos
                             pattern_fgcolor="green",         # color de los puntitos
-                            pattern_size=10                  # tamaño de los puntitos
+                            pattern_size=8                  # tamaño de los puntitos
                         ), width=bin_width), row=1, col=2)
         fig.update_xaxes(title="Holes Intensity", range=[min(self.xBin), max(self.xBin)], row=1, col=2)
         fig.update_yaxes(title="Particles", row=1, col=2)
@@ -781,6 +780,48 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
         fig.update_xaxes(title="Holes Intensity", range=[min(self.xBin), max(self.xBin)], row=1, col=3)
         fig.update_yaxes(title="Percent good", range=[0, 1], row=1, col=3)
         listMaxYValues.append(1)
+
+
+
+
+        # PLOTS clases 2D
+        n_classes = len(self.classesList)
+        n_rows = math.ceil(n_classes / n_cols)
+
+        for i, cls in enumerate(self.classesList):
+            listMaxYValues.append(max(self.percent_matrix[i]))
+            class_idx = int(cls.split('-')[1])
+            img_ref = self.classImagesDict.get(class_idx)
+
+            fig.add_trace(go.Bar(
+                x=self.xBin,
+                y=self.percent_matrix[i],
+                name=f"Class-{class_idx}",
+                marker=dict(color="gray"),
+                width=bin_width
+            ), row=(i//n_cols) + 1, col=(i%n_cols)+1)
+
+            row = (i // n_cols) + 1
+            col = (i % n_cols) + 1
+            xaxis_name = f"x{(row - 1) * n_cols + col}" if (row > 1 or col > 1) else "x"
+            yaxis_name = f"y{(row - 1) * n_cols + col}" if (row > 1 or col > 1) else "y"
+            fig.add_layout_image(
+                dict(
+                    source=img_ref,
+                    xref=xaxis_name, yref=yaxis_name,  # coordenadas relativas al subplot 1,1
+                    x=min(self.xBin), y=max(self.listRanges['holeTotalCount']),  # esquina superior izquierda
+                    sizex=max(self.xBin) - min(self.xBin),  # ancho de la imagen
+                    sizey=max(self.listRanges['holeTotalCount']),  # alto de la imagen
+                    xanchor="left",
+                    yanchor="top",
+                    sizing="stretch",
+                    opacity=0.3,  # transparencia
+                    layer="below"  # detrás de las barras
+                )
+            )
+
+
+
 
         fig.update_layout(
             title_text="Visualize intensity histograms + Class distributions",
@@ -801,9 +842,9 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
         # -----------------------------
         x_min = min(self.xBin)
         x_max = max(self.xBin)
+        x_minRound = int(min(self.xBin)) - (int(min(self.xBin)) % 10)
 
         app = Dash(__name__)
-
         app.layout = html.Div([
             html.Div([
                 dcc.Graph(
@@ -821,8 +862,8 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                         min=int(x_min),
                         max=int(x_max),
                         step=10,
-                        value=[int(x_min), int(x_max)],
-                        marks={int(x_min): str(int(x_min)), int(x_max): str(int(x_max))},
+                        value=[x_minRound, int(x_max)],
+                        marks={x_minRound: str(x_minRound), int(x_max): str(int(x_max))},
                         tooltip={"placement": "top", "always_visible": True},
                     ),
                     html.Button("Apply", id='apply-button', n_clicks=0, style={'margin-top': '5px'})
@@ -846,7 +887,7 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
 
             # Crear un shape para cada subplot (xaxis1, xaxis2, xaxis3)
             shapes = []
-            for i in range(1, 4):  # tenemos 3 subplots
+            for i in range(1, n_classes):
                 shapes.append(dict(
                     type="rect",
                     xref=f"x{i}", yref=f"y{i}",
@@ -859,6 +900,8 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
 
             new_fig.update_layout(shapes=shapes)
             return new_fig
+
+
         # -----------------------------
         # Lanzar servicio en segundo plano
         # -----------------------------
