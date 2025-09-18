@@ -743,28 +743,44 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
             horizontal_spacing=0.06,
             row_heights=row_heights
         )
+        # fig.update_layout(
+        #     plot_bgcolor='lightgray',  # fondo del área de los gráficos
+        # )
 
+        listMaxYValues = []
         # Subplot 1
         fig.add_trace(go.Bar(x=self.xBin, y=self.listRanges['holeTotalCount'],
                              name="Total holes", marker=dict(color="gray"), width=bin_width), row=1, col=1)
         fig.add_trace(go.Bar(x=self.xBin, y=self.listRanges['holeCount'],
-                             name="Holes acquired", marker=dict(color="skyblue"), width=bin_width), row=1, col=1)
+                             name="Holes acquired", marker=dict(color="#7d498a"), width=bin_width), row=1, col=1)
         fig.update_xaxes(title="Holes Intensity", range=[min(self.xBin), max(self.xBin)], row=1, col=1)
         fig.update_yaxes(title="Count", row=1, col=1)
+        listMaxYValues.append(max(self.listRanges['holeTotalCount']))
 
         # Subplot 2
         fig.add_trace(go.Bar(x=self.xBin, y=self.listRanges['totalParticles'],
-                             name="Total particles", marker=dict(color="gray"), width=bin_width), row=1, col=2)
+                             name="Total particles",marker=dict(color="gray",       # color de fondo
+                            pattern_shape=".",               # patrón de puntitos
+                            pattern_fgcolor="#a9a9a9",         # darkgray a9a9a9 color de los puntitos
+                            pattern_size=10                  # tamaño de los puntitos
+                        ), width=bin_width), row=1, col=2)
         fig.add_trace(go.Bar(x=self.xBin, y=self.listRanges['good_binTotal'],
-                             name="Good particles", marker=dict(color="green"), width=bin_width), row=1, col=2)
+                             name="Good particles",
+                             marker=dict(color="rgba(0,150,0,0.3)",       # color de fondo
+                            pattern_shape=".",               # patrón de puntitos
+                            pattern_fgcolor="green",         # color de los puntitos
+                            pattern_size=10                  # tamaño de los puntitos
+                        ), width=bin_width), row=1, col=2)
         fig.update_xaxes(title="Holes Intensity", range=[min(self.xBin), max(self.xBin)], row=1, col=2)
         fig.update_yaxes(title="Particles", row=1, col=2)
+        listMaxYValues.append(max(self.listRanges['totalParticles']))
 
         # Subplot 3
         fig.add_trace(go.Bar(x=self.xBin, y=self.listRanges['percentGood'],
-                             name="Percent good", marker=dict(color="green"), width=bin_width), row=1, col=3)
+                             name="Percent good", marker=dict(color="rgba(0,150,0,0.6)"), width=bin_width), row=1, col=3)
         fig.update_xaxes(title="Holes Intensity", range=[min(self.xBin), max(self.xBin)], row=1, col=3)
         fig.update_yaxes(title="Percent good", range=[0, 1], row=1, col=3)
+        listMaxYValues.append(1)
 
         fig.update_layout(
             title_text="Visualize intensity histograms + Class distributions",
@@ -804,10 +820,10 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                         id='x-range-slider',
                         min=int(x_min),
                         max=int(x_max),
-                        step=30,
+                        step=10,
                         value=[int(x_min), int(x_max)],
                         marks={int(x_min): str(int(x_min)), int(x_max): str(int(x_max))},
-                        tooltip={"placement": "top", "always_visible": True}
+                        tooltip={"placement": "top", "always_visible": True},
                     ),
                     html.Button("Apply", id='apply-button', n_clicks=0, style={'margin-top': '5px'})
                 ], style={'width': '70%', 'margin': '0 auto', 'padding': '0', 'text-align': 'center'})
@@ -835,8 +851,8 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                     type="rect",
                     xref=f"x{i}", yref=f"y{i}",
                     x0=x_range[0], x1=x_range[1],
-                    y0=0,
-                    fillcolor="rgba(0,200,200,0.2)",
+                    y0=0,y1=listMaxYValues[i-1],
+                    fillcolor="skyBlue",
                     line=dict(width=0),
                     layer="below"
                 ))
