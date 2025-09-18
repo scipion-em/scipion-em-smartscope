@@ -38,8 +38,7 @@ from smartscope.protocols.protocol_feedback_filter import smartscopeFeedbackFilt
 from smartscope.protocols.protocol_feedback_2D import smartscopeFeedback2D
 from smartscope.protocols.protocol_smartscope import smartscopeConnection
 from pyworkflow.protocol.params import IntParam, LabelParam
-import numpy as np
-import matplotlib.pyplot as plt
+
 import webbrowser
 import re
 import os
@@ -668,6 +667,18 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                         dictFiles['holeTotalCount'] = f
                     elif f.find('{}-bin_edges'.format(grid)) != -1:
                         dictFiles['bin_edges'] = f
+                    elif f.find('{}-goodBin'.format(grid)) != -1:
+                        dictFiles['goodBin'] = f
+                    elif f.find('{}-good_binTotal'.format(grid)) != -1:
+                        dictFiles['good_binTotal'] = f
+                    elif f.find('{}-badParticles'.format(grid)) != -1:
+                        dictFiles['badParticles'] = f
+                    elif f.find('{}-totalParticles'.format(grid)) != -1:
+                        dictFiles['totalParticles'] = f
+                    elif f.find('{}-stdTotalParticles'.format(grid)) != -1:
+                        dictFiles['stdTotalParticles'] = f
+                    elif f.find('{}-percentGood'.format(grid)) != -1:
+                        dictFiles['percentGood'] = f
                     elif f.find('{}-classes-'.format(grid)) != -1:
                         classNum = f[f.find('class'):]
                         match = re.search(r"\d+", classNum)
@@ -680,7 +691,13 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                 'xBin': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['xBin'])),
                 'holeCount': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['holeCount'])),
                 'holeTotalCount': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['holeTotalCount'])),
-                'bin_edges': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['bin_edges']))
+                'bin_edges': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['bin_edges'])),
+                'good_bin': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['goodBin'])),
+                'good_binTotal': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['good_binTotal'])),
+                'badParticles': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['badParticles'])),
+                'totalParticles': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['totalParticles'])),
+                'stdTotalParticles': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['stdTotalParticles'])),
+                'percentGood': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['percentGood']))
             }
 
             self.classesList = [c for c, v in dictFiles.items() if "-classes-" in v]
@@ -702,84 +719,134 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
         self.col_sums = self.matrix.sum(axis=0)
         self.percent_matrix = self.matrix / self.col_sums * 100  # each column sums to 100%
 
+
     def plotlySetup(self):
+
         # -----------------------------
-        # Datos de ejemplo
+        # Preparar datos
+        # -----------------------------
+        bin_width = (self.listRanges['bin_edges'][1] - self.listRanges['bin_edges'][0]) * 0.9
+        x_bins = self.listRanges['xBin']
+        n_subplots = 12
+        n_cols = 4
+        n_rows_sub = int(math.ceil(n_subplots / n_cols))
+        total_rows = 1 + n_rows_sub
+
+        titles = ["Num holes", "Sum num particles", "Media de percent good", ""]
+
+        for r in range(n_rows_sub):
+            for c in range(n_cols):
+                idx = r * n_cols + c
+                titles.append(f"Class-{idx + 1}" if idx < n_subplots else "")
+
+        frac_hist = 0.30
+        frac_classes = (1.0 - frac_hist) / n_rows_sub
+        row_heights = [frac_hist] + [frac_classes] * n_rows_sub
+
+        fig = make_subplots(
+            rows=total_rows,
+            cols=n_cols,
+            subplot_titles=titles,
+            vertical_spacing=0.08,
+            horizontal_spacing=0.06,
+            row_heights=row_heights
+        )
+
+        # -----------------------------
+        # FILA 1: Histogramas
+        # -----------------------------
+        fig.add_trace(go.Bar(x=x_bins, y=self.listRanges['holeTotalCount'],
+                             name="Total holes", marker=dict(color="gray"), width=bin_width), row=1, col=1)
+        fig.add_trace(go.Bar(x=x_bins, y=self.listRanges['holeCount'],
+                             name="Holes acquired",
+                             marker=dict(color="skyblue", line=dict(color="black", width=1)),
+                             width=bin_width),row=1, col=1)
+        fig.update_xaxes(title="Holes Intensity", range=[0, self.listRanges['bin_edges'][-1]], row=1, col=1)
+        fig.update_yaxes(title="Count", row=1, col=1)
+
+        fig.add_trace(go.Bar(x=x_bins, y=self.listRanges['totalParticles'],
+                             name="Total particles", marker=dict(color="gray"), width=bin_width),row=1, col=2)
+        fig.add_trace(go.Bar(x=x_bins, y=self.listRanges['good_binTotal'],
+                             name="Good particles",
+                             marker=dict(color="green", line=dict(color="black", width=1)),
+                             width=bin_width),row=1, col=2)
+        fig.update_xaxes(title="Holes Intensity", range=[0, self.listRanges['bin_edges'][-1]], row=1, col=2)
+        fig.update_yaxes(title="Particles", row=1, col=2)
+
+        fig.add_trace(go.Bar(x=x_bins, y=self.listRanges['percentGood'],
+                             name="Percent good", marker=dict(color="green"), width=bin_width),  row=1, col=3)
+        fig.update_xaxes(title="Holes Intensity", range=[0, self.listRanges['bin_edges'][-1]], row=1, col=3)
+        fig.update_yaxes(title="Percent good", range=[0, 1], row=1, col=3)
+
+        # -----------------------------
+        # FILA 2+: Subplots de clases (ejemplo con senos)
         # -----------------------------
         x = np.linspace(0, 10, 50)
-        y_main1 = np.sin(x)
-        y_main2 = np.cos(x)
-        y_main3 = np.sin(x * 2)
-
-        n_subplots = 12
-        y_subplots = [np.random.rand(len(x)) for _ in range(n_subplots)]
-        sub_titles = [f"Class-{i}" for i in range(n_subplots)]
-
-        # -----------------------------
-        # Crear subplots
-        # -----------------------------
-        # Layout: 3 filas principales + espacio slider + subplots (3 filas x 4 cols)
-        fig = make_subplots(
-            rows=3 + 3,  # 3 para main, 3 para subplots
-            cols=4,
-            row_heights=[0.2, 0.2, 0.2, 0.2, 0.2, 0.2],  # ajustable
-            subplot_titles=sub_titles,
-            horizontal_spacing=0.05,
-            vertical_spacing=0.07
-        )
-
-        # -----------------------------
-        # Gráficos principales (filas 1-3)
-        # -----------------------------
-        fig.add_trace(go.Scatter(x=x, y=y_main1, mode='lines', name='Main1'), row=1, col=1)
-        fig.add_trace(go.Scatter(x=x, y=y_main2, mode='lines', name='Main2'), row=1, col=2)
-        fig.add_trace(go.Scatter(x=x, y=y_main3, mode='lines', name='Main3'), row=1, col=3)
-
-        # -----------------------------
-        # Subplots (filas 4-6)
-        # -----------------------------
         for i in range(n_subplots):
-            row = 4 + i // 4
-            col = (i % 4) + 1
-            fig.add_trace(
-                go.Scatter(x=x, y=y_subplots[i], mode='lines+markers', name=sub_titles[i]),
-                row=row, col=col
-            )
+            row = 2 + (i // n_cols)
+            col = (i % n_cols) + 1
+            y = np.sin(x + i)
+            fig.add_trace(go.Scatter(x=x, y=y, mode="lines+markers",
+                                     name=f"Class-{i + 1}", showlegend=False),
+                          row=row, col=col)
+            fig.update_yaxes(range=[-1.5, 1.5], row=row, col=col)
 
         # -----------------------------
-        # Slider y botón (layout con shapes)
+        # Slider y botón (posicionados en medio)
         # -----------------------------
-        # Plotly no tiene slider de matplotlib, se usa sliders de layout
+        steps = []
+        for si in range(10):
+            steps.append(dict(label=str(si),
+                              method="update",
+                              args=[{"visible": [True] * len(fig.data)}, {"title": f"Step {si}"}]))
+        sliders = [dict(active=0,
+                        currentvalue={"prefix": "Intensity: "},
+                        pad={"t": 10, "b": 10},
+                        steps=steps,
+                        x=0.05,  # posición horizontal del inicio del slider (5% desde la izquierda)
+                        y=0.0,  # posición vertical (abajo)
+                        len=0.7)]  # ? posición vertical relativa (entre 0 y 1)
+
+        updatemenus = [
+            dict(type="buttons",
+                 buttons=[dict(label="Apply", method="update",
+                               args=[{"visible": [True] * len(fig.data)}, {}])],
+                 direction="left",
+                 pad={"r": 0, "t": 10},
+                 x=0.8, y=0.1)  # ? botón al lado del slider
+        ]
+
+        # -----------------------------
+        # Layout final
+        # -----------------------------
         fig.update_layout(
-            sliders=[{
-                "active": 0,
-                "currentvalue": {"prefix": "Intensity: "},
-                "pad": {"t": 50},
-                "steps": [
-                    {"label": str(i), "method": "update", "args": [{"visible": [True] * fig.data.__len__()}, {}]}
-                    for i in range(0, 10)
-                ]
-            }],
-            updatemenus=[{
-                "type": "buttons",
-                "buttons": [
-                    {"label": "Apply", "method": "update", "args": [{"visible": [True] * fig.data.__len__()}, {}]}
-                ],
-                "direction": "left",
-                "pad": {"r": 10, "t": 10},
-                "x": 0.7,
-                "y": 0.05
-            }],
-            height=1200,  # altura grande para scroll
-            width=1200,
-            title_text="Plantilla: Principales + Slider + Subplots",
+            title_text="Visualize intensity histograms + Class distributions",
             title_x=0.5,
+            width=1200,
+            height=350 + 250 * n_rows_sub,
+            sliders=sliders,
+            updatemenus=updatemenus,
+            barmode="overlay",
+            bargap=0.05,
+            margin=dict(l=40, r=40, t=80, b=40)
+        )
+        fig.update_layout(
+            legend=dict(
+                x=0.99,  # posición horizontal casi al final de la figura (columna 4)
+                y=1.0,  # arriba de la figura
+                xanchor="right",  # el extremo derecho se alinea en x
+                yanchor="top",  # el extremo superior se alinea en y
+                orientation="v",  # vertical
+                traceorder="normal",
+                font=dict(size=12),
+                bgcolor="rgba(0,0,0,0)",  # transparente
+                bordercolor="LightGray",
+                borderwidth=1
+            )
         )
 
         # -----------------------------
-        # Mostrar figura
+        # Mostrar y guardar
         # -----------------------------
         fig.show()
-
-        # Opcional: guardar como HTML
-        # fig.write_html("template_plotly.html")
+        fig.write_html("scipion-smartscope-viewer.html", include_plotlyjs='cdn')
