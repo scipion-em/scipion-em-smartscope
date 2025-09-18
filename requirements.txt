@@ -3,3 +3,5 @@ scipion-em
 requests
 scipion-em-xmipp
 Pathlib
+plotly
+dash

@@ -47,6 +47,8 @@ import math
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
+from dash import Dash, dcc, html, Output, Input
+import plotly.graph_objects as go
 
 class DataViewer_smartscope(ProtocolViewer):
     _targets = [smartscopeConnection]
@@ -721,27 +723,17 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
 
 
     def plotlySetup(self):
-
         # -----------------------------
-        # Preparar datos
+        # Preparar datos y figura
         # -----------------------------
         bin_width = (self.listRanges['bin_edges'][1] - self.listRanges['bin_edges'][0]) * 0.9
-        x_bins = self.listRanges['xBin']
-        n_subplots = 12
+        n_subplots = 3
         n_cols = 4
         n_rows_sub = int(math.ceil(n_subplots / n_cols))
         total_rows = 1 + n_rows_sub
 
-        titles = ["Num holes", "Sum num particles", "Media de percent good", ""]
-
-        for r in range(n_rows_sub):
-            for c in range(n_cols):
-                idx = r * n_cols + c
-                titles.append(f"Class-{idx + 1}" if idx < n_subplots else "")
-
-        frac_hist = 0.30
-        frac_classes = (1.0 - frac_hist) / n_rows_sub
-        row_heights = [frac_hist] + [frac_classes] * n_rows_sub
+        titles = ["Num holes", "Sum num particles", "Media de percent good"]
+        row_heights = [0.7] + [0.3]
 
         fig = make_subplots(
             rows=total_rows,
@@ -752,101 +744,115 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
             row_heights=row_heights
         )
 
-        # -----------------------------
-        # FILA 1: Histogramas
-        # -----------------------------
-        fig.add_trace(go.Bar(x=x_bins, y=self.listRanges['holeTotalCount'],
+        # Subplot 1
+        fig.add_trace(go.Bar(x=self.xBin, y=self.listRanges['holeTotalCount'],
                              name="Total holes", marker=dict(color="gray"), width=bin_width), row=1, col=1)
-        fig.add_trace(go.Bar(x=x_bins, y=self.listRanges['holeCount'],
-                             name="Holes acquired",
-                             marker=dict(color="skyblue", line=dict(color="black", width=1)),
-                             width=bin_width),row=1, col=1)
-        fig.update_xaxes(title="Holes Intensity", range=[0, self.listRanges['bin_edges'][-1]], row=1, col=1)
+        fig.add_trace(go.Bar(x=self.xBin, y=self.listRanges['holeCount'],
+                             name="Holes acquired", marker=dict(color="skyblue"), width=bin_width), row=1, col=1)
+        fig.update_xaxes(title="Holes Intensity", range=[min(self.xBin), max(self.xBin)], row=1, col=1)
         fig.update_yaxes(title="Count", row=1, col=1)
 
-        fig.add_trace(go.Bar(x=x_bins, y=self.listRanges['totalParticles'],
-                             name="Total particles", marker=dict(color="gray"), width=bin_width),row=1, col=2)
-        fig.add_trace(go.Bar(x=x_bins, y=self.listRanges['good_binTotal'],
-                             name="Good particles",
-                             marker=dict(color="green", line=dict(color="black", width=1)),
-                             width=bin_width),row=1, col=2)
-        fig.update_xaxes(title="Holes Intensity", range=[0, self.listRanges['bin_edges'][-1]], row=1, col=2)
+        # Subplot 2
+        fig.add_trace(go.Bar(x=self.xBin, y=self.listRanges['totalParticles'],
+                             name="Total particles", marker=dict(color="gray"), width=bin_width), row=1, col=2)
+        fig.add_trace(go.Bar(x=self.xBin, y=self.listRanges['good_binTotal'],
+                             name="Good particles", marker=dict(color="green"), width=bin_width), row=1, col=2)
+        fig.update_xaxes(title="Holes Intensity", range=[min(self.xBin), max(self.xBin)], row=1, col=2)
         fig.update_yaxes(title="Particles", row=1, col=2)
 
-        fig.add_trace(go.Bar(x=x_bins, y=self.listRanges['percentGood'],
-                             name="Percent good", marker=dict(color="green"), width=bin_width),  row=1, col=3)
-        fig.update_xaxes(title="Holes Intensity", range=[0, self.listRanges['bin_edges'][-1]], row=1, col=3)
+        # Subplot 3
+        fig.add_trace(go.Bar(x=self.xBin, y=self.listRanges['percentGood'],
+                             name="Percent good", marker=dict(color="green"), width=bin_width), row=1, col=3)
+        fig.update_xaxes(title="Holes Intensity", range=[min(self.xBin), max(self.xBin)], row=1, col=3)
         fig.update_yaxes(title="Percent good", range=[0, 1], row=1, col=3)
 
-        # -----------------------------
-        # FILA 2+: Subplots de clases (ejemplo con senos)
-        # -----------------------------
-        x = np.linspace(0, 10, 50)
-        for i in range(n_subplots):
-            row = 2 + (i // n_cols)
-            col = (i % n_cols) + 1
-            y = np.sin(x + i)
-            fig.add_trace(go.Scatter(x=x, y=y, mode="lines+markers",
-                                     name=f"Class-{i + 1}", showlegend=False),
-                          row=row, col=col)
-            fig.update_yaxes(range=[-1.5, 1.5], row=row, col=col)
-
-        # -----------------------------
-        # Slider y botón (posicionados en medio)
-        # -----------------------------
-        steps = []
-        for si in range(10):
-            steps.append(dict(label=str(si),
-                              method="update",
-                              args=[{"visible": [True] * len(fig.data)}, {"title": f"Step {si}"}]))
-        sliders = [dict(active=0,
-                        currentvalue={"prefix": "Intensity: "},
-                        pad={"t": 10, "b": 10},
-                        steps=steps,
-                        x=0.05,  # posición horizontal del inicio del slider (5% desde la izquierda)
-                        y=0.0,  # posición vertical (abajo)
-                        len=0.7)]  # ? posición vertical relativa (entre 0 y 1)
-
-        updatemenus = [
-            dict(type="buttons",
-                 buttons=[dict(label="Apply", method="update",
-                               args=[{"visible": [True] * len(fig.data)}, {}])],
-                 direction="left",
-                 pad={"r": 0, "t": 10},
-                 x=0.8, y=0.1)  # ? botón al lado del slider
-        ]
-
-        # -----------------------------
-        # Layout final
-        # -----------------------------
         fig.update_layout(
             title_text="Visualize intensity histograms + Class distributions",
             title_x=0.5,
             width=1200,
-            height=350 + 250 * n_rows_sub,
-            sliders=sliders,
-            updatemenus=updatemenus,
+            height=600,
             barmode="overlay",
             bargap=0.05,
-            margin=dict(l=40, r=40, t=80, b=40)
-        )
-        fig.update_layout(
+            margin=dict(l=40, r=40, t=80, b=40),
             legend=dict(
-                x=0.99,  # posición horizontal casi al final de la figura (columna 4)
-                y=1.0,  # arriba de la figura
-                xanchor="right",  # el extremo derecho se alinea en x
-                yanchor="top",  # el extremo superior se alinea en y
-                orientation="v",  # vertical
-                traceorder="normal",
-                font=dict(size=12),
-                bgcolor="rgba(0,0,0,0)",  # transparente
-                bordercolor="LightGray",
-                borderwidth=1
+                x=0.91, y=1.0, xanchor="right", yanchor="top",
+                orientation="v", traceorder="normal", font=dict(size=12),
             )
         )
 
         # -----------------------------
-        # Mostrar y guardar
+        # Crear app Dash
         # -----------------------------
-        fig.show()
-        fig.write_html("scipion-smartscope-viewer.html", include_plotlyjs='cdn')
+        x_min = min(self.xBin)
+        x_max = max(self.xBin)
+
+        app = Dash(__name__)
+
+        app.layout = html.Div([
+            html.Div([
+                dcc.Graph(
+                    id='histogram-graph',
+                    figure=fig,
+                    style={'margin-bottom': '0px'},
+                    config={"modeBarButtonsToRemove": ["zoom", "pan", "lasso2d", "select"]}
+                ),
+
+                # Slider + botón justo debajo
+                html.Div([
+                    html.Label("Intensity (ice-thickness) range to select:"),
+                    dcc.RangeSlider(
+                        id='x-range-slider',
+                        min=int(x_min),
+                        max=int(x_max),
+                        step=30,
+                        value=[int(x_min), int(x_max)],
+                        marks={int(x_min): str(int(x_min)), int(x_max): str(int(x_max))},
+                        tooltip={"placement": "top", "always_visible": True}
+                    ),
+                    html.Button("Apply", id='apply-button', n_clicks=0, style={'margin-top': '5px'})
+                ], style={'width': '70%', 'margin': '0 auto', 'padding': '0', 'text-align': 'center'})
+            ], style={'width': '100%', 'display': 'block'})
+        ])
+
+        # -----------------------------
+        # Callback: añadir área de highlight
+        # -----------------------------
+        @app.callback(
+            Output('histogram-graph', 'figure'),
+            Input('apply-button', 'n_clicks'),
+            Input('x-range-slider', 'value')
+        )
+        def update_highlight(n_clicks, x_range):
+            print(f"Rango seleccionado: {x_range}")
+
+            # Copiar la figura base
+            new_fig = fig
+
+            # Crear un shape para cada subplot (xaxis1, xaxis2, xaxis3)
+            shapes = []
+            for i in range(1, 4):  # tenemos 3 subplots
+                shapes.append(dict(
+                    type="rect",
+                    xref=f"x{i}", yref=f"y{i}",
+                    x0=x_range[0], x1=x_range[1],
+                    y0=0,
+                    fillcolor="rgba(0,200,200,0.2)",
+                    line=dict(width=0),
+                    layer="below"
+                ))
+
+            new_fig.update_layout(shapes=shapes)
+            return new_fig
+        # -----------------------------
+        # Lanzar servicio en segundo plano
+        # -----------------------------
+        def open_browser():
+            webbrowser.open("http://127.0.0.1:8050/")
+
+        def run_dash():
+            app.run_server(debug=False, port=8050, use_reloader=False)
+
+        threading.Thread(target=run_dash, daemon=True).start()
+        threading.Timer(1, open_browser).start()
+        print("Servidor Dash corriendo en http://127.0.0.1:8050/")
+
