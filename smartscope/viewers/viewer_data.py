@@ -49,6 +49,9 @@ from plotly.subplots import make_subplots
 import numpy as np
 from dash import Dash, dcc, html, Output, Input
 import plotly.graph_objects as go
+import dash # Necesitas importar dash para usar dash.ctx
+from dash.dependencies import Input, Output, State
+import plotly.graph_objects as go
 
 class DataViewer_smartscope(ProtocolViewer):
     _targets = [smartscopeConnection]
@@ -723,118 +726,148 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
 
 
     def plotlySetup(self):
+
         # -----------------------------
         # Preparar datos y figura
         # -----------------------------
         bin_width = (self.listRanges['bin_edges'][1] - self.listRanges['bin_edges'][0]) * 0.9
-        n_cols = 4
-        n_rows_sub = int(math.ceil(len(self.classesList) / n_cols))
-        total_rows = 1 + n_rows_sub
+        n_cols_top = 3
+        n_cols_bottom = 5
+        n_rows_sub_bottom = int(math.ceil(len(self.classesList) / n_cols_bottom))
+        total_rows = 1 + n_rows_sub_bottom
 
         titles = ["Num holes", "Sum num particles", "Media de percent good"]
-        row_heights = [0.6]   + [.3 / n_rows_sub] * n_rows_sub
-
-        fig = make_subplots(
-            rows=total_rows,
-            cols=n_cols,
+        row_heights = [0.3]
+        # specs = [[{} for _ in range(n_cols)] for _ in range(total_rows)]
+        # specs[0][-1] = None  # ? Esto lo marca como hueco
+        # specs[1] = [None] * n_cols
+        fig_top = make_subplots(
+            rows=1,
+            cols=n_cols_top,
             subplot_titles=titles,
-            vertical_spacing=0.08,
-            horizontal_spacing=0.06,
+            vertical_spacing=0.05,
+            horizontal_spacing=0.05,
             row_heights=row_heights
         )
-        # fig.update_layout(
-        #     plot_bgcolor='lightgray',  # fondo del área de los gráficos
-        # )
+        fig_top.update_layout(
+            title_text="Histograms holes and particles",
+            title_x=0.5,
+            width=1200,
+            height=400,
+            barmode="overlay",
+            bargap=0.05,
+            margin=dict(l=40, r=40, t=80, b=40),
+        )
+
 
         listMaxYValues = []
         # Subplot 1
-        fig.add_trace(go.Bar(x=self.xBin, y=self.listRanges['holeTotalCount'],
+        fig_top.add_trace(go.Bar(x=self.xBin, y=self.listRanges['holeTotalCount'],
                              name="Total holes", marker=dict(color="gray"), width=bin_width), row=1, col=1)
-        fig.add_trace(go.Bar(x=self.xBin, y=self.listRanges['holeCount'],
+        fig_top.add_trace(go.Bar(x=self.xBin, y=self.listRanges['holeCount'],
                              name="Holes acquired", marker=dict(color="#7d498a"), width=bin_width), row=1, col=1)
-        fig.update_xaxes(title="Holes Intensity", range=[min(self.xBin), max(self.xBin)], row=1, col=1)
-        fig.update_yaxes(title="Count", row=1, col=1)
+        fig_top.update_xaxes(title="Holes Intensity", range=[min(self.xBin), max(self.xBin)], row=1, col=1)
+        fig_top.update_yaxes(title="Count", row=1, col=1)
         listMaxYValues.append(max(self.listRanges['holeTotalCount']))
 
         # Subplot 2
-        fig.add_trace(go.Bar(x=self.xBin, y=self.listRanges['totalParticles'],
+        fig_top.add_trace(go.Bar(x=self.xBin, y=self.listRanges['totalParticles'],
                              name="Total particles",marker=dict(color="gray",       # color de fondo
                             pattern_shape=".",               # patrón de puntitos
                             pattern_fgcolor="#a9a9a9",         # darkgray a9a9a9 color de los puntitos
                             pattern_size=8                  # tamaño de los puntitos
                         ), width=bin_width), row=1, col=2)
-        fig.add_trace(go.Bar(x=self.xBin, y=self.listRanges['good_binTotal'],
+        fig_top.add_trace(go.Bar(x=self.xBin, y=self.listRanges['good_binTotal'],
                              name="Good particles",
                              marker=dict(color="rgba(0,150,0,0.3)",       # color de fondo
                             pattern_shape=".",               # patrón de puntitos
                             pattern_fgcolor="green",         # color de los puntitos
                             pattern_size=8                  # tamaño de los puntitos
                         ), width=bin_width), row=1, col=2)
-        fig.update_xaxes(title="Holes Intensity", range=[min(self.xBin), max(self.xBin)], row=1, col=2)
-        fig.update_yaxes(title="Particles", row=1, col=2)
+        fig_top.update_xaxes(title="Holes Intensity", range=[min(self.xBin), max(self.xBin)], row=1, col=2)
+        fig_top.update_yaxes(title="Particles", row=1, col=2)
         listMaxYValues.append(max(self.listRanges['totalParticles']))
 
         # Subplot 3
-        fig.add_trace(go.Bar(x=self.xBin, y=self.listRanges['percentGood'],
+        fig_top.add_trace(go.Bar(x=self.xBin, y=self.listRanges['percentGood'],
                              name="Percent good", marker=dict(color="rgba(0,150,0,0.6)"), width=bin_width), row=1, col=3)
-        fig.update_xaxes(title="Holes Intensity", range=[min(self.xBin), max(self.xBin)], row=1, col=3)
-        fig.update_yaxes(title="Percent good", range=[0, 1], row=1, col=3)
+        fig_top.update_xaxes(title="Holes Intensity", range=[min(self.xBin), max(self.xBin)], row=1, col=3)
+        fig_top.update_yaxes(title="Percent good", range=[0, 1], row=1, col=3)
         listMaxYValues.append(1)
-
-
 
 
         # PLOTS clases 2D
         n_classes = len(self.classesList)
-        n_rows = math.ceil(n_classes / n_cols)
+        n_rows = math.ceil(n_classes / n_cols_bottom)
+
+        # 1. Crea la figura SÓLO con los argumentos para la cuadrícula de subplots.
+        fig_bottom = make_subplots(
+            rows=n_rows,
+            cols=n_cols_bottom,
+            vertical_spacing=0.05,
+            horizontal_spacing=0.05
+        )
+        row_heights = [0.3] * n_rows
+        # 2. APLICA todo el estilo y configuración usando .update_layout().
+        fig_bottom.update_layout(
+            title_text="Class distributions",
+            title_x=0.5,
+            width=1200,
+            height=200*n_rows,
+            barmode="overlay",
+            bargap=0.05,
+            margin=dict(l=40, r=40, t=80, b=40),
+            showlegend=False,
+            # legend=dict(
+            #     x=1, y=1.0, xanchor="right", yanchor="top",
+            #     orientation="v", traceorder="normal", font=dict(size=12)
+            # )
+        )
+        ymax_global = np.nanmax(self.percent_matrix)
 
         for i, cls in enumerate(self.classesList):
-            listMaxYValues.append(max(self.percent_matrix[i]))
+            row = (i // n_cols_bottom) + 1
+            col = (i % n_cols_bottom) + 1
+            # # # Evitar la celda vacía
+            listMaxYValues.append(np.nanmax(self.percent_matrix[i]))
             class_idx = int(cls.split('-')[1])
             img_ref = self.classImagesDict.get(class_idx)
 
-            fig.add_trace(go.Bar(
+            fig_bottom.add_trace(go.Bar(
                 x=self.xBin,
                 y=self.percent_matrix[i],
                 name=f"Class-{class_idx}",
                 marker=dict(color="gray"),
                 width=bin_width
-            ), row=(i//n_cols) + 1, col=(i%n_cols)+1)
+            ), row=row, col=col)
+            if col == 1:
+                fig_bottom.update_yaxes(title="Percentage (%)", row=row, col=col)
+            # Aplicar el mismo límite Y a todos los subplots
+            for i in range(len(self.classesList)):
+                row = (i // n_cols_bottom) + 1
+                col = (i % n_cols_bottom) + 1
+                fig_bottom.update_yaxes(range=[0, ymax_global], row=row, col=col)
 
-            row = (i // n_cols) + 1
-            col = (i % n_cols) + 1
-            xaxis_name = f"x{(row - 1) * n_cols + col}" if (row > 1 or col > 1) else "x"
-            yaxis_name = f"y{(row - 1) * n_cols + col}" if (row > 1 or col > 1) else "y"
-            fig.add_layout_image(
-                dict(
-                    source=img_ref,
-                    xref=xaxis_name, yref=yaxis_name,  # coordenadas relativas al subplot 1,1
-                    x=min(self.xBin), y=max(self.listRanges['holeTotalCount']),  # esquina superior izquierda
-                    sizex=max(self.xBin) - min(self.xBin),  # ancho de la imagen
-                    sizey=max(self.listRanges['holeTotalCount']),  # alto de la imagen
-                    xanchor="left",
-                    yanchor="top",
-                    sizing="stretch",
-                    opacity=0.3,  # transparencia
-                    layer="below"  # detrás de las barras
-                )
-            )
+            subplot_index = (row - 1) * n_cols_bottom + col
+            xaxis_name = f"x{subplot_index}"
+            yaxis_name = f"y{subplot_index}"
+            # fig_bottom.add_layout_image(
+            #     dict(
+            #         source=img_ref,
+            #         xref=xaxis_name, yref=yaxis_name,  # coordenadas relativas al subplot 1,1
+            #         x=min(self.xBin), y=max(self.percent_matrix[i]),  # esquina superior izquierda
+            #         sizex=max(self.xBin) - min(self.xBin),  # ancho de la imagen
+            #         sizey=max(self.listRanges['holeTotalCount']),  # alto de la imagen
+            #         xanchor="left",
+            #         yanchor="top",
+            #         sizing="stretch",
+            #         opacity=0.3,  # transparencia
+            #         layer="below"  # detrás de las barras
+            #     )
+            # )
 
+        fig_bottom.update_layout(
 
-
-
-        fig.update_layout(
-            title_text="Visualize intensity histograms + Class distributions",
-            title_x=0.5,
-            width=1200,
-            height=600,
-            barmode="overlay",
-            bargap=0.05,
-            margin=dict(l=40, r=40, t=80, b=40),
-            legend=dict(
-                x=0.91, y=1.0, xanchor="right", yanchor="top",
-                orientation="v", traceorder="normal", font=dict(size=12),
-            )
         )
 
         # -----------------------------
@@ -845,15 +878,8 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
         x_minRound = int(min(self.xBin)) - (int(min(self.xBin)) % 10)
 
         app = Dash(__name__)
-        app.layout = html.Div([
+        controls_div = html.Div([
             html.Div([
-                dcc.Graph(
-                    id='histogram-graph',
-                    figure=fig,
-                    style={'margin-bottom': '0px'},
-                    config={"modeBarButtonsToRemove": ["zoom", "pan", "lasso2d", "select"]}
-                ),
-
                 # Slider + botón justo debajo
                 html.Div([
                     html.Label("Intensity (ice-thickness) range to select:"),
@@ -861,7 +887,7 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                         id='x-range-slider',
                         min=int(x_min),
                         max=int(x_max),
-                        step=10,
+                        step=1,
                         value=[x_minRound, int(x_max)],
                         marks={x_minRound: str(x_minRound), int(x_max): str(int(x_max))},
                         tooltip={"placement": "top", "always_visible": True},
@@ -871,35 +897,85 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
             ], style={'width': '100%', 'display': 'block'})
         ])
 
+        # Define el layout de la aplicación
+        app.layout = html.Div([
+            # 1. Gráfico superior
+            dcc.Graph(
+                id='graph-top',
+                figure=fig_top
+            ),
+
+            # 2. Panel de control en medio
+            controls_div,
+
+            # 3. Gráfico inferior
+            dcc.Graph(
+                id='graph-bottom',
+                figure=fig_bottom
+            )
+        ])
+
         # -----------------------------
         # Callback: añadir área de highlight
         # -----------------------------
         @app.callback(
-            Output('histogram-graph', 'figure'),
+            Output('graph-top', 'figure'),  # id de la primera figura
+            Output('graph-bottom', 'figure'),  # id de la segunda figura
             Input('apply-button', 'n_clicks'),
             Input('x-range-slider', 'value')
         )
         def update_highlight(n_clicks, x_range):
+            triggered_id = dash.ctx.triggered_id
+
             print(f"Rango seleccionado: {x_range}")
 
             # Copiar la figura base
-            new_fig = fig
+            new_fig_top = go.Figure(fig_top)  # Crea una copia nueva de la figura
+            new_fig_bottom = go.Figure(fig_bottom)  # Crea una copia nueva de la figura
 
-            # Crear un shape para cada subplot (xaxis1, xaxis2, xaxis3)
-            shapes = []
-            for i in range(1, n_classes):
-                shapes.append(dict(
-                    type="rect",
-                    xref=f"x{i}", yref=f"y{i}",
-                    x0=x_range[0], x1=x_range[1],
-                    y0=0,y1=listMaxYValues[i-1],
-                    fillcolor="skyBlue",
-                    line=dict(width=0),
-                    layer="below"
-                ))
+            if triggered_id == 'x-range-slider':
+                # El usuario está moviendo el slider -> Usar estilo de vista previa
+                # Crear un shape para cada subplot (xaxis1, xaxis2, xaxis3)
+                shapes_top = []
+                for i in range(1, 4):
+                    shapes_top.append(dict(
+                        type="rect",
+                        xref=f"x{i}", yref=f"y{i}",
+                        x0=x_range[0], x1=x_range[1],
+                        y0=0, y1=listMaxYValues[i - 1],
+                        fillcolor="skyBlue",
+                        line=dict(width=0),
+                        layer="below"
+                    ))
 
-            new_fig.update_layout(shapes=shapes)
-            return new_fig
+                shapes_bottom = []
+                for i in range(1, n_classes):
+                    subplot_idx = i + 1
+                    print(f'{i}: {listMaxYValues[i - 1]}')
+                    shapes_bottom.append(dict(
+                        type="rect",
+                        xref=f"x{subplot_idx}", yref=f"y{subplot_idx}",
+                        x0=x_range[0], x1=x_range[1],
+                        y0=0, y1=listMaxYValues[i - 1],
+                        fillcolor="skyBlue",
+                        line=dict(width=0),
+                        layer="below"
+                    ))
+
+
+                new_fig_top.update_layout(shapes=shapes_top)
+                new_fig_top.update_layout(shapes=shapes_top)
+                return new_fig_top, new_fig_bottom
+
+            elif triggered_id == 'apply-button':
+                # El usuario pulsó "Apply" -> Usar estilo final
+                print(f'Button clicked: Range: {x_range}')
+                return new_fig_top, new_fig_bottom
+
+            else:
+                # Es la carga inicial de la página, no hacer nada o devolver la figura original
+                return new_fig_top, new_fig_bottom
+
 
 
         # -----------------------------
