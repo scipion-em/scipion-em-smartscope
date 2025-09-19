@@ -56,6 +56,15 @@ from os.path import join, dirname
 import base64
 from pathlib import Path
 from dash import html
+import mrcfile
+import io
+from PIL import Image
+import time
+from smartscope import Plugin
+from ..constants import *
+
+from ..objects.dataCollection import *
+
 
 class DataViewer_smartscope(ProtocolViewer):
     _targets = [smartscopeConnection]
@@ -219,8 +228,8 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
     def _visualizeHistograms(self, e=None):
         import os
         with open(os.path.join(self.protocol._getExtraPath(),'gridsName.txt'), 'r') as fi:
-            gridsList = [line.strip() for line in fi]
-        for grid in gridsList:
+            self.gridsList = [line.strip() for line in fi]
+        for grid in self.gridsList:
             dictFiles = {}
             files = os.listdir(self.protocol._getExtraPath())
 
@@ -626,6 +635,8 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
     _targets = [smartscopeFeedback2D]
 
+
+
     def _defineParams(self, form):
         form.addSection(label='Visualization')
         group = form.addGroup('Holes')
@@ -663,8 +674,10 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
     def dataCollection(self):
 
             with open(os.path.join(self.protocol._getExtraPath(),'gridsName.txt'), 'r') as fi:
-                gridsList = [line.strip() for line in fi]
-            for grid in gridsList:
+                self.gridsList = [line.strip() for line in fi]
+            with open(os.path.join(self.protocol._getExtraPath(), 'gridsId.txt'), 'r') as fi:
+                self.gridsIdList = [line.strip() for line in fi]
+            for grid in self.gridsList:
                 dictFiles = {}
                 files = os.listdir(self.protocol._getExtraPath())
                 for f in files:
@@ -730,7 +743,11 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
 
 
     def plotlySetup(self):
+        self.token = Plugin.getVar(SMARTSCOPE_TOKEN)
+        self.endpoint = Plugin.getVar(SMARTSCOPE_LOCALHOST)
+        self.dataPath = Plugin.getVar(SMARTSCOPE_DATA_SESSION_PATH)
 
+        self.pyClient = MainPyClient(self.token, self.endpoint)
         # -----------------------------
         # Preparar datos y figura
         # -----------------------------
@@ -820,7 +837,7 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
             horizontal_spacing=0.03
         )
         fig_bottom.update_layout(
-            title_text="Class distributions",
+            title_text="Particles distributions by 2DClass",
             title_font=dict(
                 size=20,  # tamaño más grande
                 color="darkblue",  # color elegante
@@ -835,10 +852,6 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
             bargap=0.05,
             margin=dict(l=40, r=40, t=80, b=40),
             showlegend=False,
-            # legend=dict(
-            #     x=1, y=1.0, xanchor="right", yanchor="top",
-            #     orientation="v", traceorder="normal", font=dict(size=12)
-            # )
         )
         ymax_global = np.nanmax(self.percent_matrix)
 
@@ -848,13 +861,30 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
             # # # Evitar la celda vacía
             listMaxYValues.append(np.nanmax(self.percent_matrix[i]))
             class_idx = int(cls.split('-')[1])
-            img_ref = self.classImagesDict.get(class_idx)
+
+            # img_ref = self.classImagesDict.get(class_idx)
+            # if img_ref:
+            #     idx, path_mrc = img_ref.split('@')
+            #     idx = int(idx)
+            #     with mrcfile.open(path_mrc) as mrc:
+            #         idx = idx % mrc.data.shape[0]
+            #         img_data = mrc.data[idx]
+            #
+            # # Normalizar y convertir a uint8
+            # img_norm = 255 * (img_data - img_data.min()) / (img_data.ptp() + 1e-6)
+            # img_norm = img_norm.astype(np.uint8)
+            # img_pil = Image.fromarray(img_norm)
+            #
+            # # Guardar en memoria como PNG
+            # buffer = io.BytesIO()
+            # img_pil.save(buffer, format="PNG")
+            # encoded = base64.b64encode(buffer.getvalue()).decode()
 
             fig_bottom.add_trace(go.Bar(
                 x=self.xBin,
                 y=self.percent_matrix[i],
                 name=f"Class-{class_idx}",
-                marker=dict(color="gray"),
+                marker=dict(color="rgba(0,150,0,0.6)"),
                 width=bin_width
             ), row=row, col=col)
             if col == 1:
@@ -865,16 +895,13 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                 col = (i % n_cols_bottom) + 1
                 fig_bottom.update_yaxes(range=[0, ymax_global], row=row, col=col)
 
-            subplot_index = (row - 1) * n_cols_bottom + col
-            xaxis_name = f"x{subplot_index}"
-            yaxis_name = f"y{subplot_index}"
             # fig_bottom.add_layout_image(
             #     dict(
-            #         source=img_ref,
-            #         xref=xaxis_name, yref=yaxis_name,  # coordenadas relativas al subplot 1,1
-            #         x=min(self.xBin), y=max(self.percent_matrix[i]),  # esquina superior izquierda
+            #         source=f"data:image/png;base64,{encoded}",
+            #         xref=f"x{i}", yref=f"y{i}",
+            #         x=min(self.xBin), y=np.nanmax(self.percent_matrix[i]),  # esquina superior izquierda
             #         sizex=max(self.xBin) - min(self.xBin),  # ancho de la imagen
-            #         sizey=max(self.listRanges['holeTotalCount']),  # alto de la imagen
+            #         sizey=ymax_global,  # alto de la imagen
             #         xanchor="left",
             #         yanchor="top",
             #         sizing="stretch",
@@ -910,13 +937,51 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                         id='x-range-slider',
                         min=int(x_min),
                         max=int(x_max),
-                        #value='',
+                        #value=self.collectingRangeSmartscope(),
                         step=1,
                         value=[x_minRound, int(x_max)],
                         marks={x_minRound: str(x_minRound), int(x_max): str(int(x_max))},
                         tooltip={"placement": "top", "always_visible": True},
                     ),
-                    html.Button("Apply range to Smartscope session", id='apply-button', n_clicks=0, style={'margin-top': '5px'})
+                    html.Div([
+                        html.Button(
+                            "Check the current Intensity Range on Smartscope session",
+                            id='apply-Checkbutton',
+                            n_clicks=0,
+                            style={
+                                'background-color':'rgba(255, 228, 196, 0.5)',
+                                'color': '#8B4513',
+                                'font-weight': 'bold',
+                                'padding': '10px 20px',
+                                'border-radius': '8px',
+                                'border': 'none',
+                                'box-shadow': '2px 2px 5px rgba(0,0,0,0.3)',
+                                'cursor': 'pointer'
+                            }
+                        ),
+                        html.Button(
+                            "Apply range to Smartscope session",
+                            id='apply-button',
+                            n_clicks=0,
+                            style={
+                                'background-color': '#007BFF',  # azul intenso
+                                'color': 'rgba(255, 228, 196, 1)',
+                                'font-weight': 'bold',
+                                'padding': '10px 20px',
+                                'border-radius': '8px',
+                                'border': 'none',
+                                'box-shadow': '2px 2px 5px rgba(0,0,0,0.3)',
+                                'cursor': 'pointer'
+                            }
+                        )
+                    ],
+                        style={
+                            'display': 'flex',
+                            'justify-content': 'space-between',
+                            'margin-top': '5px',
+                            'gap': '20px'  # <--- añade separación entre los botones
+                        })
+
                 ], style={'width': '70%', 'margin': '0 auto', 'padding': '0', 'text-align': 'center'})
             ], style={'width': '1200px', 'display': 'block'})
         ])
@@ -968,12 +1033,14 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
             Output('graph-top', 'figure'),  # id de la primera figura
             Output('graph-bottom', 'figure'),  # id de la segunda figura
             Input('apply-button', 'n_clicks'),
+            Input('apply-Checkbutton', 'n_clicks'),
             Input('x-range-slider', 'value')
         )
-        def update_highlight(n_clicks, x_range):
+
+        def update_highlight(n_apply, n_check, x_range):
             triggered_id = dash.ctx.triggered_id
 
-            print(f"Rango seleccionado: {x_range}")
+            print(f"Range selected: {x_range}")
 
             # Copiar la figura base
             new_fig_top = go.Figure(fig_top)  # Crea una copia nueva de la figura
@@ -982,9 +1049,11 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
             if triggered_id == 'x-range-slider':
                 # El usuario está moviendo el slider -> Usar estilo de vista previa
                 # Crear un shape para cada subplot (xaxis1, xaxis2, xaxis3)
-                shapes_top = []
+                existing_shapes_top = list(new_fig_top.layout.shapes) if "shapes" in new_fig_top.layout else []
+                existing_shapes_bottom = list(new_fig_bottom.layout.shapes) if "shapes" in new_fig_bottom.layout else []
+
                 for i in range(1, 4):
-                    shapes_top.append(dict(
+                    existing_shapes_top.append(dict(
                         type="rect",
                         xref=f"x{i}", yref=f"y{i}",
                         x0=x_range[0], x1=x_range[1],
@@ -994,10 +1063,9 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                         layer="below"
                     ))
 
-                shapes_bottom = []
-                for i in range(1, n_classes):
+                for i in range(1, n_classes+1):
                     subplot_idx = i
-                    shapes_bottom.append(dict(
+                    existing_shapes_bottom.append(dict(
                         type="rect",
                         xref=f"x{subplot_idx}", yref=f"y{subplot_idx}",
                         x0=x_range[0], x1=x_range[1],
@@ -1008,13 +1076,46 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                     ))
 
 
-                new_fig_top.update_layout(shapes=shapes_top)
-                new_fig_bottom.update_layout(shapes=shapes_bottom)
+                new_fig_top.update_layout(shapes=existing_shapes_top)
+                new_fig_bottom.update_layout(shapes=existing_shapes_bottom)
                 return new_fig_top, new_fig_bottom
 
             elif triggered_id == 'apply-button':
                 # El usuario pulsó "Apply" -> Usar estilo final
                 print(f'Button clicked: Range: {x_range}')
+                self.settingRangeSmartscope(x_minRound, int(x_max))
+                return new_fig_top, new_fig_bottom
+
+            elif triggered_id == 'apply-Checkbutton':
+                # El usuario pulsó "Apply" -> Usar estilo final
+                ranges = self.collectingRangeSmartscope()
+                existing_shapes_top = list(new_fig_top.layout.shapes) if "shapes" in new_fig_top.layout else []
+                existing_shapes_bottom = list(new_fig_bottom.layout.shapes) if "shapes" in new_fig_bottom.layout else []
+                for i in range(1, 4):
+                    existing_shapes_top.append(dict(
+                        type="rect",
+                        xref=f"x{i}", yref=f"y{i}",
+                        x0=ranges[0], x1=ranges[1],
+                        y0=0, y1=listMaxYValues[i - 1],
+                        fillcolor="rgba(255, 228, 196, 0.5)",
+                        line=dict(width=0),
+                        layer="below"
+                    ))
+
+                for i in range(1, n_classes+1):
+                    subplot_idx = i
+                    existing_shapes_bottom.append(dict(
+                        type="rect",
+                        xref=f"x{subplot_idx}", yref=f"y{subplot_idx}",
+                        x0=ranges[0], x1=ranges[1],
+                        y0=0, y1=np.nanmax(self.percent_matrix),
+                        fillcolor="rgba(255, 228, 196, 0.5)",
+                        line=dict(width=0),
+                        layer="below"
+                    ))
+
+                new_fig_top.update_layout(shapes=existing_shapes_top)
+                new_fig_bottom.update_layout(shapes=existing_shapes_bottom)
                 return new_fig_top, new_fig_bottom
 
             else:
@@ -1036,3 +1137,25 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
         threading.Timer(1, open_browser).start()
         print("Servidor Dash corriendo en http://127.0.0.1:8050/")
 
+
+    def collectingRangeSmartscope(self):
+        for i, grid in enumerate(self.gridsList):
+            gridID = self.gridsIdList[i]
+            self.info(f'\n -Posting Back to Smartscope Grid: grid: {gridID}')
+            status, currentRange = self.pyClient.getRangeOfIntensityGrid(gridID, magLevel='square', devel=True)
+            currentMinRange, currentMaxRange  = currentRange['low_limit'],  currentRange['high_limit']
+            print(f'status: {status}, currentRange: {currentMinRange, currentMaxRange}')
+            if status:
+                return int(currentMinRange), int(currentMaxRange)
+
+    def settingRangeSmartscope(self, LowI, hightI):
+        print(f'Setting Intensity range to smartscope: {LowI} - {hightI}')
+        for i, grid in enumerate(self.gridsList):
+            gridID = self.gridsIdList[i]
+            self.pyClient.postRangeIntensity(ID=gridID, data={"low_limit": LowI, "high_limit": hightI})
+            time.sleep(10)  # wait until Smartscope manage the posting
+            status, currentRange = self.pyClient.getRangeOfIntensityGrid(gridID, magLevel='square', devel=True)
+            if status and  currentRange['low_limit'] ==LowI and  currentRange['high_limit'] == hightI:
+                return True
+            else:
+                return False

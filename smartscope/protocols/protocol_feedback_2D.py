@@ -304,6 +304,10 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
             for g in self.grids:
                 fi.write(g.getName())
                 fi.write('\n')
+        with open(os.path.join(self._getExtraPath(),'gridsId.txt'), 'w') as fi:
+            for g in self.grids:
+                fi.write(g.getGridId())
+                fi.write('\n')
         File = self._getExtraPath("{}-xBin.txt".format(gridName))
         np.savetxt(File, self.x_bin , fmt='%.8f', delimiter=' ')
         File = self._getExtraPath("{}-holeCount.txt".format(gridName))
