@@ -52,6 +52,10 @@ import plotly.graph_objects as go
 import dash # Necesitas importar dash para usar dash.ctx
 from dash.dependencies import Input, Output, State
 import plotly.graph_objects as go
+from os.path import join, dirname
+import base64
+from pathlib import Path
+from dash import html
 
 class DataViewer_smartscope(ProtocolViewer):
     _targets = [smartscopeConnection]
@@ -746,11 +750,18 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
             cols=n_cols_top,
             subplot_titles=titles,
             vertical_spacing=0.05,
-            horizontal_spacing=0.05,
+            horizontal_spacing=0.07,
             row_heights=row_heights
         )
         fig_top.update_layout(
             title_text="Histograms holes and particles",
+            title_font=dict(
+                size=20,  # tamaño más grande
+                color="darkblue",  # color elegante
+                family="Arial, sans-serif",
+                # Puedes añadir "bold" si quieres más énfasis:
+                # weight="bold"
+            ),
             title_x=0.5,
             width=1200,
             height=400,
@@ -803,14 +814,20 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
         # 1. Crea la figura SÓLO con los argumentos para la cuadrícula de subplots.
         fig_bottom = make_subplots(
             rows=n_rows,
+            subplot_titles=self.classesList,
             cols=n_cols_bottom,
-            vertical_spacing=0.05,
-            horizontal_spacing=0.05
+            vertical_spacing=0.07,
+            horizontal_spacing=0.03
         )
-        row_heights = [0.3] * n_rows
-        # 2. APLICA todo el estilo y configuración usando .update_layout().
         fig_bottom.update_layout(
             title_text="Class distributions",
+            title_font=dict(
+                size=20,  # tamaño más grande
+                color="darkblue",  # color elegante
+                family="Arial, sans-serif",
+                # Puedes añadir "bold" si quieres más énfasis:
+                # weight="bold"
+            ),
             title_x=0.5,
             width=1200,
             height=200*n_rows,
@@ -869,7 +886,6 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
         fig_bottom.update_layout(
 
         )
-
         # -----------------------------
         # Crear app Dash
         # -----------------------------
@@ -887,18 +903,32 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                         id='x-range-slider',
                         min=int(x_min),
                         max=int(x_max),
+                        #value='',
                         step=1,
                         value=[x_minRound, int(x_max)],
                         marks={x_minRound: str(x_minRound), int(x_max): str(int(x_max))},
                         tooltip={"placement": "top", "always_visible": True},
                     ),
-                    html.Button("Apply", id='apply-button', n_clicks=0, style={'margin-top': '5px'})
+                    html.Button("Apply to Smartscope session", id='apply-button', n_clicks=0, style={'margin-top': '5px'})
                 ], style={'width': '70%', 'margin': '0 auto', 'padding': '0', 'text-align': 'center'})
             ], style={'width': '100%', 'display': 'block'})
         ])
 
         # Define el layout de la aplicación
+        smartscope_icon = Path(__file__).parent / '../icon.png'
+        scipion_icon = Path(__file__).parent / '../objects/scipion_logo_normal.png'
+        encoded_image_smartscope = base64.b64encode(smartscope_icon.read_bytes()).decode()
+        encoded_image_scipion = base64.b64encode(scipion_icon.read_bytes()).decode()
         app.layout = html.Div([
+            html.Div([
+                html.Img(src=f"data:image/png;base64,{encoded_image_smartscope}", style={'height': '40px', 'margin-right': '10px'}),
+                html.Img(src=f"data:image/png;base64,{encoded_image_scipion}", style={'height': '40px'})
+            ], style={
+                'display': 'flex',
+                'align-items': 'center',
+                'justify-content': 'center',
+                'padding': '10px'
+            }),
             # 1. Gráfico superior
             dcc.Graph(
                 id='graph-top',
@@ -950,13 +980,12 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
 
                 shapes_bottom = []
                 for i in range(1, n_classes):
-                    subplot_idx = i + 1
-                    print(f'{i}: {listMaxYValues[i - 1]}')
+                    subplot_idx = i
                     shapes_bottom.append(dict(
                         type="rect",
                         xref=f"x{subplot_idx}", yref=f"y{subplot_idx}",
                         x0=x_range[0], x1=x_range[1],
-                        y0=0, y1=listMaxYValues[i - 1],
+                        y0=0, y1=np.nanmax(self.percent_matrix),
                         fillcolor="skyBlue",
                         line=dict(width=0),
                         layer="below"
@@ -964,7 +993,7 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
 
 
                 new_fig_top.update_layout(shapes=shapes_top)
-                new_fig_top.update_layout(shapes=shapes_top)
+                new_fig_bottom.update_layout(shapes=shapes_bottom)
                 return new_fig_top, new_fig_bottom
 
             elif triggered_id == 'apply-button':
