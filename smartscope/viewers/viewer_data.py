@@ -898,7 +898,14 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
             html.Div([
                 # Slider + botón justo debajo
                 html.Div([
-                    html.Label("Intensity (ice-thickness) range to select:"),
+                    html.Label("Intensity (ice-thickness) range to select",
+                        style = {
+                            'font-size': '20px',  # tamaño de fuente más visible
+                            'color': 'darkblue',  # color elegante
+                            'margin-bottom': '5px',  # espacio debajo del label
+                            'display': 'block'  # asegurar que quede en su propia línea
+                        }
+                    ),
                     dcc.RangeSlider(
                         id='x-range-slider',
                         min=int(x_min),
@@ -909,9 +916,9 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                         marks={x_minRound: str(x_minRound), int(x_max): str(int(x_max))},
                         tooltip={"placement": "top", "always_visible": True},
                     ),
-                    html.Button("Apply to Smartscope session", id='apply-button', n_clicks=0, style={'margin-top': '5px'})
+                    html.Button("Apply range to Smartscope session", id='apply-button', n_clicks=0, style={'margin-top': '5px'})
                 ], style={'width': '70%', 'margin': '0 auto', 'padding': '0', 'text-align': 'center'})
-            ], style={'width': '100%', 'display': 'block'})
+            ], style={'width': '1200px', 'display': 'block'})
         ])
 
         # Define el layout de la aplicación
@@ -925,14 +932,15 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                 html.Img(src=f"data:image/png;base64,{encoded_image_scipion}", style={'height': '40px'})
             ], style={
                 'display': 'flex',
-                'align-items': 'center',
+                'align-items': 'left',
                 'justify-content': 'center',
-                'padding': '10px'
+                'padding': '10px',
             }),
             # 1. Gráfico superior
             dcc.Graph(
                 id='graph-top',
-                figure=fig_top
+                figure=fig_top,
+                style={'margin-bottom': '20px'}  # espacio debajo del gráfico
             ),
 
             # 2. Panel de control en medio
@@ -943,7 +951,15 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                 id='graph-bottom',
                 figure=fig_bottom
             )
-        ])
+
+        ],
+            style={
+                'display': 'flex',
+                'flex-direction': 'column',  # apila elementos verticalmente
+                'align-items': 'center',  # centra verticalmente si hay altura definida
+                'width': '100%'  # ocupa todo el ancho disponible
+            }
+        )
 
         # -----------------------------
         # Callback: añadir área de highlight
