@@ -166,6 +166,8 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
             if flag == False:
                 self.badC.append(t)
 
+        self.collectSessionDetails()
+
     def getInputProtocol(self):
         prot = self.inputProtocol.get()
         prot.setProject(self.getProject())
@@ -173,6 +175,7 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
             return prot
         else:
             return False
+
 
     def stepsGeneratorStep(self):
         """

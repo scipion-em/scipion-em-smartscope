@@ -58,7 +58,7 @@ from pathlib import Path
 from dash import html
 import mrcfile
 import io
-from PIL import Image
+from PIL import Image as PILImage
 import time
 from smartscope import Plugin
 from ..constants import *
@@ -809,7 +809,7 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                              name="Good particles",
                              marker=dict(color="rgba(0,150,0,0.3)",       # color de fondo
                             pattern_shape=".",               # patrón de puntitos
-                            pattern_fgcolor="green",         # color de los puntitos
+                            pattern_fgcolor="rgb(196, 230, 200)",         # color de los puntitos
                             pattern_size=8                  # tamaño de los puntitos
                         ), width=bin_width), row=1, col=2)
         fig_top.update_xaxes(title="Holes Intensity", range=[min(self.xBin), max(self.xBin)], row=1, col=2)
@@ -833,7 +833,7 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
             rows=n_rows,
             subplot_titles=self.classesList,
             cols=n_cols_bottom,
-            vertical_spacing=0.07,
+            vertical_spacing=0.08,
             horizontal_spacing=0.03
         )
         fig_bottom.update_layout(
@@ -850,35 +850,51 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
             height=200*n_rows,
             barmode="overlay",
             bargap=0.05,
-            margin=dict(l=40, r=40, t=80, b=40),
+            margin=dict(l=40, r=40, t=120, b=40),
             showlegend=False,
         )
+
         ymax_global = np.nanmax(self.percent_matrix)
 
         for i, cls in enumerate(self.classesList):
             row = (i // n_cols_bottom) + 1
             col = (i % n_cols_bottom) + 1
-            # # # Evitar la celda vacía
             listMaxYValues.append(np.nanmax(self.percent_matrix[i]))
             class_idx = int(cls.split('-')[1])
 
-            # img_ref = self.classImagesDict.get(class_idx)
-            # if img_ref:
-            #     idx, path_mrc = img_ref.split('@')
-            #     idx = int(idx)
-            #     with mrcfile.open(path_mrc) as mrc:
-            #         idx = idx % mrc.data.shape[0]
-            #         img_data = mrc.data[idx]
-            #
-            # # Normalizar y convertir a uint8
-            # img_norm = 255 * (img_data - img_data.min()) / (img_data.ptp() + 1e-6)
-            # img_norm = img_norm.astype(np.uint8)
-            # img_pil = Image.fromarray(img_norm)
-            #
-            # # Guardar en memoria como PNG
-            # buffer = io.BytesIO()
-            # img_pil.save(buffer, format="PNG")
-            # encoded = base64.b64encode(buffer.getvalue()).decode()
+            img_ref = self.classImagesDict.get(class_idx)
+            if img_ref:
+                idx, path_mrc = img_ref.split('@')
+                idx = int(idx)
+                with mrcfile.open(path_mrc) as mrc:
+                    idx = idx % mrc.data.shape[0]
+                    img_data = mrc.data[idx]
+
+            # Normalizar y convertir a uint8
+            img_norm = 255 * (img_data - img_data.min()) / (img_data.ptp() + 1e-6)
+            img_norm = img_norm.astype(np.uint8)
+            img_pil = PILImage.fromarray(img_norm)
+
+            # Guardar en memoria como PNG
+            buffer = io.BytesIO()
+            img_pil.save(buffer, format="PNG")
+            encoded = base64.b64encode(buffer.getvalue()).decode()
+
+            # --- Añadir anotación con el número de partículas ---
+            fig_bottom.add_annotation(
+                text=f"N = {round(np.sum(self.particles_per_class[i]/1000),1)}K",
+                xref=f"x{row}{col} domain",
+                yref=f"y{row}{col} domain",
+                x=0.05,  # esquina derecha
+                y=0.95,  # esquina superior
+                showarrow=False,
+                row=row, col=col,
+                font=dict(color="black", size=12),
+                bgcolor="rgba(0,0,0,0)",  # fondo verde semitransparente
+                bordercolor="gray",  #
+                borderwidth=2,  # grosor del borde
+                borderpad=5,  # padding dentro del recuadro
+            )
 
             fig_bottom.add_trace(go.Bar(
                 x=self.xBin,
@@ -895,20 +911,22 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                 col = (i % n_cols_bottom) + 1
                 fig_bottom.update_yaxes(range=[0, ymax_global], row=row, col=col)
 
-            # fig_bottom.add_layout_image(
-            #     dict(
-            #         source=f"data:image/png;base64,{encoded}",
-            #         xref=f"x{i}", yref=f"y{i}",
-            #         x=min(self.xBin), y=np.nanmax(self.percent_matrix[i]),  # esquina superior izquierda
-            #         sizex=max(self.xBin) - min(self.xBin),  # ancho de la imagen
-            #         sizey=ymax_global,  # alto de la imagen
-            #         xanchor="left",
-            #         yanchor="top",
-            #         sizing="stretch",
-            #         opacity=0.3,  # transparencia
-            #         layer="below"  # detrás de las barras
-            #     )
-            # )
+            fig_bottom.add_layout_image(
+                dict(
+                    source=f"data:image/png;base64,{encoded}",
+                    xref=f"x{i}",  # sin espacios
+                    yref=f"y{i}",  # sin espacios
+                    x=0,
+                    y=1,  # esquina superior izquierda
+                    sizex=max(self.xBin) - min(self.xBin),  # ancho de la imagen
+                    sizey=30,  # alto de la imagen
+                    xanchor="left",
+                    yanchor="top",
+                    sizing="stretch",
+                    opacity=0.5,  # transparencia
+                    layer="below"  # detrás de las barras
+                )
+            )
 
         fig_bottom.update_layout(
 
@@ -994,11 +1012,12 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
         app.layout = html.Div([
             html.Div([
                 html.Img(src=f"data:image/png;base64,{encoded_image_smartscope}", style={'height': '40px', 'margin-right': '10px'}),
-                html.Img(src=f"data:image/png;base64,{encoded_image_scipion}", style={'height': '40px'})
+                html.Img(src=f"data:image/png;base64,{encoded_image_scipion}", style={'height': '40px'}),
+                html.Span(f" Project name: {self._project.getShortName()}", style={'font-size': '18px'}),
             ], style={
                 'display': 'flex',
-                'align-items': 'left',
-                'justify-content': 'center',
+                'align-items': 'center',
+                'justify-content': 'flex-start',
                 'padding': '10px',
             }),
             # 1. Gráfico superior
@@ -1017,6 +1036,7 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                 figure=fig_bottom
             )
 
+
         ],
             style={
                 'display': 'flex',
@@ -1024,7 +1044,9 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                 'align-items': 'center',  # centra verticalmente si hay altura definida
                 'width': '100%'  # ocupa todo el ancho disponible
             }
+
         )
+
 
         # -----------------------------
         # Callback: añadir área de highlight
@@ -1034,7 +1056,7 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
             Output('graph-bottom', 'figure'),  # id de la segunda figura
             Input('apply-button', 'n_clicks'),
             Input('apply-Checkbutton', 'n_clicks'),
-            Input('x-range-slider', 'value')
+            Input('x-range-slider', 'value'),
         )
 
         def update_highlight(n_apply, n_check, x_range):
@@ -1045,52 +1067,72 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
             # Copiar la figura base
             new_fig_top = go.Figure(fig_top)  # Crea una copia nueva de la figura
             new_fig_bottom = go.Figure(fig_bottom)  # Crea una copia nueva de la figura
+            existing_shapes_top = list(new_fig_top.layout.shapes) if "shapes" in new_fig_top.layout else []
+            existing_shapes_bottom = list(new_fig_bottom.layout.shapes) if "shapes" in new_fig_bottom.layout else []
 
             if triggered_id == 'x-range-slider':
                 # El usuario está moviendo el slider -> Usar estilo de vista previa
                 # Crear un shape para cada subplot (xaxis1, xaxis2, xaxis3)
-                existing_shapes_top = list(new_fig_top.layout.shapes) if "shapes" in new_fig_top.layout else []
-                existing_shapes_bottom = list(new_fig_bottom.layout.shapes) if "shapes" in new_fig_bottom.layout else []
 
                 for i in range(1, 4):
                     existing_shapes_top.append(dict(
-                        type="rect",
+                        type="line",
                         xref=f"x{i}", yref=f"y{i}",
-                        x0=x_range[0], x1=x_range[1],
+                        x0=x_range[0], x1=x_range[0],  # línea izquierda
                         y0=0, y1=listMaxYValues[i - 1],
-                        fillcolor="skyBlue",
-                        line=dict(width=0),
-                        layer="below"
+                        line=dict(color="skyBlue", width=2.5, dash="dash")
                     ))
+                    existing_shapes_top.append(dict(
+                        type="line",
+                        xref=f"x{i}", yref=f"y{i}",
+                        x0=x_range[1], x1=x_range[1],  # línea derecha
+                        y0=0, y1=listMaxYValues[i - 1],
+                        line=dict(color="skyBlue", width=2.5, dash="dash")
+                    ))
+                    #
+                    # existing_shapes_top.append(dict(
+                    #     type="rect",
+                    #     xref=f"x{i}", yref=f"y{i}",
+                    #     x0=x_range[0], x1=x_range[1],
+                    #     y0=0, y1=listMaxYValues[i - 1],
+                    #     fillcolor="skyBlue",
+                    #     line=dict(width=0),
+                    #     layer="below"
+                    # ))
 
                 for i in range(1, n_classes+1):
-                    subplot_idx = i
                     existing_shapes_bottom.append(dict(
-                        type="rect",
-                        xref=f"x{subplot_idx}", yref=f"y{subplot_idx}",
-                        x0=x_range[0], x1=x_range[1],
+                        type="line",
+                        xref=f"x{i}", yref=f"y{i}",
+                        x0=x_range[0], x1=x_range[0],
                         y0=0, y1=np.nanmax(self.percent_matrix),
-                        fillcolor="skyBlue",
-                        line=dict(width=0),
-                        layer="below"
+                        line=dict(color="skyBlue", width=2.5, dash="dash")
                     ))
-
-
-                new_fig_top.update_layout(shapes=existing_shapes_top)
-                new_fig_bottom.update_layout(shapes=existing_shapes_bottom)
-                return new_fig_top, new_fig_bottom
+                    existing_shapes_bottom.append(dict(
+                        type="line",
+                        xref=f"x{i}", yref=f"y{i}",
+                        x0=x_range[1], x1=x_range[1],
+                        y0=0, y1=np.nanmax(self.percent_matrix),
+                        line=dict(color="skyBlue", width=2.5, dash="dash")
+                    ))
+                    # existing_shapes_bottom.append(dict(
+                    #     type="rect",
+                    #     xref=f"x{subplot_idx}", yref=f"y{subplot_idx}",
+                    #     x0=x_range[0], x1=x_range[1],
+                    #     y0=0, y1=np.nanmax(self.percent_matrix),
+                    #     fillcolor="skyBlue",
+                    #     line=dict(width=0),
+                    #     layer="below"
+                    # ))
 
             elif triggered_id == 'apply-button':
                 # El usuario pulsó "Apply" -> Usar estilo final
                 print(f'Button clicked: Range: {x_range}')
                 self.settingRangeSmartscope(x_minRound, int(x_max))
-                return new_fig_top, new_fig_bottom
 
             elif triggered_id == 'apply-Checkbutton':
                 # El usuario pulsó "Apply" -> Usar estilo final
                 ranges = self.collectingRangeSmartscope()
-                existing_shapes_top = list(new_fig_top.layout.shapes) if "shapes" in new_fig_top.layout else []
-                existing_shapes_bottom = list(new_fig_bottom.layout.shapes) if "shapes" in new_fig_bottom.layout else []
                 for i in range(1, 4):
                     existing_shapes_top.append(dict(
                         type="rect",
@@ -1114,13 +1156,9 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                         layer="below"
                     ))
 
-                new_fig_top.update_layout(shapes=existing_shapes_top)
-                new_fig_bottom.update_layout(shapes=existing_shapes_bottom)
-                return new_fig_top, new_fig_bottom
-
-            else:
-                # Es la carga inicial de la página, no hacer nada o devolver la figura original
-                return new_fig_top, new_fig_bottom
+            new_fig_top.update_layout(shapes=existing_shapes_top)
+            new_fig_bottom.update_layout(shapes=existing_shapes_bottom)
+            return new_fig_top, new_fig_bottom
 
 
 
