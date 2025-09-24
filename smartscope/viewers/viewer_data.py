@@ -885,12 +885,12 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                 text=f"N = {round(np.sum(self.particles_per_class[i]/1000),1)}K",
                 xref=f"x{row}{col} domain",
                 yref=f"y{row}{col} domain",
-                x=0.05,  # esquina derecha
+                x=0.95,  # esquina derecha
                 y=0.95,  # esquina superior
                 showarrow=False,
                 row=row, col=col,
                 font=dict(color="black", size=12),
-                bgcolor="rgba(0,0,0,0)",  # fondo verde semitransparente
+                bgcolor="rgba(100,100,100,0.7)",  # fondo verde semitransparente
                 bordercolor="gray",  #
                 borderwidth=2,  # grosor del borde
                 borderpad=5,  # padding dentro del recuadro
@@ -903,34 +903,43 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                 marker=dict(color="rgba(0,150,0,0.6)"),
                 width=bin_width
             ), row=row, col=col)
+            fig_bottom.update_yaxes(showgrid=False, row=row, col=col)
             if col == 1:
                 fig_bottom.update_yaxes(title="Percentage (%)", row=row, col=col)
             # Aplicar el mismo límite Y a todos los subplots
-            for i in range(len(self.classesList)):
-                row = (i // n_cols_bottom) + 1
-                col = (i % n_cols_bottom) + 1
+            for j in range(len(self.classesList)):
+                row = (j // n_cols_bottom) + 1
+                col = (j % n_cols_bottom) + 1
                 fig_bottom.update_yaxes(range=[0, ymax_global], row=row, col=col)
 
+            # 2. Genera los nombres de los ejes correctamente
+            subplot_num = i + 1
+            if subplot_num == 1:
+                xref_val = 'x domain'
+                yref_val = 'y domain'
+            else:
+                xref_val = f'x{subplot_num} domain'
+                yref_val = f'y{subplot_num} domain'
             fig_bottom.add_layout_image(
                 dict(
+                    #source = "https://images.plot.ly/logo/new-branding/plotly-logomark.png",
+
                     source=f"data:image/png;base64,{encoded}",
-                    xref=f"x{i}",  # sin espacios
-                    yref=f"y{i}",  # sin espacios
-                    x=0,
-                    y=1,  # esquina superior izquierda
-                    sizex=max(self.xBin) - min(self.xBin),  # ancho de la imagen
-                    sizey=30,  # alto de la imagen
+                    xref=xref_val,  # sin espacios
+                    yref=yref_val,  # sin espacios
+                    x=0.05,#min(self.xBin),
+                    y=0.95,#ymax_global, # esquina superior izquierda
+                    sizex=0.35,#(max(self.xBin) - min(self.xBin))/2,  # ancho de la imagen
+                    sizey=0.4,#ymax_global/2,  # alto de la imagen
                     xanchor="left",
                     yanchor="top",
                     sizing="stretch",
-                    opacity=0.5,  # transparencia
-                    layer="below"  # detrás de las barras
+                    opacity=0.9,  # transparencia
+                    layer="above"  # detrás de las barras
                 )
             )
 
-        fig_bottom.update_layout(
 
-        )
         # -----------------------------
         # Crear app Dash
         # -----------------------------
