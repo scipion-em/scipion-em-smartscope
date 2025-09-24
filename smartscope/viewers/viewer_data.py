@@ -930,7 +930,7 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                     x=0.05,#min(self.xBin),
                     y=0.95,#ymax_global, # esquina superior izquierda
                     sizex=0.35,#(max(self.xBin) - min(self.xBin))/2,  # ancho de la imagen
-                    sizey=0.4,#ymax_global/2,  # alto de la imagen
+                    sizey=0.45,#ymax_global/2,  # alto de la imagen
                     xanchor="left",
                     yanchor="top",
                     sizing="stretch",
