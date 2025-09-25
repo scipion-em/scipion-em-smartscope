@@ -236,7 +236,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         # SUMMARY INFO
         summaryF = self._getExtraPath("summary.txt")
         summaryF = open(summaryF, "w")
-        summaryF.write("Smartscope Screening\n\n" +
+        summaryF.write(
             "\tMicroscope: {}\n".format(microscopeName) +
             "\tDetectors: {}\n".format(detectorName) +
             "\tGroup: {}\n".format(group) +

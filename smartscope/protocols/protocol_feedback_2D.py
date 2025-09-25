@@ -141,6 +141,10 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
 
         self.smartscopeConnectionProtocol = self.getInputProtocol()
         updatedProt = getUpdatedProtocol(self.smartscopeConnectionProtocol)
+
+        self.saveInExtraFile('urlSmartscope', open(os.path.join(updatedProt._getExtraPath(), 'URLsmartscopeSession.txt')).read())
+        self.saveInExtraFile('sessionDetails',  open(os.path.join(updatedProt._getExtraPath(), 'summary.txt')).read())
+
         if hasattr(updatedProt, 'Grids'):
             self.grids = updatedProt.Grids
         if hasattr(updatedProt, 'Holes'):
@@ -165,8 +169,6 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
                     break
             if flag == False:
                 self.badC.append(t)
-
-        self.collectSessionDetails()
 
     def getInputProtocol(self):
         prot = self.inputProtocol.get()
@@ -456,6 +458,11 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         response = self.pyClient.getDetailsFromParameter('users')
         return response
 
+
+    def saveInExtraFile(self, fileName, text):
+        fileP = self._getExtraPath(f"{fileName}.txt")
+        file = open(fileP, "w")
+        file.write(text)
 
     def _summary(self):
         summary = []

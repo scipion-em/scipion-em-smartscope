@@ -58,7 +58,7 @@ from pathlib import Path
 from dash import html
 import mrcfile
 import io
-from PIL import Image as PILImage
+from PIL import Image as PILImage, ImageDraw
 import time
 from smartscope import Plugin
 from ..constants import *
@@ -672,7 +672,10 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
         self.plotlySetup()
 
     def dataCollection(self):
-
+            with open(os.path.join(self.protocol._getExtraPath(), 'urlSmartscope.txt'), 'r') as fi:
+                self.urlSmartscope = fi.read()
+            with open(os.path.join(self.protocol._getExtraPath(), 'sessionDetails.txt'), 'r') as fi:
+                self.sessionDetails = fi.read()
             with open(os.path.join(self.protocol._getExtraPath(),'gridsName.txt'), 'r') as fi:
                 self.gridsList = [line.strip() for line in fi]
             with open(os.path.join(self.protocol._getExtraPath(), 'gridsId.txt'), 'r') as fi:
@@ -738,7 +741,8 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
         self.xBin = self.listRanges['xBin']
         self.particles_per_class = self.matrix.sum(axis=1)
 
-        self.col_sums = self.matrix.sum(axis=0)
+        col_sums = self.matrix.sum(axis=0)
+        self.col_sums = np.where(col_sums != 0, col_sums, np.finfo(float).eps)
         self.percent_matrix = self.matrix / self.col_sums * 100  # each column sums to 100%
 
 
@@ -875,10 +879,25 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
             img_norm = img_norm.astype(np.uint8)
             img_pil = PILImage.fromarray(img_norm)
 
+            # Crear máscara circular
+            w, h = img_pil.size
+            mask = PILImage.new("L", (w, h), 0)
+            draw = ImageDraw.Draw(mask)
+            draw.ellipse((0, 0, w, h), fill=255)
+
+            # Aplicar máscara ? imagen circular con fondo transparente
+            img_circular = PILImage.new("RGBA", (w, h), (0, 0, 0, 0))
+            img_circular.paste(img_pil, (0, 0), mask=mask)
+
             # Guardar en memoria como PNG
             buffer = io.BytesIO()
-            img_pil.save(buffer, format="PNG")
+            img_circular.save(buffer, format="PNG")
             encoded = base64.b64encode(buffer.getvalue()).decode()
+
+            # # Guardar en memoria como PNG
+            # buffer = io.BytesIO()
+            # img_pil.save(buffer, format="PNG")
+            # encoded = base64.b64encode(buffer.getvalue()).decode()
 
             # --- Añadir anotación con el número de partículas ---
             fig_bottom.add_annotation(
@@ -930,7 +949,7 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                     x=0.05,#min(self.xBin),
                     y=0.95,#ymax_global, # esquina superior izquierda
                     sizex=0.35,#(max(self.xBin) - min(self.xBin))/2,  # ancho de la imagen
-                    sizey=0.45,#ymax_global/2,  # alto de la imagen
+                    sizey=0.5,#ymax_global/2,  # alto de la imagen
                     xanchor="left",
                     yanchor="top",
                     sizing="stretch",
@@ -946,32 +965,68 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
         x_min = min(self.xBin)
         x_max = max(self.xBin)
         x_minRound = int(min(self.xBin)) - (int(min(self.xBin)) % 10)
-
         app = Dash(__name__)
+        app.title = "Scipion-em-Smartscope"
         controls_div = html.Div([
-            html.Div([
+                html.Label("Intensity (ice-thickness) range to select",
+                           style={
+                               'font-size': '20px',  # tamaño de fuente más visible
+                               'color': 'darkblue',  # color elegante
+                               'margin-bottom': '5px',  # espacio debajo del label
+                               'display': 'block'  # asegurar que quede en su propia línea
+                }),
                 # Slider + botón justo debajo
                 html.Div([
-                    html.Label("Intensity (ice-thickness) range to select",
-                        style = {
-                            'font-size': '20px',  # tamaño de fuente más visible
-                            'color': 'darkblue',  # color elegante
-                            'margin-bottom': '5px',  # espacio debajo del label
-                            'display': 'block'  # asegurar que quede en su propia línea
-                        }
-                    ),
-                    dcc.RangeSlider(
-                        id='x-range-slider',
-                        min=int(x_min),
-                        max=int(x_max),
-                        #value=self.collectingRangeSmartscope(),
-                        step=1,
-                        value=[x_minRound, int(x_max)],
-                        marks={x_minRound: str(x_minRound), int(x_max): str(int(x_max))},
-                        tooltip={"placement": "top", "always_visible": True},
+                    html.A(
+                        html.Button(
+                            "Open Smartscope session",
+                            id='smartscope-button',
+                            n_clicks=0,
+                            style={
+                                'background-color': '#6A6A6A',  # verde, puedes cambiarlo
+                                'color': 'white',
+                                'font-weight': 'bold',
+                                'padding': '10px 20px',
+                                'border-radius': '8px',
+                                'border': 'none',
+                                'box-shadow': '2px 2px 5px rgba(0,0,0,0.3)',
+                                'cursor': 'pointer'
+                            }
+                        ),
+                        href=self.urlSmartscope,  # tu URL aquí
+                        target="_blank"  # abre en una nueva pestaña
                     ),
                     html.Div([
-                        html.Button(
+                        dcc.RangeSlider(
+                            id='x-range-slider',
+                            min=int(x_min),
+                            max=int(x_max),
+                            #value=self.collectingRangeSmartscope(),
+                            step=1,
+                            value=[x_minRound, int(x_max)],
+                            marks={x_minRound: str(x_minRound), int(x_max): str(int(x_max))},
+                            tooltip={"placement": "top", "always_visible": True})
+                            ], style = {'width': '600px'}
+                    ),
+                    html.Button(
+                        "Apply to Smartscope",
+                        id='apply-button',
+                        n_clicks=0,
+                        style={
+                            'background-color': '#007BFF',  # azul intenso
+                            'color': 'rgba(255, 228, 196, 1)',
+                            'font-weight': 'bold',
+                            'padding': '10px 20px',
+                            'border-radius': '8px',
+                            'border': 'none',
+                            'box-shadow': '2px 2px 5px rgba(0,0,0,0.3)',
+                            'cursor': 'pointer'
+                        }
+                    )
+                ], style={'width': '100%', 'display': 'flex', 'flex-direction': 'row', 'align-items': 'center'}
+                ),
+                html.Div([
+                    html.Button(
                             "Check the current Intensity Range on Smartscope session",
                             id='apply-Checkbutton',
                             n_clicks=0,
@@ -985,48 +1040,36 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                                 'box-shadow': '2px 2px 5px rgba(0,0,0,0.3)',
                                 'cursor': 'pointer'
                             }
-                        ),
-                        html.Button(
-                            "Apply range to Smartscope session",
-                            id='apply-button',
-                            n_clicks=0,
-                            style={
-                                'background-color': '#007BFF',  # azul intenso
-                                'color': 'rgba(255, 228, 196, 1)',
-                                'font-weight': 'bold',
-                                'padding': '10px 20px',
-                                'border-radius': '8px',
-                                'border': 'none',
-                                'box-shadow': '2px 2px 5px rgba(0,0,0,0.3)',
-                                'cursor': 'pointer'
-                            }
-                        )
-                    ],
-                        style={
-                            'display': 'flex',
-                            'justify-content': 'space-between',
-                            'margin-top': '5px',
-                            'gap': '20px'  # <--- añade separación entre los botones
-                        })
+                    )
+                ],style={'display': 'flex', 'margin-top': '5px','gap': '20px', 'flex-direction': 'row', 'justify-content': 'center'}
+                )
+            ], style={'display': 'flex', 'flex-direction': 'column', 'align-items': 'center', 'gap': '15px' }
+        )
 
-                ], style={'width': '70%', 'margin': '0 auto', 'padding': '0', 'text-align': 'center'})
-            ], style={'width': '1200px', 'display': 'block'})
-        ])
 
         # Define el layout de la aplicación
         smartscope_icon = Path(__file__).parent / '../icon.png'
         scipion_icon = Path(__file__).parent / '../objects/scipion_logo_normal.png'
         encoded_image_smartscope = base64.b64encode(smartscope_icon.read_bytes()).decode()
-        encoded_image_scipion = base64.b64encode(scipion_icon.read_bytes()).decode()
+        encoded_image_scipion = base64.b64encode(scipion_icon.read_bytes()).decode()# Contenedor principal con Flexbox para organizar en fila
+        print(f'self.sessionDetails: {self.sessionDetails}')
+        print(*[html.Div(line) for line in self.sessionDetails.split('\n')])
+        print(type(self.sessionDetails))
         app.layout = html.Div([
+            # Columna de las imágenes (a la izquierda)
             html.Div([
-                html.Img(src=f"data:image/png;base64,{encoded_image_smartscope}", style={'height': '40px', 'margin-right': '10px'}),
-                html.Img(src=f"data:image/png;base64,{encoded_image_scipion}", style={'height': '40px'}),
-                html.Span(f" Project name: {self._project.getShortName()}", style={'font-size': '18px'}),
+                html.Div([
+                    html.Img(src=f"data:image/png;base64,{encoded_image_smartscope}", style={'height': '50px', 'margin-bottom': '10px'}),
+                    html.Img(src=f"data:image/png;base64,{encoded_image_scipion}", style={'height': '50px'}),
+                    ]),
+                html.Div([
+                    html.Div(f"Scipion project name: {self._project.getShortName()}"),
+                    *[html.Div(line) for line in self.sessionDetails.split('\n')]
+                    ], style={'font-size': '14px'}),
             ], style={
                 'display': 'flex',
+                'flex-direction': 'row',
                 'align-items': 'center',
-                'justify-content': 'flex-start',
                 'padding': '10px',
             }),
             # 1. Gráfico superior
@@ -1055,7 +1098,6 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
             }
 
         )
-
 
         # -----------------------------
         # Callback: añadir área de highlight
@@ -1089,14 +1131,14 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                         xref=f"x{i}", yref=f"y{i}",
                         x0=x_range[0], x1=x_range[0],  # línea izquierda
                         y0=0, y1=listMaxYValues[i - 1],
-                        line=dict(color="skyBlue", width=2.5, dash="dash")
+                        line=dict(color='#007BFF', width=2.5, dash="dash")
                     ))
                     existing_shapes_top.append(dict(
                         type="line",
                         xref=f"x{i}", yref=f"y{i}",
                         x0=x_range[1], x1=x_range[1],  # línea derecha
                         y0=0, y1=listMaxYValues[i - 1],
-                        line=dict(color="skyBlue", width=2.5, dash="dash")
+                        line=dict(color='#007BFF', width=2.5, dash="dash")
                     ))
                     #
                     # existing_shapes_top.append(dict(
@@ -1109,20 +1151,21 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                     #     layer="below"
                     # ))
 
+
                 for i in range(1, n_classes+1):
                     existing_shapes_bottom.append(dict(
                         type="line",
                         xref=f"x{i}", yref=f"y{i}",
                         x0=x_range[0], x1=x_range[0],
                         y0=0, y1=np.nanmax(self.percent_matrix),
-                        line=dict(color="skyBlue", width=2.5, dash="dash")
+                        line=dict(color='#007BFF', width=2.5, dash="dash")
                     ))
                     existing_shapes_bottom.append(dict(
                         type="line",
                         xref=f"x{i}", yref=f"y{i}",
                         x0=x_range[1], x1=x_range[1],
                         y0=0, y1=np.nanmax(self.percent_matrix),
-                        line=dict(color="skyBlue", width=2.5, dash="dash")
+                        line=dict(color='#007BFF', width=2.5, dash="dash")
                     ))
                     # existing_shapes_bottom.append(dict(
                     #     type="rect",
@@ -1142,26 +1185,45 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
             elif triggered_id == 'apply-Checkbutton':
                 # El usuario pulsó "Apply" -> Usar estilo final
                 ranges = self.collectingRangeSmartscope()
+
                 for i in range(1, 4):
                     existing_shapes_top.append(dict(
-                        type="rect",
+                        type="line",
                         xref=f"x{i}", yref=f"y{i}",
-                        x0=ranges[0], x1=ranges[1],
-                        y0=0, y1=listMaxYValues[i - 1],
+                        x0=ranges[0], x1=ranges[0],
+                        y0=0, y1=np.nanmax(self.percent_matrix),
                         fillcolor="rgba(255, 228, 196, 0.5)",
-                        line=dict(width=0),
+                        line=dict(color='#8B4513', width=2.5, dash="solid"),
+                        layer="below"
+                    ))
+                    existing_shapes_top.append(dict(
+                        type="line",
+                        xref=f"x{i}", yref=f"y{i}",
+                        x0=ranges[1], x1=ranges[1],
+                        y0=0, y1=np.nanmax(self.percent_matrix),
+                        fillcolor="rgba(255, 228, 196, 0.5)",
+                        line=dict(color='#8B4513', width=2.5, dash="solid"),
                         layer="below"
                     ))
 
                 for i in range(1, n_classes+1):
                     subplot_idx = i
                     existing_shapes_bottom.append(dict(
-                        type="rect",
+                        type="line",
                         xref=f"x{subplot_idx}", yref=f"y{subplot_idx}",
-                        x0=ranges[0], x1=ranges[1],
+                        x0=ranges[0], x1=ranges[0],
                         y0=0, y1=np.nanmax(self.percent_matrix),
                         fillcolor="rgba(255, 228, 196, 0.5)",
-                        line=dict(width=0),
+                        line=dict(color='#8B4513', width=2.5, dash="solid"),
+                        layer="below"
+                    ))
+                    existing_shapes_bottom.append(dict(
+                        type="line",
+                        xref=f"x{subplot_idx}", yref=f"y{subplot_idx}",
+                        x0=ranges[1], x1=ranges[1],
+                        y0=0, y1=np.nanmax(self.percent_matrix),
+                        fillcolor="rgba(255, 228, 196, 0.5)",
+                        line=dict(color='#8B4513', width=2.5, dash="solid"),
                         layer="below"
                     ))
 
