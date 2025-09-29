@@ -1,7 +1,6 @@
 # **************************************************************************
 # *
-# * Authors: Daniel Marchan (da.marchan@cnb.csic.es)
-#            Alberto Garcia Mena   (alberto.garcia@cnb.csic.es)
+# * Authors:  Alberto Garcia Mena   (alberto.garcia@cnb.csic.es)
 # *
 # *
 # * Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC
@@ -27,42 +26,39 @@
 # **************************************************************************
 
 
-from pwem.viewers.viewers_data import DataViewer
-#from ..objects.data_deprecated import *
-from ..objects.data import *
-from pwem.viewers import DataView, ObjectView, EmPlotter
-from pwem.viewers.showj import ORDER, VISIBLE, MODE, RENDER, MODE_MD, ZOOM, SORT_BY
+
+from pwem.viewers import ObjectView
 from pwem.viewers.showj import *
 from pyworkflow.viewer import DESKTOP_TKINTER, WEB_DJANGO, ProtocolViewer
 from smartscope.protocols.protocol_feedback_filter import smartscopeFeedbackFilter
 from smartscope.protocols.protocol_feedback_2D import smartscopeFeedback2D
 from smartscope.protocols.protocol_smartscope import smartscopeConnection
-from pyworkflow.protocol.params import IntParam, LabelParam
+from pyworkflow.protocol.params import LabelParam
 
-import webbrowser
-import re
-import os
-import matplotlib.pyplot as plt
+# === Standard Library Imports ===
+import base64
+import io
 import math
+import os
+import re
+import threading
+import webbrowser
+from pathlib import Path
+
+# === Third-Party Library Imports ===
+import dash
+from dash import Dash, dcc, html, Output, Input
+from dash.dependencies import Input, Output, State
+import matplotlib.pyplot as plt
+import mrcfile
+import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import numpy as np
-from dash import Dash, dcc, html, Output, Input
-import plotly.graph_objects as go
-import dash # Necesitas importar dash para usar dash.ctx
-from dash.dependencies import Input, Output, State
-import plotly.graph_objects as go
-from os.path import join, dirname
-import base64
-from pathlib import Path
-from dash import html
-import mrcfile
-import io
 from PIL import Image as PILImage, ImageDraw
-import time
+
+# === Local Application Imports ===
 from smartscope import Plugin
 from ..constants import *
-
 from ..objects.dataCollection import *
 
 
@@ -166,7 +162,6 @@ class DataViewer_smartscope(ProtocolViewer):
         with open(os.path.join(self.protocol._getExtraPath(), 'URLsmartscopeSession.txt'), 'r') as fi:
             urlsmartscope = fi.read()
         webbrowser.open(urlsmartscope)
-
 
 
 class SmartscopeFilterFeedbackViewer(ProtocolViewer):
@@ -628,14 +623,9 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
 #
 
 class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
-    """
-
-    """
     _label = 'viewer feedback holes particles'
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
     _targets = [smartscopeFeedback2D]
-
-
 
     def _defineParams(self, form):
         form.addSection(label='Visualization')
@@ -710,7 +700,6 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                         if match:
                             dictFiles[f'class-{int(match.group())}'] = f
 
-            # --- Preparación de datos ---
             self.numClasses = range(sum(1 for key in dictFiles if "class" in key))
             self.listRanges = {
                 'xBin': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['xBin'])),
@@ -737,7 +726,7 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                 self.classImagesDict[classNumber] = f"{classNumber}@{path_mrc}"
 
     def dataManipulation(self):
-        self.matrix = np.vstack([self.listRanges[c] for c in self.classesList])  # shape (n_classes, n_bins)
+        self.matrix = np.vstack([self.listRanges[c] for c in self.classesList])
         self.xBin = self.listRanges['xBin']
         self.particles_per_class = self.matrix.sum(axis=1)
 
@@ -745,27 +734,27 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
         self.col_sums = np.where(col_sums != 0, col_sums, np.finfo(float).eps)
         self.percent_matrix = self.matrix / self.col_sums * 100  # each column sums to 100%
 
-
     def plotlySetup(self):
+        # === Initialization of Plugin Variables ===
         self.token = Plugin.getVar(SMARTSCOPE_TOKEN)
         self.endpoint = Plugin.getVar(SMARTSCOPE_LOCALHOST)
         self.dataPath = Plugin.getVar(SMARTSCOPE_DATA_SESSION_PATH)
 
+        # === PyClient Setup ===
         self.pyClient = MainPyClient(self.token, self.endpoint)
-        # -----------------------------
-        # Preparar datos y figura
-        # -----------------------------
+
+        # === Persistent Shape Containers ===
+        self.persistent_shapes_top = []
+        self.persistent_shapes_bottom = []
+
+        # === Histogram Configuration ===
         bin_width = (self.listRanges['bin_edges'][1] - self.listRanges['bin_edges'][0]) * 0.9
         n_cols_top = 3
         n_cols_bottom = 5
-        n_rows_sub_bottom = int(math.ceil(len(self.classesList) / n_cols_bottom))
-        total_rows = 1 + n_rows_sub_bottom
-
         titles = ["Num holes", "Sum num particles", "Media de percent good"]
         row_heights = [0.3]
-        # specs = [[{} for _ in range(n_cols)] for _ in range(total_rows)]
-        # specs[0][-1] = None  # ? Esto lo marca como hueco
-        # specs[1] = [None] * n_cols
+
+        # === Create Top Figure for Histograms ===
         fig_top = make_subplots(
             rows=1,
             cols=n_cols_top,
@@ -776,13 +765,7 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
         )
         fig_top.update_layout(
             title_text="Histograms holes and particles",
-            title_font=dict(
-                size=20,  # tamaño más grande
-                color="darkblue",  # color elegante
-                family="Arial, sans-serif",
-                # Puedes añadir "bold" si quieres más énfasis:
-                # weight="bold"
-            ),
+            title_font=dict(size=20, color="darkblue", family="Arial, sans-serif"),
             title_x=0.5,
             width=1200,
             height=400,
@@ -791,48 +774,42 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
             margin=dict(l=40, r=40, t=80, b=40),
         )
 
-
         listMaxYValues = []
-        # Subplot 1
+
+        # === Subplot 1: Holes Count ===
         fig_top.add_trace(go.Bar(x=self.xBin, y=self.listRanges['holeTotalCount'],
-                             name="Total holes", marker=dict(color="gray"), width=bin_width), row=1, col=1)
+                                 name="Total holes", marker=dict(color="gray"), width=bin_width), row=1, col=1)
         fig_top.add_trace(go.Bar(x=self.xBin, y=self.listRanges['holeCount'],
-                             name="Holes acquired", marker=dict(color="#7d498a"), width=bin_width), row=1, col=1)
+                                 name="Holes acquired", marker=dict(color="#7d498a"), width=bin_width), row=1, col=1)
         fig_top.update_xaxes(title="Holes Intensity", range=[min(self.xBin), max(self.xBin)], row=1, col=1)
         fig_top.update_yaxes(title="Count", row=1, col=1)
         listMaxYValues.append(max(self.listRanges['holeTotalCount']))
 
-        # Subplot 2
+        # === Subplot 2: Particles Count ===
         fig_top.add_trace(go.Bar(x=self.xBin, y=self.listRanges['totalParticles'],
-                             name="Total particles",marker=dict(color="gray",       # color de fondo
-                            pattern_shape=".",               # patrón de puntitos
-                            pattern_fgcolor="#a9a9a9",         # darkgray a9a9a9 color de los puntitos
-                            pattern_size=8                  # tamaño de los puntitos
-                        ), width=bin_width), row=1, col=2)
+                                 name="Total particles", marker=dict(color="gray",
+                                                                     pattern_shape=".", pattern_fgcolor="#a9a9a9",
+                                                                     pattern_size=8), width=bin_width), row=1, col=2)
         fig_top.add_trace(go.Bar(x=self.xBin, y=self.listRanges['good_binTotal'],
-                             name="Good particles",
-                             marker=dict(color="rgba(0,150,0,0.3)",       # color de fondo
-                            pattern_shape=".",               # patrón de puntitos
-                            pattern_fgcolor="rgb(196, 230, 200)",         # color de los puntitos
-                            pattern_size=8                  # tamaño de los puntitos
-                        ), width=bin_width), row=1, col=2)
+                                 name="Good particles", marker=dict(color="rgba(0,150,0,0.3)",
+                                                                    pattern_shape=".",
+                                                                    pattern_fgcolor="rgb(196, 230, 200)",
+                                                                    pattern_size=8), width=bin_width), row=1, col=2)
         fig_top.update_xaxes(title="Holes Intensity", range=[min(self.xBin), max(self.xBin)], row=1, col=2)
         fig_top.update_yaxes(title="Particles", row=1, col=2)
         listMaxYValues.append(max(self.listRanges['totalParticles']))
 
-        # Subplot 3
-        fig_top.add_trace(go.Bar(x=self.xBin, y=self.listRanges['percentGood'],
-                             name="Percent good", marker=dict(color="rgba(0,150,0,0.6)"), width=bin_width), row=1, col=3)
+        # === Subplot 3: Percent Good ===
+        fig_top.add_trace(go.Bar(x=self.xBin, y=self.listRanges['percentGood'] * 100,
+                         name="Percent good", marker=dict(color="rgba(0,150,0,0.6)"), width=bin_width), row=1,  col=3)
         fig_top.update_xaxes(title="Holes Intensity", range=[min(self.xBin), max(self.xBin)], row=1, col=3)
-        fig_top.update_yaxes(title="Percent good", range=[0, 1], row=1, col=3)
-        listMaxYValues.append(1)
+        fig_top.update_yaxes(title="Percent good", range=[0, 100], row=1, col=3)
+        listMaxYValues.append(100)
 
-
-        # PLOTS clases 2D
+        # === Create Bottom Figure for 2D Class Distribution ===
         n_classes = len(self.classesList)
         n_rows = math.ceil(n_classes / n_cols_bottom)
 
-        # 1. Crea la figura SÓLO con los argumentos para la cuadrícula de subplots.
         fig_bottom = make_subplots(
             rows=n_rows,
             subplot_titles=self.classesList,
@@ -842,16 +819,10 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
         )
         fig_bottom.update_layout(
             title_text="Particles distributions by 2DClass",
-            title_font=dict(
-                size=20,  # tamaño más grande
-                color="darkblue",  # color elegante
-                family="Arial, sans-serif",
-                # Puedes añadir "bold" si quieres más énfasis:
-                # weight="bold"
-            ),
+            title_font=dict(size=20, color="darkblue", family="Arial, sans-serif"),
             title_x=0.5,
             width=1200,
-            height=200*n_rows,
+            height=200 * n_rows,
             barmode="overlay",
             bargap=0.05,
             margin=dict(l=40, r=40, t=120, b=40),
@@ -860,161 +831,108 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
 
         ymax_global = np.nanmax(self.percent_matrix)
 
+        # === Loop Through Classes and Add Subplots ===
         for i, cls in enumerate(self.classesList):
             row = (i // n_cols_bottom) + 1
             col = (i % n_cols_bottom) + 1
             listMaxYValues.append(np.nanmax(self.percent_matrix[i]))
             class_idx = int(cls.split('-')[1])
+            img_ref = self.classImagesDict[class_idx]
 
-            img_ref = self.classImagesDict.get(class_idx)
+            # === Load and Normalize Class Image ===
             if img_ref:
                 idx, path_mrc = img_ref.split('@')
                 idx = int(idx)
                 with mrcfile.open(path_mrc) as mrc:
                     idx = idx % mrc.data.shape[0]
-                    img_data = mrc.data[idx]
+                    img_data = mrc.data[idx - 1]
 
-            # Normalizar y convertir a uint8
-            img_norm = 255 * (img_data - img_data.min()) / (img_data.ptp() + 1e-6)
-            img_norm = img_norm.astype(np.uint8)
-            img_pil = PILImage.fromarray(img_norm)
+                img_norm = 255 * (img_data - img_data.min()) / (img_data.ptp() + 1e-6)
+                img_norm = img_norm.astype(np.uint8)
+                img_pil = PILImage.fromarray(img_norm)
 
-            # Crear máscara circular
-            w, h = img_pil.size
-            mask = PILImage.new("L", (w, h), 0)
-            draw = ImageDraw.Draw(mask)
-            draw.ellipse((0, 0, w, h), fill=255)
+                # === Create Circular Mask ===
+                w, h = img_pil.size
+                mask = PILImage.new("L", (w, h), 0)
+                draw = ImageDraw.Draw(mask)
+                draw.ellipse((0, 0, w, h), fill=255)
 
-            # Aplicar máscara ? imagen circular con fondo transparente
-            img_circular = PILImage.new("RGBA", (w, h), (0, 0, 0, 0))
-            img_circular.paste(img_pil, (0, 0), mask=mask)
+                # === Apply Mask and Encode Image ===
+                img_circular = PILImage.new("RGBA", (w, h), (0, 0, 0, 0))
+                img_circular.paste(img_pil, (0, 0), mask=mask)
+                buffer = io.BytesIO()
+                img_circular.save(buffer, format="PNG")
+                encoded = base64.b64encode(buffer.getvalue()).decode()
 
-            # Guardar en memoria como PNG
-            buffer = io.BytesIO()
-            img_circular.save(buffer, format="PNG")
-            encoded = base64.b64encode(buffer.getvalue()).decode()
-
-            # # Guardar en memoria como PNG
-            # buffer = io.BytesIO()
-            # img_pil.save(buffer, format="PNG")
-            # encoded = base64.b64encode(buffer.getvalue()).decode()
-
-            # --- Añadir anotación con el número de partículas ---
-            fig_bottom.add_annotation(
-                text=f"N = {round(np.sum(self.particles_per_class[i]/1000),1)}K",
-                xref=f"x{row}{col} domain",
-                yref=f"y{row}{col} domain",
-                x=0.95,  # esquina derecha
-                y=0.95,  # esquina superior
-                showarrow=False,
-                row=row, col=col,
-                font=dict(color="black", size=12),
-                bgcolor="rgba(100,100,100,0.7)",  # fondo verde semitransparente
-                bordercolor="gray",  #
-                borderwidth=2,  # grosor del borde
-                borderpad=5,  # padding dentro del recuadro
-            )
-
-            fig_bottom.add_trace(go.Bar(
-                x=self.xBin,
-                y=self.percent_matrix[i],
-                name=f"Class-{class_idx}",
-                marker=dict(color="rgba(0,150,0,0.6)"),
-                width=bin_width
-            ), row=row, col=col)
-            fig_bottom.update_yaxes(showgrid=False, row=row, col=col)
-            if col == 1:
-                fig_bottom.update_yaxes(title="Percentage (%)", row=row, col=col)
-            # Aplicar el mismo límite Y a todos los subplots
-            for j in range(len(self.classesList)):
-                row = (j // n_cols_bottom) + 1
-                col = (j % n_cols_bottom) + 1
-                fig_bottom.update_yaxes(range=[0, ymax_global], row=row, col=col)
-
-            # 2. Genera los nombres de los ejes correctamente
-            subplot_num = i + 1
-            if subplot_num == 1:
-                xref_val = 'x domain'
-                yref_val = 'y domain'
-            else:
-                xref_val = f'x{subplot_num} domain'
-                yref_val = f'y{subplot_num} domain'
-            fig_bottom.add_layout_image(
-                dict(
-                    #source = "https://images.plot.ly/logo/new-branding/plotly-logomark.png",
-
-                    source=f"data:image/png;base64,{encoded}",
-                    xref=xref_val,  # sin espacios
-                    yref=yref_val,  # sin espacios
-                    x=0.05,#min(self.xBin),
-                    y=0.95,#ymax_global, # esquina superior izquierda
-                    sizex=0.35,#(max(self.xBin) - min(self.xBin))/2,  # ancho de la imagen
-                    sizey=0.5,#ymax_global/2,  # alto de la imagen
-                    xanchor="left",
-                    yanchor="top",
-                    sizing="stretch",
-                    opacity=0.9,  # transparencia
-                    layer="above"  # detrás de las barras
+                # === Add Annotation and Bar Plot ===
+                fig_bottom.add_annotation(
+                    text=f"N = {round(np.sum(self.particles_per_class[i] / 1000), 1)}K",
+                    xref=f"x{row}{col} domain",
+                    yref=f"y{row}{col} domain",
+                    x=0.95, y=0.95, showarrow=False,
+                    row=row, col=col,
+                    font=dict(color="black", size=12),
+                    bgcolor="rgba(100,100,100,0.7)",
+                    bordercolor="gray", borderwidth=2, borderpad=5,
                 )
-            )
+                fig_bottom.add_trace(go.Bar(
+                    x=self.xBin,
+                    y=self.percent_matrix[i],
+                    name=f"Class-{class_idx}",
+                    marker=dict(color="rgba(0,150,0,0.6)"),
+                    width=bin_width
+                ), row=row, col=col)
+                fig_bottom.update_yaxes(showgrid=False, row=row, col=col)
+                if col == 1:
+                    fig_bottom.update_yaxes(title="Percentage (%)", row=row, col=col)
 
+                # === Set Y-Axis Range for All Subplots ===
+                for j in range(len(self.classesList)):
+                    row = (j // n_cols_bottom) + 1
+                    col = (j % n_cols_bottom) + 1
+                    fig_bottom.update_yaxes(range=[0, ymax_global], row=row, col=col)
 
-        # -----------------------------
-        # Crear app Dash
-        # -----------------------------
+                # === Add Image Overlay to Subplot ===
+                subplot_num = i + 1
+                xref_val = 'x domain' if subplot_num == 1 else f'x{subplot_num} domain'
+                yref_val = 'y domain' if subplot_num == 1 else f'y{subplot_num} domain'
+                fig_bottom.add_layout_image(
+                    dict(
+                        source=f"data:image/png;base64,{encoded}",
+                        xref=xref_val, yref=yref_val,
+                        x=0.05, y=0.95,
+                        sizex=0.35, sizey=0.5,
+                        xanchor="left", yanchor="top",
+                        sizing="stretch", opacity=0.9,
+                        layer="above"
+                    )
+                )
+        # === Dash App Initialization ===
         x_min = min(self.xBin)
         x_max = max(self.xBin)
-        x_minRound = int(min(self.xBin)) - (int(min(self.xBin)) % 10)
+        x_minRound = int(x_min) - (int(x_min) % 10)
+
         app = Dash(__name__)
         app.title = "Scipion-em-Smartscope"
+
+        # === Controls Panel Layout ===
         controls_div = html.Div([
-                html.Label("Intensity (ice-thickness) range to select",
-                           style={
-                               'font-size': '20px',  # tamaño de fuente más visible
-                               'color': 'darkblue',  # color elegante
-                               'margin-bottom': '5px',  # espacio debajo del label
-                               'display': 'block'  # asegurar que quede en su propia línea
-                }),
-                # Slider + botón justo debajo
-                html.Div([
-                    html.A(
-                        html.Button(
-                            "Open Smartscope session",
-                            id='smartscope-button',
-                            n_clicks=0,
-                            style={
-                                'background-color': '#6A6A6A',  # verde, puedes cambiarlo
-                                'color': 'white',
-                                'font-weight': 'bold',
-                                'padding': '10px 20px',
-                                'border-radius': '8px',
-                                'border': 'none',
-                                'box-shadow': '2px 2px 5px rgba(0,0,0,0.3)',
-                                'cursor': 'pointer'
-                            }
-                        ),
-                        href=self.urlSmartscope,  # tu URL aquí
-                        target="_blank"  # abre en una nueva pestaña
-                    ),
-                    html.Div([
-                        dcc.RangeSlider(
-                            id='x-range-slider',
-                            min=int(x_min),
-                            max=int(x_max),
-                            #value=self.collectingRangeSmartscope(),
-                            step=1,
-                            value=[x_minRound, int(x_max)],
-                            marks={x_minRound: str(x_minRound), int(x_max): str(int(x_max))},
-                            tooltip={"placement": "top", "always_visible": True})
-                            ], style = {'width': '600px'}
-                    ),
+            html.Label("Intensity (ice-thickness) range to select",
+                       style={
+                           'font-size': '20px',
+                           'color': 'darkblue',
+                           'margin-bottom': '5px',
+                           'display': 'block'
+                       }),
+            html.Div([
+                html.A(
                     html.Button(
-                        "Apply to Smartscope",
-                        id='apply-button',
+                        "Open Smartscope session",
+                        id='smartscope-button',
                         n_clicks=0,
                         style={
-                            'background-color': '#007BFF',  # azul intenso
-                            'color': 'rgba(255, 228, 196, 1)',
+                            'background-color': '#6A6A6A',
+                            'color': 'white',
                             'font-weight': 'bold',
                             'padding': '10px 20px',
                             'border-radius': '8px',
@@ -1022,137 +940,162 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                             'box-shadow': '2px 2px 5px rgba(0,0,0,0.3)',
                             'cursor': 'pointer'
                         }
-                    )
-                ], style={'width': '100%', 'display': 'flex', 'flex-direction': 'row', 'align-items': 'center'}
+                    ),
+                    href=self.urlSmartscope,
+                    target="_blank"
                 ),
                 html.Div([
-                    html.Button(
-                            "Check the current Intensity Range on Smartscope session",
-                            id='apply-Checkbutton',
-                            n_clicks=0,
-                            style={
-                                'background-color':'rgba(255, 228, 196, 0.5)',
-                                'color': '#8B4513',
-                                'font-weight': 'bold',
-                                'padding': '10px 20px',
-                                'border-radius': '8px',
-                                'border': 'none',
-                                'box-shadow': '2px 2px 5px rgba(0,0,0,0.3)',
-                                'cursor': 'pointer'
-                            }
+                    dcc.RangeSlider(
+                        id='x-range-slider',
+                        min=int(x_min),
+                        max=int(x_max),
+                        step=1,
+                        value=[x_minRound, int(x_max)],
+                        marks={x_minRound: str(x_minRound), int(x_max): str(int(x_max))},
+                        tooltip={"placement": "top", "always_visible": True}
                     )
-                ],style={'display': 'flex', 'margin-top': '5px','gap': '20px', 'flex-direction': 'row', 'justify-content': 'center'}
+                ], style={'width': '600px'}),
+                html.Button(
+                    "Apply to Smartscope",
+                    id='apply-button',
+                    n_clicks=0,
+                    style={
+                        'background-color': '#007BFF',
+                        'color': 'rgba(255, 228, 196, 1)',
+                        'font-weight': 'bold',
+                        'padding': '10px 20px',
+                        'border-radius': '8px',
+                        'border': 'none',
+                        'box-shadow': '2px 2px 5px rgba(0,0,0,0.3)',
+                        'cursor': 'pointer'
+                    }
                 )
-            ], style={'display': 'flex', 'flex-direction': 'column', 'align-items': 'center', 'gap': '15px' }
-        )
+            ], style={'width': '100%', 'display': 'flex', 'flex-direction': 'row', 'align-items': 'center'}),
+            html.Div([
+                html.Button(
+                    "Check the current Intensity Range on Smartscope session",
+                    id='apply-Checkbutton',
+                    n_clicks=0,
+                    style={
+                        'background-color': 'rgba(255, 228, 196, 0.5)',
+                        'color': '#8B4513',
+                        'font-weight': 'bold',
+                        'padding': '10px 20px',
+                        'border-radius': '8px',
+                        'border': 'none',
+                        'box-shadow': '2px 2px 5px rgba(0,0,0,0.3)',
+                        'cursor': 'pointer'
+                    }
+                )
+            ], style={'display': 'flex', 'margin-top': '5px', 'gap': '20px', 'flex-direction': 'row',
+                      'justify-content': 'center'})
+        ], style={'display': 'flex', 'flex-direction': 'column', 'align-items': 'center', 'gap': '15px'})
 
-
-        # Define el layout de la aplicación
+        # === Load and Encode Logos ===
         smartscope_icon = Path(__file__).parent / '../icon.png'
         scipion_icon = Path(__file__).parent / '../objects/scipion_logo_normal.png'
         encoded_image_smartscope = base64.b64encode(smartscope_icon.read_bytes()).decode()
-        encoded_image_scipion = base64.b64encode(scipion_icon.read_bytes()).decode()# Contenedor principal con Flexbox para organizar en fila
-        print(f'self.sessionDetails: {self.sessionDetails}')
-        print(*[html.Div(line) for line in self.sessionDetails.split('\n')])
-        print(type(self.sessionDetails))
+        encoded_image_scipion = base64.b64encode(scipion_icon.read_bytes()).decode()
+
+        # === App Layout Definition ===
         app.layout = html.Div([
-            # Columna de las imágenes (a la izquierda)
             html.Div([
                 html.Div([
-                    html.Img(src=f"data:image/png;base64,{encoded_image_smartscope}", style={'height': '50px', 'margin-bottom': '10px'}),
+                    html.Img(src=f"data:image/png;base64,{encoded_image_smartscope}",
+                             style={'height': '50px', 'margin-bottom': '10px'}),
                     html.Img(src=f"data:image/png;base64,{encoded_image_scipion}", style={'height': '50px'}),
-                    ]),
+                ]),
                 html.Div([
-                    html.Div(f"Scipion project name: {self._project.getShortName()}"),
+                    html.Div(f"Scipion project: {self._project.getShortName()}"),
                     *[html.Div(line) for line in self.sessionDetails.split('\n')]
-                    ], style={'font-size': '14px'}),
+                ], style={'font-size': '14px'}),
             ], style={
                 'display': 'flex',
                 'flex-direction': 'row',
                 'align-items': 'center',
                 'padding': '10px',
             }),
-            # 1. Gráfico superior
+
+            # === Top Graph Display ===
             dcc.Graph(
                 id='graph-top',
                 figure=fig_top,
-                style={'margin-bottom': '20px'}  # espacio debajo del gráfico
+                style={'margin-bottom': '20px'}
             ),
-
-            # 2. Panel de control en medio
+            dcc.Loading(
+                id='loading-overlay',
+                type='circle',
+                children=html.Div(),  # vacío, solo para activar el spinner
+                style={
+                    'position': 'absolute',
+                    'top': '70%',
+                    'left': '50%',
+                    'transform': 'translate(-50%, -50%) scale(2)',
+                    'zIndex': '10'
+                }
+            )        ,    # === Controls Panel ===
             controls_div,
 
-            # 3. Gráfico inferior
+            # === Bottom Graph Display ===
             dcc.Graph(
                 id='graph-bottom',
                 figure=fig_bottom
             )
 
+        ], style={
+            'display': 'flex',
+            'flex-direction': 'column',
+            'align-items': 'center',
+            'width': '100%'
+        })
 
-        ],
-            style={
-                'display': 'flex',
-                'flex-direction': 'column',  # apila elementos verticalmente
-                'align-items': 'center',  # centra verticalmente si hay altura definida
-                'width': '100%'  # ocupa todo el ancho disponible
-            }
-
-        )
-
-        # -----------------------------
-        # Callback: añadir área de highlight
-        # -----------------------------
+        # === Callback: Highlight Area on Graphs ===
         @app.callback(
-            Output('graph-top', 'figure'),  # id de la primera figura
-            Output('graph-bottom', 'figure'),  # id de la segunda figura
+            Output('graph-top', 'figure'),
+            Output('graph-bottom', 'figure'),
+            Output('loading-overlay', 'children'),
             Input('apply-button', 'n_clicks'),
             Input('apply-Checkbutton', 'n_clicks'),
             Input('x-range-slider', 'value'),
         )
-
+        # === Callback Function: Update Highlighted Range on Graphs ==
         def update_highlight(n_apply, n_check, x_range):
             triggered_id = dash.ctx.triggered_id
-
             print(f"Range selected: {x_range}")
 
-            # Copiar la figura base
-            new_fig_top = go.Figure(fig_top)  # Crea una copia nueva de la figura
-            new_fig_bottom = go.Figure(fig_bottom)  # Crea una copia nueva de la figura
+            # Create fresh copies of the figures
+            new_fig_top = go.Figure(fig_top)
+            new_fig_bottom = go.Figure(fig_bottom)
+
+            # Retrieve existing shapes from layout
             existing_shapes_top = list(new_fig_top.layout.shapes) if "shapes" in new_fig_top.layout else []
             existing_shapes_bottom = list(new_fig_bottom.layout.shapes) if "shapes" in new_fig_bottom.layout else []
 
-            if triggered_id == 'x-range-slider':
-                # El usuario está moviendo el slider -> Usar estilo de vista previa
-                # Crear un shape para cada subplot (xaxis1, xaxis2, xaxis3)
+            # Add persistent shapes stored from previous interactions
+            existing_shapes_top += self.persistent_shapes_top
+            existing_shapes_bottom += self.persistent_shapes_bottom
 
+            # === Case: Slider is being moved (Preview Mode) ===
+            if triggered_id == 'x-range-slider':
+                # Add dashed vertical lines to top figure subplots
                 for i in range(1, 4):
                     existing_shapes_top.append(dict(
                         type="line",
                         xref=f"x{i}", yref=f"y{i}",
-                        x0=x_range[0], x1=x_range[0],  # línea izquierda
+                        x0=x_range[0], x1=x_range[0],
                         y0=0, y1=listMaxYValues[i - 1],
                         line=dict(color='#007BFF', width=2.5, dash="dash")
                     ))
                     existing_shapes_top.append(dict(
                         type="line",
                         xref=f"x{i}", yref=f"y{i}",
-                        x0=x_range[1], x1=x_range[1],  # línea derecha
+                        x0=x_range[1], x1=x_range[1],
                         y0=0, y1=listMaxYValues[i - 1],
                         line=dict(color='#007BFF', width=2.5, dash="dash")
                     ))
-                    #
-                    # existing_shapes_top.append(dict(
-                    #     type="rect",
-                    #     xref=f"x{i}", yref=f"y{i}",
-                    #     x0=x_range[0], x1=x_range[1],
-                    #     y0=0, y1=listMaxYValues[i - 1],
-                    #     fillcolor="skyBlue",
-                    #     line=dict(width=0),
-                    #     layer="below"
-                    # ))
 
-
-                for i in range(1, n_classes+1):
+                # Add dashed vertical lines to bottom figure subplots
+                for i in range(1, n_classes + 1):
                     existing_shapes_bottom.append(dict(
                         type="line",
                         xref=f"x{i}", yref=f"y{i}",
@@ -1167,104 +1110,99 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                         y0=0, y1=np.nanmax(self.percent_matrix),
                         line=dict(color='#007BFF', width=2.5, dash="dash")
                     ))
-                    # existing_shapes_bottom.append(dict(
-                    #     type="rect",
-                    #     xref=f"x{subplot_idx}", yref=f"y{subplot_idx}",
-                    #     x0=x_range[0], x1=x_range[1],
-                    #     y0=0, y1=np.nanmax(self.percent_matrix),
-                    #     fillcolor="skyBlue",
-                    #     line=dict(width=0),
-                    #     layer="below"
-                    # ))
 
+            # === Case: "Apply" button clicked (Save Range) ===
             elif triggered_id == 'apply-button':
-                # El usuario pulsó "Apply" -> Usar estilo final
                 print(f'Button clicked: Range: {x_range}')
-                self.settingRangeSmartscope(x_minRound, int(x_max))
+                self.settingRangeSmartscope(x_range[0], x_range[1])
+                existing_shapes_top, existing_shapes_bottom = applyCheckButton(existing_shapes_top, existing_shapes_bottom)
 
+            # === Case: "Check" button clicked (Display Saved Range) ===
             elif triggered_id == 'apply-Checkbutton':
-                # El usuario pulsó "Apply" -> Usar estilo final
-                ranges = self.collectingRangeSmartscope()
+                existing_shapes_top, existing_shapes_bottom = applyCheckButton(existing_shapes_top, existing_shapes_bottom)
 
-                for i in range(1, 4):
-                    existing_shapes_top.append(dict(
-                        type="line",
-                        xref=f"x{i}", yref=f"y{i}",
-                        x0=ranges[0], x1=ranges[0],
-                        y0=0, y1=np.nanmax(self.percent_matrix),
-                        fillcolor="rgba(255, 228, 196, 0.5)",
-                        line=dict(color='#8B4513', width=2.5, dash="solid"),
-                        layer="below"
-                    ))
-                    existing_shapes_top.append(dict(
-                        type="line",
-                        xref=f"x{i}", yref=f"y{i}",
-                        x0=ranges[1], x1=ranges[1],
-                        y0=0, y1=np.nanmax(self.percent_matrix),
-                        fillcolor="rgba(255, 228, 196, 0.5)",
-                        line=dict(color='#8B4513', width=2.5, dash="solid"),
-                        layer="below"
-                    ))
-
-                for i in range(1, n_classes+1):
-                    subplot_idx = i
-                    existing_shapes_bottom.append(dict(
-                        type="line",
-                        xref=f"x{subplot_idx}", yref=f"y{subplot_idx}",
-                        x0=ranges[0], x1=ranges[0],
-                        y0=0, y1=np.nanmax(self.percent_matrix),
-                        fillcolor="rgba(255, 228, 196, 0.5)",
-                        line=dict(color='#8B4513', width=2.5, dash="solid"),
-                        layer="below"
-                    ))
-                    existing_shapes_bottom.append(dict(
-                        type="line",
-                        xref=f"x{subplot_idx}", yref=f"y{subplot_idx}",
-                        x0=ranges[1], x1=ranges[1],
-                        y0=0, y1=np.nanmax(self.percent_matrix),
-                        fillcolor="rgba(255, 228, 196, 0.5)",
-                        line=dict(color='#8B4513', width=2.5, dash="solid"),
-                        layer="below"
-                    ))
-
+            # === Update figures with new shapes ===
             new_fig_top.update_layout(shapes=existing_shapes_top)
             new_fig_bottom.update_layout(shapes=existing_shapes_bottom)
-            return new_fig_top, new_fig_bottom
+
+            return new_fig_top, new_fig_bottom, html.Div()
+
+        def applyCheckButton(existing_shapes_top, existing_shapes_bottom):
+            ranges = self.collectingRangeSmartscope()
+            self.persistent_shapes_top.clear()
+            self.persistent_shapes_bottom.clear()
+            # Add solid lines to top figure subplots
+            for i in range(1, 4):
+                for x_val in ranges:
+                    shape = dict(
+                        type="line",
+                        xref=f"x{i}", yref=f"y{i}",
+                        x0=x_val, x1=x_val,
+                        y0=0, y1=listMaxYValues[i - 1],
+                        fillcolor="rgba(255, 228, 196, 0.5)",
+                        line=dict(color='#8B4513', width=2.5, dash="solid"),
+                    )
+                    self.persistent_shapes_top.append(shape)
+                    existing_shapes_top.append(shape)
+
+            # Add solid lines to bottom figure subplots
+            for i in range(1, n_classes + 1):
+                for x_val in ranges:
+                    shape = dict(
+                        type="line",
+                        xref=f"x{i}", yref=f"y{i}",
+                        x0=x_val, x1=x_val,
+                        y0=0, y1=np.nanmax(self.percent_matrix),
+                        fillcolor="rgba(255, 228, 196, 0.5)",
+                        line=dict(color='#8B4513', width=2.5, dash="solid"),
+                    )
+                    self.persistent_shapes_bottom.append(shape)
+                    existing_shapes_bottom.append(shape)
 
 
 
-        # -----------------------------
-        # Lanzar servicio en segundo plano
-        # -----------------------------
+        # === Launch Dash Server in Background ===
         def open_browser():
+            # Open the Dash app in the default web browser
             webbrowser.open("http://127.0.0.1:8050/")
 
         def run_dash():
+            # Start the Dash server without reloading
             app.run_server(debug=False, port=8050, use_reloader=False)
 
+        # Start Dash server in a background thread and open browser after 1 second
         threading.Thread(target=run_dash, daemon=True).start()
         threading.Timer(1, open_browser).start()
-        print("Servidor Dash corriendo en http://127.0.0.1:8050/")
+        print("Server Dash running: http://127.0.0.1:8050/")
 
-
+        # === Retrieve Intensity Range from Smartscope ===
     def collectingRangeSmartscope(self):
         for i, grid in enumerate(self.gridsList):
             gridID = self.gridsIdList[i]
             self.info(f'\n -Posting Back to Smartscope Grid: grid: {gridID}')
+
+            # Request current intensity range from Smartscope
             status, currentRange = self.pyClient.getRangeOfIntensityGrid(gridID, magLevel='square', devel=True)
-            currentMinRange, currentMaxRange  = currentRange['low_limit'],  currentRange['high_limit']
+            currentMinRange, currentMaxRange = currentRange['low_limit'], currentRange['high_limit']
             print(f'status: {status}, currentRange: {currentMinRange, currentMaxRange}')
+
             if status:
                 return int(currentMinRange), int(currentMaxRange)
 
+    # === Set Intensity Range in Smartscope ===
     def settingRangeSmartscope(self, LowI, hightI):
         print(f'Setting Intensity range to smartscope: {LowI} - {hightI}')
+
         for i, grid in enumerate(self.gridsList):
             gridID = self.gridsIdList[i]
+
+            # Post new intensity range to Smartscope
             self.pyClient.postRangeIntensity(ID=gridID, data={"low_limit": LowI, "high_limit": hightI})
-            time.sleep(10)  # wait until Smartscope manage the posting
+            time.sleep(10)  # Wait for Smartscope to process the update
+
+            # Confirm the range was correctly set
             status, currentRange = self.pyClient.getRangeOfIntensityGrid(gridID, magLevel='square', devel=True)
-            if status and  currentRange['low_limit'] ==LowI and  currentRange['high_limit'] == hightI:
+            if status and currentRange['low_limit'] == LowI and currentRange['high_limit'] == hightI:
                 return True
             else:
                 return False
