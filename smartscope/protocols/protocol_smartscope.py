@@ -171,7 +171,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         self.zeroTime = time.time()
         self.rTime = self.refreshTime.get()
         if self.rTime < 240:
-            self.rTime = 1240
+            self.rTime = 240
         if self.Grids is None:
             self.SOG = SetOfGrids.create(outputPath=self._getPath())
         else:
