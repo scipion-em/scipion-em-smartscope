@@ -1159,6 +1159,7 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                     self.persistent_shapes_bottom.append(shape)
                     existing_shapes_bottom.append(shape)
 
+            return existing_shapes_top, existing_shapes_bottom
 
 
         # === Launch Dash Server in Background ===

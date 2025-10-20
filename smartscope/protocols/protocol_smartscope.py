@@ -101,7 +101,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         form.addParam('refreshTime', params.IntParam, default=420,
                       condition='refreshMethod==1',
                       label="Time to refresh protocol",
-                      help = "Time to launch or  refresh Smartscope connection. By default 420s (7mins)")
+                      help = "Time to launch or  refresh Smartscope connection. By default 420s (7 mins), minimum 4 mins")
         form.addParam('refreshMovies', params.IntParam, default=200,
                       condition='refreshMethod==0',
                       label = 'Input movies to refresh protocol',
@@ -132,7 +132,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         # DEBUGALBERTO END
         while True:
             delayInit = int(time.time() - self.startTime)
-            #self.info('Time to Finish Smartscope: {} delayInit: {}s'.format(self.TotalTime, delayInit))
+            self.info('Time to Finish Smartscope: {} delayInit: {}s'.format(self.TotalTime, delayInit))
             inputMovies = self.inputMovies.get()
             if self.TotalTime <= delayInit:  # End of the protocol
                 break
@@ -157,7 +157,8 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                 self.info('Not more movies are expected; input setOfMovies closed')
                 break
 
-            time.sleep(self.refreshTime)
+            self.info(f'Waitting {self.rTime}s to check the inputs')
+            time.sleep(self.rTime)
 
     def _initialize(self):
         self.metadataCollected = False
@@ -264,8 +265,8 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
         self.gridsToCollect = self.checkNewGrid()
         self.atlasToCollect = self.checkNewAtlas()
-        if self.gridsToCollect != []:self.info('Number grid in the session: {}'.format(len(self.gridsToCollect)))
-        self.connectionClient.screeningCollection(self.dataPath,
+        if self.gridsToCollect != [] or self.atlasToCollect != []:
+            self.connectionClient.screeningCollection(self.dataPath,
                                                   self.sessionName,
                                                   self.SOG, self.SOA,
                                                   self.SOS, self.SOH,
@@ -434,7 +435,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                 listCollectedGrids.append(gridCollected.getGridId())
 
             gridsToCollect = list(set(listInSessionGrids) - set(listCollectedGrids))
-            gridsToCollect.append(list(set(listCollectedGrids) - set(listInSessionGrids)))
             return gridsToCollect
         # for gr in grid:
         #     atlas = self.pyClient.getRouteFromID('atlas', 'grid', gridCollected.getGridId())
@@ -446,18 +446,16 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         listCollectedAtlas = []
 
         atlas = self.pyClient.getRouteFromID('atlas', 'session', self.sessionId, dev=False)
-        if self.SOG:
+        if self.SOA:
             for at in atlas:
                 listInSessionAtlas.append(at['atlas_id'])
-            for atlasCollected in self.SOG.iterItems():
+            for atlasCollected in self.SOA.iterItems():
                 listCollectedAtlas.append(atlasCollected.getAtlasId())
 
             atlasToCollect = list(set(listInSessionAtlas) - set(listInSessionAtlas))
-            atlasToCollect.append(list(set(listCollectedAtlas) - set(listCollectedAtlas)))
             return atlasToCollect
         else:
             return atlas
-
 
     def importMoviesSS(self, inputMovies):
         self.info('importMoviesSS collection...')
@@ -546,7 +544,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         movie2Add.setHoleId(movieSS['hole_id'])
 
         SOMSS.append(movie2Add)
-
 
     def setSessionURL(self):
         gridId = self.pyClient.getRouteFromID('grids', 'session', self.sessionId, dev=False)[0]['grid_id']

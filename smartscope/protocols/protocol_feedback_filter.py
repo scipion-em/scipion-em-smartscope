@@ -89,11 +89,11 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                       label="Micrographs to launch the protocol",
                       help='Number of micrographs that pass the filters to launch the statistics')
         form.addParam('emptyBinsPercent', params.EnumParam,
-                      choices=self.percentBins, default=1, display=params.EnumParam.DISPLAY_COMBO,
+                      choices=self.percentBins, default=2, display=params.EnumParam.DISPLAY_COMBO,
                       #expertLevel=params.LEVEL_ADVANCED,
                       label="Percent empty bins in the histogram",
                       help="In the histogram of number of holes acquired (with movies), this parameter represent the"
-                            " percent of empty bins allowed to feedback Smartscope (10% by default). Higher less restrictive")
+                            " percent of empty bins allowed to feedback Smartscope (20% by default). Higher less restrictive")
         form.addParam('simulator', params.BooleanParam, default=False,
                       expertLevel=cons.LEVEL_ADVANCED,
                       label="Enable to simulate the screening",
@@ -129,16 +129,8 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         self.rTime = self.refreshTime.get()
         if self.rTime < 240:
             self.rTime = 240
-        self.smartscopeConnectionProtocol = self.getInputProtocol()
-        updatedProt = getUpdatedProtocol(self.smartscopeConnectionProtocol)
-        if hasattr(updatedProt, 'Grids'):
-            self.grids = updatedProt.Grids
-        if hasattr(updatedProt, 'Holes'):
-            self.holes = updatedProt.Holes
-        if hasattr(updatedProt, 'MoviesSS'):
-            self.movies = updatedProt.MoviesSS
-        if hasattr(updatedProt, 'Session'):
-            self.sessionId = updatedProt.Session
+
+        self.updateProtocolInputs()
 
     def getInputProtocol(self):
         prot = self.inputProtocol.get()
@@ -147,6 +139,17 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             return prot
         else:
             return False
+
+    def updateProtocolInputs(self):
+        updatedProt = getUpdatedProtocol(self.getInputProtocol())
+        if hasattr(updatedProt, 'Grids'):
+            self.grids = updatedProt.Grids
+        if hasattr(updatedProt, 'Holes'):
+            self.holes = updatedProt.Holes
+        if hasattr(updatedProt, 'MoviesSS'):
+            self.movies = updatedProt.MoviesSS
+        if hasattr(updatedProt, 'Session'):
+            self.sessionId = updatedProt.Session
 
     def stepsGeneratorStep(self):
         """
@@ -172,6 +175,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
             if self.conditionRefresh() or self.firtsFlag:
                 if self.runningPrevious == False:
                     if len(self.micsPassFilter.get()) >= self.triggerMicrograph.get():
+                        self.updateProtocolInputs()
                         self.firtsFlag = False
                         self.runningPrevious = True
                         self.timeMainSteps = time.time()
