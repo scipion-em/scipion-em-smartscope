@@ -840,7 +840,6 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
         for i, element in enumerate(indexClass_sort):
             indexClass = element[0]
             cls = element[1]
-            print(f'i: {i}, class: {cls}, popullation: {element[2]}')
 
         # for i, cls in enumerate(self.classesList):
             row = (i // n_cols_bottom) + 1
