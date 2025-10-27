@@ -810,9 +810,12 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
         n_classes = len(self.classesList)
         n_rows = math.ceil(n_classes / n_cols_bottom)
 
+        indexClass = [(i, self.classesList[i], np.sum(self.particles_per_class[i])) for i in range(len(self.classesList))]
+        indexClass_sort = sorted(indexClass, key=lambda x: x[2], reverse=True)
+        titles = [cls for i, cls, suma in indexClass_sort]
         fig_bottom = make_subplots(
+            subplot_titles=titles,
             rows=n_rows,
-            subplot_titles=self.classesList,
             cols=n_cols_bottom,
             vertical_spacing=0.08,
             horizontal_spacing=0.03
@@ -832,10 +835,17 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
         ymax_global = np.nanmax(self.percent_matrix)
 
         # === Loop Through Classes and Add Subplots ===
-        for i, cls in enumerate(self.classesList):
+
+
+        for i, element in enumerate(indexClass_sort):
+            indexClass = element[0]
+            cls = element[1]
+            print(f'i: {i}, class: {cls}, popullation: {element[2]}')
+
+        # for i, cls in enumerate(self.classesList):
             row = (i // n_cols_bottom) + 1
             col = (i % n_cols_bottom) + 1
-            listMaxYValues.append(np.nanmax(self.percent_matrix[i]))
+            listMaxYValues.append(np.nanmax(self.percent_matrix[indexClass]))
             class_idx = int(cls.split('-')[1])
             img_ref = self.classImagesDict[class_idx]
 
@@ -866,7 +876,7 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
 
                 # === Add Annotation and Bar Plot ===
                 fig_bottom.add_annotation(
-                    text=f"N = {round(np.sum(self.particles_per_class[i] / 1000), 1)}K",
+                    text=f"N = {round(np.sum(self.particles_per_class[indexClass] / 1000), 1)}K",
                     xref=f"x{row}{col} domain",
                     yref=f"y{row}{col} domain",
                     x=0.95, y=0.95, showarrow=False,
@@ -877,7 +887,7 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                 )
                 fig_bottom.add_trace(go.Bar(
                     x=self.xBin,
-                    y=self.percent_matrix[i],
+                    y=self.percent_matrix[indexClass],
                     name=f"Class-{class_idx}",
                     marker=dict(color="rgba(0,150,0,0.6)"),
                     width=bin_width
