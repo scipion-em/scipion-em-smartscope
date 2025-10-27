@@ -694,6 +694,8 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                         dictFiles['stdTotalParticles'] = f
                     elif f.find('{}-percentGood'.format(grid)) != -1:
                         dictFiles['percentGood'] = f
+                    elif f.find('{}-particlesPerHole_bin'.format(grid)) != -1:
+                        dictFiles['particlesPerHole_bin'] = f
                     elif f.find('{}-classes-'.format(grid)) != -1:
                         classNum = f[f.find('class'):]
                         match = re.search(r"\d+", classNum)
@@ -711,7 +713,8 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                 'badParticles': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['badParticles'])),
                 'totalParticles': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['totalParticles'])),
                 'stdTotalParticles': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['stdTotalParticles'])),
-                'percentGood': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['percentGood']))
+                'percentGood': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['percentGood'])),
+                'particlesPerHole_bin': np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles['particlesPerHole_bin'])),
             }
 
             self.classesList = [c for c, v in dictFiles.items() if "-classes-" in v]
@@ -751,7 +754,7 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
         bin_width = (self.listRanges['bin_edges'][1] - self.listRanges['bin_edges'][0]) * 0.9
         n_cols_top = 3
         n_cols_bottom = 5
-        titles = ["Num holes", "Sum num particles", "Media de percent good"]
+        titles = ["Num holes", "Mean particles per hole", "Percent good particles per hole"]
         row_heights = [0.3]
 
         # === Create Top Figure for Histograms ===
@@ -782,29 +785,26 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
         fig_top.add_trace(go.Bar(x=self.xBin, y=self.listRanges['holeCount'],
                                  name="Holes acquired", marker=dict(color="#7d498a"), width=bin_width), row=1, col=1)
         fig_top.update_xaxes(title="Holes Intensity", range=[min(self.xBin), max(self.xBin)], row=1, col=1)
-        fig_top.update_yaxes(title="Count", row=1, col=1)
+        fig_top.update_yaxes(title="Count", title_standoff=2, row=1, col=1)
         listMaxYValues.append(max(self.listRanges['holeTotalCount']))
 
         # === Subplot 2: Particles Count ===
-        fig_top.add_trace(go.Bar(x=self.xBin, y=self.listRanges['totalParticles'],
-                                 name="Total particles", marker=dict(color="gray",
-                                                                     pattern_shape=".", pattern_fgcolor="#a9a9a9",
-                                                                     pattern_size=8), width=bin_width), row=1, col=2)
-        fig_top.add_trace(go.Bar(x=self.xBin, y=self.listRanges['good_binTotal'],
-                                 name="Good particles", marker=dict(color="rgba(0,150,0,0.3)",
+        fig_top.add_trace(go.Bar(x=self.xBin, y=self.listRanges['particlesPerHole_bin'],
+                                 name="Particles per hole mean", marker=dict(color="#7d498a",
                                                                     pattern_shape=".",
                                                                     pattern_fgcolor="rgb(196, 230, 200)",
-                                                                    pattern_size=8), width=bin_width), row=1, col=2)
+                                                                    pattern_size=7), width=bin_width), row=1, col=2)
         fig_top.update_xaxes(title="Holes Intensity", range=[min(self.xBin), max(self.xBin)], row=1, col=2)
-        fig_top.update_yaxes(title="Particles", row=1, col=2)
-        listMaxYValues.append(max(self.listRanges['totalParticles']))
+        fig_top.update_yaxes(title="Particles pero hole", title_standoff=2, row=1, col=2)
+        listMaxYValues.append(max(self.listRanges['particlesPerHole_bin']))
 
         # === Subplot 3: Percent Good ===
         fig_top.add_trace(go.Bar(x=self.xBin, y=self.listRanges['percentGood'] * 100,
-                         name="Percent good", marker=dict(color="rgba(0,150,0,0.6)"), width=bin_width), row=1,  col=3)
+                         name="Percent good particles", marker=dict(color="rgba(0,150,0,0.6)"), width=bin_width), row=1,  col=3)
         fig_top.update_xaxes(title="Holes Intensity", range=[min(self.xBin), max(self.xBin)], row=1, col=3)
-        fig_top.update_yaxes(title="Percent good", range=[0, 100], row=1, col=3)
+        fig_top.update_yaxes(title="Percent good particles", title_standoff=2,  range=[0, 100], row=1, col=3)
         listMaxYValues.append(100)
+
 
         # === Create Bottom Figure for 2D Class Distribution ===
         n_classes = len(self.classesList)

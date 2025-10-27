@@ -333,6 +333,9 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         np.savetxt(File, self.percentGood_bin, fmt='%.8f', delimiter=' ')
         File = self._getExtraPath("{}-bin_edges.txt".format(gridName))
         np.savetxt(File, self.bin_edges, fmt='%.8f', delimiter=' ')
+        File = self._getExtraPath("{}-particlesPerHole_bin.txt".format(gridName))
+        np.savetxt(File, self.particlesPerHole_bin, fmt='%.8f', delimiter=' ')
+
         for c in self.classes_bin_dict:
             File = self._getExtraPath("{}-classes-{}_bin.txt".format(gridName, c))
             np.savetxt(File, self.classes_bin_dict[c], fmt='%.8f', delimiter=' ')
@@ -377,13 +380,19 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
             self.good_std_bin = np.zeros(bins)
             self.bad_bin = np.zeros(bins)
             self.percentGood_bin = np.zeros(bins)
+            self.particlesPerHole_bin = np.zeros(bins)
+
 
 
             for i in range(bins):
                 mask = (intensity >= self.bin_edges[i]) & (intensity < self.bin_edges[i + 1])
                 maskNoZero = mask != 0
                 self.totalParticles_bin[i] = totalParticles[mask].sum()
-                #self.totalParticles_std_bin[i] = totalParticles[mask].std()
+                denominator = self.y_count[i].sum()
+                if denominator and not np.isnan(denominator):
+                    self.particlesPerHole_bin[i] = totalParticles[mask].sum() / denominator
+                else:
+                    self.particlesPerHole_bin[i] = 0
                 self.good_binTotal[i] = goodParticles[mask].sum()
                 valsGood = goodParticles[mask]
                 if valsGood.size > 0:
