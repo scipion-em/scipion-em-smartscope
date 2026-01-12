@@ -164,8 +164,7 @@ class dataCollection():
             startAtlas = time.time()
             atlas = self.pyClient.getRouteFromID('atlas', 'grid', gr.getGridId())
             logger.info('---- Request Atlas time: {}s'.format(round(time.time() - startAtlas), 1))
-            if atlas != []: logger.info(
-                '\tNumber atlas in the grid{}: {}'.format(gr.getName(), len(atlas)))
+            if atlas != []: logger.info('\tNumber atlas in the grid{}: {}'.format(gr.getName(), len(atlas)))
             for a in atlas:
                 at = Atlas()
                 at.setAtlasId(a['atlas_id'])
@@ -186,7 +185,6 @@ class dataCollection():
                 setOfAtlas.append(at)
                 startSquares = time.time()
                 squares = self.pyClient.getRouteFromID('squares', 'atlas', at.getAtlasId(), dev=False)
-
                 if squares != []:
                     logger.info('\t\tNumber squares in the atlas: {}'.format(len(squares)))
                     logger.info('\t\t  Request Square time: {}s'.format(time.time() - startSquares))
@@ -215,7 +213,7 @@ class dataCollection():
                     holes = self.pyClient.getRouteFromID('holes', 'square', sq.getSquareId(), endpoint='scipion_plugin', dev=False)
                     if holes != []:
                         #logger.info('square name: {}'.format(sq.getName()))
-                        logger.info(f'\t\t\tNumber holes in the square ({i}/{len(squares)}) {sq.getName()}  {sq.getSquareId()}: {len(holes)}')
+                        logger.info(f'\t\t\tSquare: {i} {sq.getSquareId()} Holes on it: {len(holes)}')
                         #logger.info(f'\t\t\t  Request hole time: {round(time.time() - startHoles, 1)}')
                     for h in holes:
                         startHoleTime = time.time()

@@ -718,6 +718,7 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
             }
 
             self.classesList = [c for c, v in dictFiles.items() if "-classes-" in v]
+            print(f'classList: {self.classesList}')
             for v in self.classesList:
                 self.listRanges[v] = np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles[v]))
             self.classesList = sorted(self.classesList, key=lambda x: int(x.split('-')[1]))
@@ -795,7 +796,7 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                                                                     pattern_fgcolor="rgb(196, 230, 200)",
                                                                     pattern_size=7), width=bin_width), row=1, col=2)
         fig_top.update_xaxes(title="Holes Intensity", range=[min(self.xBin), max(self.xBin)], row=1, col=2)
-        fig_top.update_yaxes(title="Particles pero hole", title_standoff=2, row=1, col=2)
+        fig_top.update_yaxes(title="Particles per hole", title_standoff=2, row=1, col=2)
         listMaxYValues.append(max(self.listRanges['particlesPerHole_bin']))
 
         # === Subplot 3: Percent Good ===
@@ -817,7 +818,7 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
             subplot_titles=titles,
             rows=n_rows,
             cols=n_cols_bottom,
-            vertical_spacing=0.08,
+            vertical_spacing=0.1,
             horizontal_spacing=0.03
         )
         fig_bottom.update_layout(
@@ -825,10 +826,10 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
             title_font=dict(size=20, color="darkblue", family="Arial, sans-serif"),
             title_x=0.5,
             width=1200,
-            height=200 * n_rows,
+            height=230 * n_rows,
             barmode="overlay",
             bargap=0.05,
-            margin=dict(l=40, r=40, t=120, b=40),
+            margin=dict(l=40, r=40, t=100, b=100),
             showlegend=False,
         )
 

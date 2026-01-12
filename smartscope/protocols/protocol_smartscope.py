@@ -73,6 +73,8 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         self.dataPath = Plugin.getVar(SMARTSCOPE_DATA_SESSION_PATH)
         self.pyClient = MainPyClient(self.token, self.endpoint)
         self.connectionClient = dataCollection(self.pyClient)
+        self.firstIterationRun = False
+        self.firstIterationRuned = False
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -93,6 +95,9 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                            'The wizard provide a list of all sessions sorted by date.')
 
         form.addSection('Streaming')
+        form.addParam('startMovies', params.IntParam, default=50,
+                      label = 'Input movies to start protocol',
+                      help="Number of new movies to launch and refresh Smartscope connection")
         form.addParam('refreshMethod', params.EnumParam, default=0,
                       choices=['Input movies', 'Time'],
                       display=params.EnumParam.DISPLAY_HLIST,
@@ -101,14 +106,14 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         form.addParam('refreshTime', params.IntParam, default=420,
                       condition='refreshMethod==1',
                       label="Time to refresh protocol",
-                      help = "Time to launch or  refresh Smartscope connection. By default 420s (7 mins), minimum 4 mins")
-        form.addParam('refreshMovies', params.IntParam, default=200,
+                      help = "Time to refresh Smartscope connection. By default 420s (7 mins), minimum 4 mins")
+        form.addParam('refreshMovies', params.IntParam, default=100,
                       condition='refreshMethod==0',
                       label = 'Input movies to refresh protocol',
-                      help="Number of new movies to launch or refresh Smartscope connection")
+                      help="Number of new movies refresh Smartscope connection")
         form.addParam('TotalTime', params.IntParam, default=86400,
                       label="Time to finish Smartscope (secs)",
-                      help='Time from the begining ot the protocol to '
+                      help='Time from the begining of the protocol to '
                            'the end of the acquisicion. By default 1 day (86400 secs)')
 
     # --------------------------- STEPS functions ------------------------------
@@ -136,29 +141,33 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             inputMovies = self.inputMovies.get()
             if self.TotalTime <= delayInit:  # End of the protocol
                 break
-            if self.conditionRefresh(inputMovies):
-                startTime = time.time()
-                if not self.metadataCollected:
-                    self.metadataCollection()
-                metaTime = time.time()
-                self.screeningCollection()
-                screenTime = time.time()
-                self.importMoviesSS(inputMovies)
-                moviesTime = time.time()
-                timeCrop0 = time.time()
-                self.cropHolePNG()
-                timeCrop1 = time.time()
-                self.info(f'Metadata Time: {round((metaTime - startTime), 1)}s')
-                self.info(f'Screening Time: {round((screenTime - metaTime), 1)}s')
-                self.info(f'ImportMovies Time: {round((moviesTime - screenTime), 1)}s')
-                self.info(f'Crop Holes Time: {round((timeCrop1 - timeCrop0), 1)}s')
-                self.info(f'Total Time: {round((timeCrop1 - startTime), 1)}s')
-            if not inputMovies.isStreamOpen():
-                self.info('Not more movies are expected; input setOfMovies closed')
-                break
+            if not self.firstIterationRun:
+                if self.startMovies.get() < len(inputMovies):
+                    self.firstIterationRun = True
+                if self.conditionRefresh(inputMovies) or not self.firstIterationRuned:
+                    self.firstIterationRuned = True
+                    startTime = time.time()
+                    if not self.metadataCollected:
+                        self.metadataCollection()
+                    metaTime = time.time()
+                    self.screeningCollection()
+                    screenTime = time.time()
+                    self.importMoviesSS(inputMovies)
+                    moviesTime = time.time()
+                    timeCrop0 = time.time()
+                    self.cropHolePNG()
+                    timeCrop1 = time.time()
+                    self.info(f'Metadata Time: {round((metaTime - startTime), 1)}s')
+                    self.info(f'Screening Time: {round((screenTime - metaTime), 1)}s')
+                    self.info(f'ImportMovies Time: {round((moviesTime - screenTime), 1)}s')
+                    self.info(f'Crop Holes Time: {round((timeCrop1 - timeCrop0), 1)}s')
+                    self.info(f'Total Time: {round((timeCrop1 - startTime), 1)}s')
+                if not inputMovies.isStreamOpen():
+                    self.info('Not more movies are expected; input setOfMovies closed')
+                    break
 
-            self.info(f'Waitting {self.rTime}s to check the inputs')
-            time.sleep(self.rTime)
+                self.info(f'Waitting {self.rTime}s to check the inputs')
+                time.sleep(self.rTime)
 
     def _initialize(self):
         self.metadataCollected = False
@@ -195,10 +204,13 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
     def conditionRefresh(self, inputMovies):
         if self.refreshMethod == 0:
-            if len(inputMovies) - self.initialNumMovies >= self.refreshMovies.get():
+            if len(inputMovies) - self.initialNumMovies == 0:
+                return False
+            elif len(inputMovies) - self.initialNumMovies >= self.refreshMovies.get():
                 self.initialNumMovies = len(inputMovies)
                 return True
-            elif inputMovies.isStreamOpen() == False:
+            elif inputMovies.isStreamOpen() == False and len(inputMovies) - self.initialNumMovies > 0:
+                self.initialNumMovies = len(inputMovies)
                 return True
             else:
                 return False
@@ -264,15 +276,15 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             # self._store(self.SOH)
 
         self.gridsToCollect = self.checkNewGrid()
-        self.atlasToCollect = self.checkNewAtlas()
-        if self.gridsToCollect != [] or self.atlasToCollect != []:
+        self.atlasToCollect = self.pyClient.getRouteFromID('atlas', 'session', self.sessionId, dev=False)
+        if self.atlasToCollect != []:
             self.connectionClient.screeningCollection(self.dataPath,
-                                                  self.sessionName,
-                                                  self.SOG, self.SOA,
-                                                  self.SOS, self.SOH,
-                                                  self.groupName,
-                                                  self.sessionDate,
-                                                  self.gridsToCollect)
+                                                      self.sessionName,
+                                                      self.SOG, self.SOA,
+                                                      self.SOS, self.SOH,
+                                                      self.groupName,
+                                                      self.sessionDate,
+                                                      self.gridsToCollect)
         # STORE SQLITE
         self.SOG.write()
         self.SOA.write()
@@ -424,38 +436,22 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                 return False
 
     def checkNewGrid(self):
-        listInSessionGrids = []
-        listCollectedGrids = []
+        listCompleteGrids = {}
+        listToCollectGrids = []
+        if self.SOG:
+            for gr in self.SOG:
+                if gr.getStatus() =='complete':
+                    listCompleteGrids[gr.getGridId()] = gr.getLastUpdate()
 
         grid = self.pyClient.getRouteFromID('grids', 'session', self.sessionId, dev=False)
-        if self.SOG:
-            for gr in grid:
-                listInSessionGrids.append(gr['grid_id'])
-            for gridCollected in self.SOG.iterItems():
-                listCollectedGrids.append(gridCollected.getGridId())
+        for g in grid:
+            grid_id = g['grid_id']
+            grid_last = g['last_update']
+            if g['status'] == 'complete' and grid_id in listCompleteGrids and grid_last == listCompleteGrids[grid_id]:
+                continue
+            listToCollectGrids.append(g)
+        return listToCollectGrids
 
-            gridsToCollect = list(set(listInSessionGrids) - set(listCollectedGrids))
-            return gridsToCollect
-        # for gr in grid:
-        #     atlas = self.pyClient.getRouteFromID('atlas', 'grid', gridCollected.getGridId())
-        else:
-            return grid
-
-    def checkNewAtlas(self):
-        listInSessionAtlas = []
-        listCollectedAtlas = []
-
-        atlas = self.pyClient.getRouteFromID('atlas', 'session', self.sessionId, dev=False)
-        if self.SOA:
-            for at in atlas:
-                listInSessionAtlas.append(at['atlas_id'])
-            for atlasCollected in self.SOA.iterItems():
-                listCollectedAtlas.append(atlasCollected.getAtlasId())
-
-            atlasToCollect = list(set(listInSessionAtlas) - set(listInSessionAtlas))
-            return atlasToCollect
-        else:
-            return atlas
 
     def importMoviesSS(self, inputMovies):
         self.info('importMoviesSS collection...')
@@ -472,7 +468,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             self.info('Set of movies from import movies protocol empty')
             return
         sizeMoviesInput = len(inputMovies)
-        counterMoviesChecked = 1
+        counterMoviesChecked = 0
         for gr in self.SOG:
             dictMAPI = self.pyClient.getRouteFromID('highmag', 'grid', gr.getGridId(), pageSize=500, endpoint='detailed')
             for m in dictMAPI:
@@ -483,16 +479,19 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                 try:
                     SOMSS.getItem("_micName", m['frames'])#highMag movie from Smartscope imported previously?
                 except (UnboundLocalError, OperationalError) :
-                    self.info(f"Collecting ({counterMoviesChecked}/{sizeMoviesInput}) movie: {m['frames']}")
                     counterMoviesChecked += 1
+                    self.debug(f"Collecting ({counterMoviesChecked}/{sizeMoviesInput}) movie: {m['frames']}")
+                    if counterMoviesChecked % 100 == 0:
+                        self.info(f'Movies imported: {int(counterMoviesChecked * 100 / sizeMoviesInput)}%')
                     #time0= time.time()
                     self.addMovieSS(SOMSS, inputMovies.getItem("_micName", m['frames']), m)
                     #print(f'time movie {counterMoviesChecked}: {time.time() - time0} s')
 
-
             # STORE SQLITE
             SOMSS.write()  # persist on sqlite
-            SOMSS.setStreamState(SOMSS.STREAM_CLOSED)
+            if inputMovies.isStreamClosed() == True:
+                SOMSS.setStreamState(SOMSS.STREAM_CLOSED)
+            #SOMSS.setStreamState(SOMSS.STREAM_CLOSED)
             self._store(SOMSS)
 
             # SUMMARY INFO
