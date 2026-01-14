@@ -73,8 +73,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         self.dataPath = Plugin.getVar(SMARTSCOPE_DATA_SESSION_PATH)
         self.pyClient = MainPyClient(self.token, self.endpoint)
         self.connectionClient = dataCollection(self.pyClient)
-        self.firstIterationRun = False
-        self.firstIterationRuned = False
+        self.launchFirstIteration = False
 
     # -------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -113,8 +112,8 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                       help="Number of new movies refresh Smartscope connection")
         form.addParam('TotalTime', params.IntParam, default=86400,
                       label="Time to finish Smartscope (secs)",
-                      help='Time from the begining of the protocol to '
-                           'the end of the acquisicion. By default 1 day (86400 secs)')
+                      help='Time from the begining of the protocol to the end of the acquisicion.'
+                           ' The protocol will end even if the import movies protocol is still open. By default 1 day (86400 secs)')
 
     # --------------------------- STEPS functions ------------------------------
     def stepsGeneratorStep(self):
@@ -136,36 +135,41 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         time.sleep(10)
         # DEBUGALBERTO END
         while True:
-            delayInit = int(time.time() - self.startTime)
-            self.info('Time to Finish Smartscope: {} delayInit: {}s'.format(self.TotalTime, delayInit))
+            delayFinish = int(time.time() - self.startTime)
+            self.info('Time to Finish Smartscope: {} Time elapsed: {}s'.format(self.TotalTime, delayFinish))
             inputMovies = self.inputMovies.get()
-            if self.TotalTime <= delayInit:  # End of the protocol
+            if self.TotalTime <= delayFinish:  # End of the protocol because of time
                 break
-            if not self.firstIterationRun:
-                if self.startMovies.get() < len(inputMovies):
-                    self.firstIterationRun = True
-                if self.conditionRefresh(inputMovies) or not self.firstIterationRuned:
-                    self.firstIterationRuned = True
-                    startTime = time.time()
-                    if not self.metadataCollected:
-                        self.metadataCollection()
-                    metaTime = time.time()
-                    self.screeningCollection()
-                    screenTime = time.time()
-                    self.importMoviesSS(inputMovies)
-                    moviesTime = time.time()
-                    timeCrop0 = time.time()
-                    self.cropHolePNG()
-                    timeCrop1 = time.time()
-                    self.info(f'Metadata Time: {round((metaTime - startTime), 1)}s')
-                    self.info(f'Screening Time: {round((screenTime - metaTime), 1)}s')
-                    self.info(f'ImportMovies Time: {round((moviesTime - screenTime), 1)}s')
-                    self.info(f'Crop Holes Time: {round((timeCrop1 - timeCrop0), 1)}s')
-                    self.info(f'Total Time: {round((timeCrop1 - startTime), 1)}s')
 
-            if not inputMovies.isStreamOpen():
+            if self.launchFirstIteration and not self.inputMovies.get().isStreamOpen():
                 self.info('Not more movies are expected; input setOfMovies closed')
                 break
+
+            if not self.launchFirstIteration:
+                if self.refreshMethod.get() == 0:
+                    if self.startMovies.get() < len(inputMovies):
+                        self.launchFirstIteration = True
+                else:
+                    self.launchFirstIteration = True
+
+            if self.launchFirstIteration and self.conditionRefresh(inputMovies):
+                zeroTime = time.time()
+                if not self.metadataCollected:
+                    self.metadataCollection()
+                metaTime = time.time()
+                self.screeningCollection()
+                screenTime = time.time()
+                self.importMoviesSS(inputMovies)
+                moviesTime = time.time()
+                timeCrop0 = time.time()
+                self.cropHolePNG()
+                timeCrop1 = time.time()
+                self.info(f'Metadata Time: {round((metaTime - zeroTime), 1)}s')
+                self.info(f'Screening Time: {round((screenTime - metaTime), 1)}s')
+                self.info(f'ImportMovies Time: {round((moviesTime - screenTime), 1)}s')
+                self.info(f'Crop Holes Time: {round((timeCrop1 - timeCrop0), 1)}s')
+                self.info(f'Total Time: {round((timeCrop1 - zeroTime), 1)}s')
+
             if self.refreshMethod.get() == 0:
                 self.info(f'Waitting {self.refreshMovies.get()} new movies to collect')
                 time2Wait = self.refreshMovies.get() * 10 #10 sec per each movie to be adquired
@@ -204,7 +208,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             self.SOH = self.Holes
 
         self.startTime = time.time()
-        self.reStartTime = time.time()
         self.ListMoviesImported = []
 
     def conditionRefresh(self, inputMovies):

@@ -114,36 +114,45 @@ class DataViewer_smartscope(ProtocolViewer):
 
     def _visualizeAtlas(self, e=None):
         views = []
-        labels = ('_pngDir _grid_id _atlas_id _binning_factor _status _completion_time _shape_x _shape_y _sampligRate')
+        labels = ('_pngDir _atlas_id _binning_factor _status _completion_time _shape_x _shape_y _sampligRate')
         if hasattr(self.protocol, 'Atlas'):
             views.append(ObjectView(self._project,
                                            self.protocol.Atlas.strId(),
                                            self.protocol.Atlas.getFileName(),
-                               viewParams={VISIBLE: labels,
+                               viewParams={ORDER: labels,
+                                           VISIBLE: labels,
                                            RENDER: '_pngDir',
-                                           SORT_BY: labels}))
+                                           MODE: MODE_MD}))
             return views
 
 
     def _visualizeSquares(self, e=None):
         views = []
-        labels = ('_pngDir _square_id _atlas_id _status _selected _completion_time _area _shape_x _shape_y _sampligRate')
+        labels = ('_pngDir _square_id _status _selected _completion_time _area _shape_x _shape_y _sampligRate')
         if hasattr(self.protocol, 'Squares'):
             views.append(ObjectView(self._project,
                                           self.protocol.Squares.strId(),
                                           self.protocol.Squares.getFileName(),
-                                          viewParams={VISIBLE: labels,
+                                          viewParams={ORDER: labels,
+                                                      VISIBLE: labels,
                                                       RENDER: '_pngDir',
-                                                      SORT_BY: labels}))
+                                                      MODE: MODE_MD}))
             return views
 
 
     def _visualizeHoles(self, e=None):
         from pwem.viewers.mdviewer.viewer import MDView
         views = []
-        #labels = ('_pngDir _rawDir _hole_id _grid_id _selector_value _status _selected _completion_time _shape_x _shape_y _sampligRate _number _area')
+        labels = ('_pngDir _rawDir _selector_value _selected _completion_time _shape_x _shape_y _sampligRate _area')
         if hasattr(self.protocol, 'Holes'):
-            views.append(MDView(self.protocol.Holes, self.protocol, self._project.port))
+            #views.append(MDView(self.protocol.Holes, self.protocol, self._project.port))
+            views.append(ObjectView(self._project,
+                                          self.protocol.Holes.strId(),
+                                          self.protocol.Holes.getFileName(),
+                                          viewParams={ORDER: labels,
+                                                      VISIBLE: labels,
+                                                      RENDER: '_rawDir',
+                                                      MODE: MODE_MD}))
             return views
 
     def _visualizeMovies(self, e=None):
