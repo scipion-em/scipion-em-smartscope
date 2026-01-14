@@ -95,7 +95,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                            'The wizard provide a list of all sessions sorted by date.')
 
         form.addSection('Streaming')
-        form.addParam('startMovies', params.IntParam, default=50,
+        form.addParam('startMovies', params.IntParam, default=30,
                       label = 'Input movies to start protocol',
                       help="Number of new movies to launch and refresh Smartscope connection")
         form.addParam('refreshMethod', params.EnumParam, default=0,
@@ -162,10 +162,15 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                     self.info(f'ImportMovies Time: {round((moviesTime - screenTime), 1)}s')
                     self.info(f'Crop Holes Time: {round((timeCrop1 - timeCrop0), 1)}s')
                     self.info(f'Total Time: {round((timeCrop1 - startTime), 1)}s')
-                if not inputMovies.isStreamOpen():
-                    self.info('Not more movies are expected; input setOfMovies closed')
-                    break
 
+            if not inputMovies.isStreamOpen():
+                self.info('Not more movies are expected; input setOfMovies closed')
+                break
+            if self.refreshMethod.get() == 0:
+                self.info(f'Waitting {self.refreshMovies.get()} new movies to collect')
+                time2Wait = self.refreshMovies.get() * 10 #10 sec per each movie to be adquired
+                time.sleep(time2Wait)
+            else:
                 self.info(f'Waitting {self.rTime}s to check the inputs')
                 time.sleep(self.rTime)
 
@@ -203,7 +208,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         self.ListMoviesImported = []
 
     def conditionRefresh(self, inputMovies):
-        if self.refreshMethod == 0:
+        if self.refreshMethod.get() == 0:
             if len(inputMovies) - self.initialNumMovies == 0:
                 return False
             elif len(inputMovies) - self.initialNumMovies >= self.refreshMovies.get():
@@ -316,6 +321,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             os.makedirs(pathcrop)
         import re
         counter = 0
+        self.info(f'moviesSS: {len(self.MoviesSS)}')
         for m in self.MoviesSS:
             movieHoleId = m.getHoleId() #TODO in detailed of hm there is no hole_id has to be included by Jonathan
             hole = self.SOH.getItem("_hole_id", m.getHoleId())
@@ -339,9 +345,11 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                     #     os.remove(pathRawPartial)
                     if self.cropImage(hole, m.getX(), m.getY(), pathRawCroped, rawDir):
                         counter += 1
-                        self.info(f'Croped {counter} hole images')
+                        self.debug(f'Croped {counter} hole images')
                         hole.setRawDir(pathRawCroped)
                         # self.info(f'holeID append: {movieHoleId} movieName: {movieName}')
+
+                self.info(f'Holes croped: {counter}')
                 self.listHoleCropedID.append(movieHoleId)
             self.SOH.update(hole)
         self.SOH.write()
@@ -479,13 +487,14 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                 try:
                     SOMSS.getItem("_micName", m['frames'])#highMag movie from Smartscope imported previously?
                 except (UnboundLocalError, OperationalError) :
-                    counterMoviesChecked += 1
                     self.debug(f"Collecting ({counterMoviesChecked}/{sizeMoviesInput}) movie: {m['frames']}")
                     if counterMoviesChecked % 100 == 0:
                         self.info(f'Movies imported: {int(counterMoviesChecked * 100 / sizeMoviesInput)}%')
                     #time0= time.time()
                     self.addMovieSS(SOMSS, inputMovies.getItem("_micName", m['frames']), m)
                     #print(f'time movie {counterMoviesChecked}: {time.time() - time0} s')
+                    counterMoviesChecked += 1
+
 
             # STORE SQLITE
             SOMSS.write()  # persist on sqlite

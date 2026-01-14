@@ -187,7 +187,7 @@ class dataCollection():
                 squares = self.pyClient.getRouteFromID('squares', 'atlas', at.getAtlasId(), dev=False)
                 if squares != []:
                     logger.info('\t\tNumber squares in the atlas: {}'.format(len(squares)))
-                    logger.info('\t\t  Request Square time: {}s'.format(time.time() - startSquares))
+                    logger.info('\t\tRequest Square time: {}s'.format(time.time() - startSquares))
                 for i, s in enumerate(squares, start=1):
                     sq = Square()
                     sq.setSquareId(s['square_id'])
