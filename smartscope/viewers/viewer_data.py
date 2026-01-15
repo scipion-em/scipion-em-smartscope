@@ -143,7 +143,7 @@ class DataViewer_smartscope(ProtocolViewer):
     def _visualizeHoles(self, e=None):
         from pwem.viewers.mdviewer.viewer import MDView
         views = []
-        labels = ('_pngDir _rawDir _selector_value _selected _completion_time _shape_x _shape_y _sampligRate _area')
+        labels = (' _rawDir _selector_value _selected _completion_time _shape_x _shape_y _sampligRate _area')
         if hasattr(self.protocol, 'Holes'):
             #views.append(MDView(self.protocol.Holes, self.protocol, self._project.port))
             views.append(ObjectView(self._project,
@@ -206,27 +206,27 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
     def _visualizePassFilteredHoles(self, e=None):
         views = []
         if hasattr(self.protocol, 'SetOfHolesPassFilter'):
-            labels = (
-                '_pngDir _bis_type _hole_id _grid_id _selector_value _status _selected _shape_x _shape_y _sampligRate _number _area')
+            labels = ('_rawDir _selector_value _selected _completion_time _shape_x _shape_y _sampligRate _area')
             views.append(ObjectView(self._project,
                                     self.protocol.SetOfHolesPassFilter.strId(),
                                     self.protocol.SetOfHolesPassFilter.getFileName(),
-                                    viewParams={VISIBLE: labels,
+                                    viewParams={ORDER: labels,
+                                                VISIBLE: labels,
                                                 RENDER: '_rawDir',
-                                                SORT_BY: labels}))
+                                                MODE: MODE_MD}))
             return views
 
     def _visualizeRejectedHoles(self, e=None):
         views = []
         if hasattr(self.protocol, 'SetOfHolesRejected'):
-            labels = (
-                '_pngDir _bis_type _hole_id _grid_id _selector_value _status _selected _shape_x _shape_y _sampligRate _number _area')
+            labels = ('_rawDir _selector_value _selected _completion_time _shape_x _shape_y _sampligRate _area')
             views.append(ObjectView(self._project,
                                           self.protocol.SetOfHolesRejected.strId(),
                                           self.protocol.SetOfHolesRejected.getFileName(),
-                                          viewParams={VISIBLE: labels,
-                                                      RENDER: '_rawDir',
-                                                      SORT_BY: labels}))
+                                          viewParams={ORDER: labels,
+                                                        VISIBLE: labels,
+                                                        RENDER: '_rawDir',
+                                                        MODE: MODE_MD}))
             return views
 
     def _visualizeHistograms(self, e=None):

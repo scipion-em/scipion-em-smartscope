@@ -123,17 +123,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         call the self._insertFunctionStep method.
         """
         self._initialize()
-        # DEBUGALBERTO START
-        import os
-        fname = "/home/agarcia/Documents/attachActionDebug.txt"
-        if os.path.exists(fname):
-            os.remove(fname)
-        fjj = open(fname, "a+")
-        fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
-        fjj.close()
-        print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
-        time.sleep(10)
-        # DEBUGALBERTO END
         while True:
             delayFinish = int(time.time() - self.startTime)
             self.info('Time to Finish Smartscope: {} Time elapsed: {}s'.format(self.TotalTime, delayFinish))
@@ -146,29 +135,13 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                 break
 
             if not self.launchFirstIteration:
-                if self.refreshMethod.get() == 0:
-                    if self.startMovies.get() < len(inputMovies):
+                if self.refreshMethod.get() == 0 and self.startMovies.get() < len(inputMovies):
                         self.launchFirstIteration = True
-                else:
-                    self.launchFirstIteration = True
+                        self.stepsToRun(inputMovies)
+                        continue
 
-            if self.launchFirstIteration and self.conditionRefresh(inputMovies):
-                zeroTime = time.time()
-                if not self.metadataCollected:
-                    self.metadataCollection()
-                metaTime = time.time()
-                self.screeningCollection()
-                screenTime = time.time()
-                self.importMoviesSS(inputMovies)
-                moviesTime = time.time()
-                timeCrop0 = time.time()
-                self.cropHolePNG()
-                timeCrop1 = time.time()
-                self.info(f'Metadata Time: {round((metaTime - zeroTime), 1)}s')
-                self.info(f'Screening Time: {round((screenTime - metaTime), 1)}s')
-                self.info(f'ImportMovies Time: {round((moviesTime - screenTime), 1)}s')
-                self.info(f'Crop Holes Time: {round((timeCrop1 - timeCrop0), 1)}s')
-                self.info(f'Total Time: {round((timeCrop1 - zeroTime), 1)}s')
+            if self.conditionRefresh(inputMovies):
+                self.stepsToRun(inputMovies)
 
             if self.refreshMethod.get() == 0:
                 self.info(f'Waitting {self.refreshMovies.get()} new movies to collect')
@@ -177,6 +150,24 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             else:
                 self.info(f'Waitting {self.rTime}s to check the inputs')
                 time.sleep(self.rTime)
+
+    def stepsToRun(self, inputMovies):
+        zeroTime = time.time()
+        if not self.metadataCollected:
+            self.metadataCollection()
+        metaTime = time.time()
+        self.screeningCollection()
+        screenTime = time.time()
+        self.importMoviesSS(inputMovies)
+        moviesTime = time.time()
+        timeCrop0 = time.time()
+        self.cropHolePNG()
+        timeCrop1 = time.time()
+        self.info(f'Metadata Time: {round((metaTime - zeroTime), 1)}s')
+        self.info(f'Screening Time: {round((screenTime - metaTime), 1)}s')
+        self.info(f'ImportMovies Time: {round((moviesTime - screenTime), 1)}s')
+        self.info(f'Crop Holes Time: {round((timeCrop1 - timeCrop0), 1)}s')
+        self.info(f'Total Time: {round((timeCrop1 - zeroTime), 1)}s')
 
     def _initialize(self):
         self.metadataCollected = False
