@@ -181,7 +181,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                 break
 
             if not self.launchFirstIteration:
-                if self.refreshMethod.get() == 0 and len(self.trigeredMics) < len(self.fMics):
+                if self.refreshMethod.get() == 0 and self.trigeredMics < len(self.fMics):
                     self.launchFirstIteration = True
                     self.stepsToRun()
                     continue
@@ -190,8 +190,8 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                 self.stepsToRun()
 
             if self.refreshMethod.get() == 0:
-                self.info(f'Waiting {len(self.trigeredMics)} micrographs filtered to update protocol. Micrographs Filtered: {len(self.fMics)}')
-                time.sleep(((len(self.trigeredMics) - len(self.fMics)) * 10)) #10 secs to process each mic
+                self.info(f'Waiting {self.trigeredMics} micrographs filtered to update protocol. Micrographs Filtered: {len(self.fMics)}')
+                time.sleep(((self.trigeredMics - len(self.fMics)) * 10)) #10 secs to process each mic
                 continue
             else:
                 self.info(f'Waitting {self.rTime}s to check the inputs')
