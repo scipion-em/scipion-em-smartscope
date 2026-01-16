@@ -173,13 +173,14 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
         time.sleep(10)
         # DEBUGALBERTO END
+        fMics = self.micsPassFilter.get()
+        self.trigeredMics = self.triggerMicrograph.get()
+
         while True:
-            fMics = self.micsPassFilter.get()
             lenFilteredNics = len(fMics.getFiles())
-            self.trigeredMics = self.triggerMicrograph.get()
             if self.launchFirstIteration and not fMics.isStreamOpen():
                 if self.micsNoProcesed > 0:
-                    self.info(f'Launching protocol with {lenFilteredNics} micrographs filtered')
+                    self.info(f'\nLaunching protocol with {lenFilteredNics} micrographs filtered...')
                     self.stepsToRun(fMics)
                 self.info('Not more micrographs are expected; input setOfMicsPassFilter closed')
                 break
@@ -187,16 +188,17 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                 if self.trigeredMics <= lenFilteredNics:
                     self.launchFirstIteration = True
                     self.initialNumMics = lenFilteredNics
-                    self.info(f'Launching protocol with {lenFilteredNics} micrographs filtered')
+                    self.info(f'\nLaunching protocol with {lenFilteredNics} micrographs filtered...')
                     self.stepsToRun(fMics)
                     continue
                 else:
-                    self.info(f'Waitting {self.trigeredMics} micrographs filtered to launch protocol. Micrographs Filtered: {lenFilteredNics}')
+                    self.info(f'Waiting {self.trigeredMics} micrographs filtered to launch protocol. '
+                              f'Micrographs Filtered: {lenFilteredNics}')
                     time.sleep(((self.trigeredMics - lenFilteredNics) * 10))  # 10 secs to process each mic
                     continue
 
             if self.conditionRefresh(lenFilteredNics):
-                self.info(f'Updating the protocol with {lenFilteredNics} micrographs filtered')
+                self.info(f'\nUpdating the protocol with {lenFilteredNics} micrographs filtered...')
                 self.stepsToRun(fMics)
 
 
@@ -224,8 +226,8 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                 self.initialNumMics = lenFilteredMics
                 return True
             else:
-                self.info(f'Waitting new {self.refreshMics.get()} micrographs filtered to update protocol.'
-                          f' New micrographs Filtered: {self.micsNoProcesed }')
+                self.info(f'Waiting new {self.refreshMics.get()} micrographs filtered to update protocol.'
+                          f' New micrographs filtered: {self.micsNoProcesed }')
                 time.sleep(((self.refreshMics.get() - (self.micsNoProcesed )) * 10)) #10 secs to process each mic
                 return False
         else:
@@ -234,7 +236,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                 self.zeroTime = time.time()
                 return True
             else:
-                self.info(f'Waitting {self.rTime}s to check the inputs')
+                self.info(f'Waiting {self.rTime}s to check new inputs')
                 time.sleep(self.rTime)
                 return False
 
