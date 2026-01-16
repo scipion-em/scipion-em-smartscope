@@ -34,6 +34,7 @@ to Smartscope to take decission about the acquisition
 from pyworkflow.utils import Message
 from pyworkflow import BETA, UPDATED, NEW, PROD
 from pwem.protocols.protocol_import.base import ProtImport
+from pwem.protocols import ProtBoxSizeCheckpoint
 from pyworkflow.protocol import ProtStreamingBase, getUpdatedProtocol
 from pwem.objects import SetOfClasses2D
 from . import smartscopeConnection
@@ -173,6 +174,11 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
     def getInputProtocol(self):
         prot = self.inputProtocol.get()
         prot.setProject(self.getProject())
+        if isinstance(prot, ProtBoxSizeCheckpoint):
+            print('Lo encuentra! ProtBoxSizeCheckpoint')
+        else:
+            print('dice que no lo encuentra')
+
         if isinstance(prot, smartscopeConnection):
             return prot
         else:

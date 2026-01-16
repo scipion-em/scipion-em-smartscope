@@ -135,7 +135,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                 break
 
             if not self.launchFirstIteration:
-                if self.refreshMethod.get() == 0 and self.startMovies.get() < len(inputMovies):
+                if self.startMovies.get() < len(inputMovies):
                         self.launchFirstIteration = True
                         self.stepsToRun(inputMovies)
                         continue
