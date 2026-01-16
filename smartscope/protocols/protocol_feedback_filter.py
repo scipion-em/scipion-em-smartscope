@@ -133,6 +133,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 
         self.launchFirstIteration = False
         self.updateProtocolInputs()
+        self.micsNoProcesed = 0
 
     def getInputProtocol(self):
         prot = self.inputProtocol.get()
@@ -173,36 +174,36 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         time.sleep(10)
         # DEBUGALBERTO END
         while True:
-            self.fMics = self.micsPassFilter.get()
+            fMics = self.micsPassFilter.get()
+            lenFilteredNics = len(fMics.getFiles())
             self.trigeredMics = self.triggerMicrograph.get()
-
-            if self.launchFirstIteration and not self.fMics.isStreamOpen():
+            if self.launchFirstIteration and not fMics.isStreamOpen():
+                if self.micsNoProcesed > 0:
+                    self.info(f'Launching protocol with {lenFilteredNics} micrographs filtered')
+                    self.stepsToRun(fMics)
                 self.info('Not more micrographs are expected; input setOfMicsPassFilter closed')
                 break
-
             if not self.launchFirstIteration:
-                if self.refreshMethod.get() == 0 and self.trigeredMics < len(self.fMics):
+                if self.trigeredMics <= lenFilteredNics:
                     self.launchFirstIteration = True
-                    self.stepsToRun()
+                    self.initialNumMics = lenFilteredNics
+                    self.info(f'Launching protocol with {lenFilteredNics} micrographs filtered')
+                    self.stepsToRun(fMics)
+                    continue
+                else:
+                    self.info(f'Waitting {self.trigeredMics} micrographs filtered to launch protocol. Micrographs Filtered: {lenFilteredNics}')
+                    time.sleep(((self.trigeredMics - lenFilteredNics) * 10))  # 10 secs to process each mic
                     continue
 
-            if self.conditionRefresh():
-                self.stepsToRun()
+            if self.conditionRefresh(lenFilteredNics):
+                self.info(f'Updating the protocol with {lenFilteredNics} micrographs filtered')
+                self.stepsToRun(fMics)
 
-            if self.refreshMethod.get() == 0:
-                self.info(f'Waiting {self.trigeredMics} micrographs filtered to update protocol. Micrographs Filtered: {len(self.fMics)}')
-                time.sleep(((self.trigeredMics - len(self.fMics)) * 10)) #10 secs to process each mic
-                continue
-            else:
-                self.info(f'Waitting {self.rTime}s to check the inputs')
-                time.sleep(self.rTime)
 
-            time.sleep(30)
-
-    def stepsToRun(self):
+    def stepsToRun(self, fMics):
         self.updateProtocolInputs()
         self.timeMainSteps = time.time()
-        self.collectHoles()
+        self.collectHoles(fMics)
         self.timeCollect = time.time()
         self.assignGridHoles()
         self.timeAssign = time.time()
@@ -216,13 +217,16 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         self.info(f'Output Time: {round(self.timeOutput - self.timeStatistics, 0)} s')
         self.info(f'Total Time: {round(self.timeOutput - self.time0, 0)} s')
 
-    def conditionRefresh(self):
+    def conditionRefresh(self, lenFilteredMics):
         if self.refreshMethod.get() == 0: #mics
-            numMics = len(self.fMics)
-            if numMics - self.initialNumMics >= self.refreshMics.get():
-                self.initialNumMics = numMics
+            self.micsNoProcesed = lenFilteredMics - self.initialNumMics
+            if self.micsNoProcesed  >= self.refreshMics.get():
+                self.initialNumMics = lenFilteredMics
                 return True
             else:
+                self.info(f'Waitting new {self.refreshMics.get()} micrographs filtered to update protocol.'
+                          f' New micrographs Filtered: {self.micsNoProcesed }')
+                time.sleep(((self.refreshMics.get() - (self.micsNoProcesed )) * 10)) #10 secs to process each mic
                 return False
         else:
             rTime = time.time() - self.zeroTime
@@ -230,10 +234,12 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                 self.zeroTime = time.time()
                 return True
             else:
+                self.info(f'Waitting {self.rTime}s to check the inputs')
+                time.sleep(self.rTime)
                 return False
 
 
-    def collectHoles(self):
+    def collectHoles(self, fMics):
         self.info('\n-Collectiong holes...')
         self.dictMovies = {}
         self.dictHoles = {}
@@ -268,7 +274,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                     self.dictHolesWithMic[m.getHoleId()] = self.dictHoles[m.getHoleId()]['Hole'].clone()
                 self.dictHoles[m.getHoleId()]['Acquired'] += 1
 
-        for mic in self.fMics:
+        for mic in fMics:
             H_ID = self.dictMovies[mic.getMicName()].getHoleId()
             self.dictHoles[H_ID]['Pass'] += 1
             self.dictHoles[H_ID]['Rejected'] = self.dictHoles[H_ID]['Acquired'] - self.dictHoles[H_ID]['Pass']
