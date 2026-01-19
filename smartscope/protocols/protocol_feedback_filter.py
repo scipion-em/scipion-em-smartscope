@@ -162,17 +162,6 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         """
         self.time0 = time.time()
         self._initialize()
-        # DEBUGALBERTO START
-        import os
-        fname = "/home/agarcia/Documents/attachActionDebug.txt"
-        if os.path.exists(fname):
-            os.remove(fname)
-        fjj = open(fname, "a+")
-        fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
-        fjj.close()
-        print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
-        time.sleep(10)
-        # DEBUGALBERTO END
         fMics = self.micsPassFilter.get()
         self.trigeredMics = self.triggerMicrograph.get()
 
