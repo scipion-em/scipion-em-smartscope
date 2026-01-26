@@ -394,7 +394,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             self.error(e)
             return False
 
-    def cropImage(self, hole, X, Y, pathRawCroped, rawDir, separationDiv=2):
+    def cropImage(self, hole, X, Y, pathRawCroped, rawDir, separationDiv=3):
         '''Split the png image based on the position of the hole (x,y) and a boxSize'''
         import numpy as np
         import mrcfile
@@ -407,7 +407,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                         return False
                 height, width = arr.shape[:2]
                 try:
-                    InitialRange = int(hole.getHoleDiam() * 1.3)
+                    InitialRange = int(hole.getHoleDiam() + (hole.getHoleSeparation() / separationDiv))
                     Range = int((hole.getHoleDiam() / 2) + (hole.getHoleSeparation() / separationDiv))   # radius + (separation / 2)
 
                 except Exception:
@@ -488,25 +488,32 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         cx = (cx_img + px) / 2
         cy = (cy_img + py) / 2
 
-        return int(cx), int(cy)
+        if self.is_bright_hole(gray_image, cx, cy):
+            return int(cx), int(cy)
+        self.info('No brightness')
 
-    def holeCenter(self, rawCrop):
-        # 1. Apply a threshold to isolate the circle from the background
-        umbral = np.mean(rawCrop) + np.std(rawCrop)
-        mascara = rawCrop > umbral
 
-        # 2. Get the indices (coordinates) of all pixels above the threshold
-        y_index, x_index= np.where(mascara)
+    def is_bright_hole(self, gray_image, cx, cy, window=20, min_delta=0.05):
+        """
+        Validate that the detected center corresponds to a bright hole.
+        """
 
-        # 3. Calculate the center of mass (centroid)
-        if len(x_index) > 0:
-            centro_x = np.mean(x_index)
-            centro_y = np.mean(y_index)
-            self.debug(f"Center at: x={centro_x:.2f}, y={centro_y:.2f}")
-            return  int(centro_x), int(centro_y)
-        else:
-            self.info('Hole no centered')
-            return None
+        img = gray_image.astype(np.float64)
+        img = (img - img.min()) / (img.max() - img.min())
+
+        cx, cy = int(cx), int(cy)
+        h, w = img.shape
+
+        y0 = max(cy - window, 0)
+        y1 = min(cy + window, h)
+        x0 = max(cx - window, 0)
+        x1 = min(cx + window, w)
+
+        patch = img[y0:y1, x0:x1]
+
+        # Hole must be brighter than global average
+        return patch.mean() > img.mean() + min_delta
+
 
     def checkNewGrid(self):
         listCompleteGrids = {}
