@@ -394,8 +394,9 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             self.error(e)
             return False
 
-    def cropImage(self, hole, X, Y, pathRawCroped, rawDir, separationDiv=3):
+    def cropImage(self, hole, X, Y, pathRawCroped, rawDir, separationDiv=4):
         '''Split the png image based on the position of the hole (x,y) and a boxSize'''
+        #TODOif Jonathan provide the multishot parameter would be easy to handle the crop
         import numpy as np
         import mrcfile
         if os.path.isfile(rawDir):
