@@ -152,9 +152,21 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                 time.sleep(self.rTime)
 
     def stepsToRun(self, inputMovies):
+        import time
         zeroTime = time.time()
         if not self.metadataCollected:
             self.metadataCollection()
+        # DEBUGALBERTO START
+        import os
+        fname = "/home/agarcia/Documents/attachActionDebug.txt"
+        if os.path.exists(fname):
+            os.remove(fname)
+        fjj = open(fname, "a+")
+        fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+        fjj.close()
+        print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+        time.sleep(10)
+        # DEBUGALBERTO END
         metaTime = time.time()
         self.screeningCollection()
         screenTime = time.time()
@@ -382,11 +394,10 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             self.error(e)
             return False
 
-    def cropImage(self, hole, X, Y, pathRawCroped, rawDir, separationDiv=3):
+    def cropImage(self, hole, X, Y, pathRawCroped, rawDir, separationDiv=2):
         '''Split the png image based on the position of the hole (x,y) and a boxSize'''
         import numpy as np
         import mrcfile
-
         if os.path.isfile(rawDir):
             try:
                 with mrcfile.open(rawDir, permissive=True) as mrc:
@@ -395,47 +406,107 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                         self.error("MRC data is empty or unreadable.")
                         return False
                 height, width = arr.shape[:2]
-                #print(f'[x - y]: [{X} - {Y}]      [width - height]: [{width} - {height}] ')
                 try:
-                    Range = int((hole.getHoleDiam() / 2) + (hole.getHoleSeparation() / separationDiv) )# radius + (separation / 2)
+                    InitialRange = int(hole.getHoleDiam() * 1.3)
+                    Range = int((hole.getHoleDiam() / 2) + (hole.getHoleSeparation() / separationDiv))   # radius + (separation / 2)
+
                 except Exception:
                     print(f'rawDir: {rawDir}\nhole: {hole.getName()}\n')
                     return False
-                # Calculate initial crop boundaries
-                y_start = Y - Range
-                y_end = Y + Range
-                x_start = X - Range
-                x_end = X + Range
-                # Adjust boundaries if they extend past the image edges
-                if y_start < 0:
-                    y_end -= y_start  # Shift the end coordinate by the amount the start was off
-                    y_start = 0
-
-                if x_start < 0:
-                    x_end -= x_start  # Shift the end coordinate
-                    x_start = 0
-
-                if y_end > height:
-                    y_start -= (y_end - height)  # Shift the start coordinate
-                    y_end = height
-
-                if x_end > width:
-                    x_start -= (x_end - width)  # Shift the start coordinate
-                    x_end = width
-
-                # Final check to prevent negative indices if the image is smaller than the crop size
-                y_start = max(0, y_start)
-                x_start = max(0, x_start)
+                x_start, y_start, x_end, y_end = self.rangeHole(InitialRange, X, Y, height, width)
 
                 # Perform the crop using the corrected coordinates
                 rawCrop = arr[y_start:y_end, x_start:x_end]
+                center  = self.holeCenter2(rawCrop)
+
+                if center:
+                    print(f'Center by Smartscope [{X - x_start} - {Y - y_start}] Center calculated: {center} ')
+                    print(f'Diff x y [{X - x_start - center[0]} {Y - y_start - center[1]}')
+                    x_center, y_center = center
+                    x_start, y_start, x_end, y_end = self.rangeHole(Range, x_center, y_center, (y_end - y_start), (x_end - x_start))
+                    rawCrop = rawCrop[y_start:y_end, x_start:x_end]
 
                 with mrcfile.new(pathRawCroped, overwrite=True) as mrc_out:
                     mrc_out.set_data(rawCrop.astype(np.float32))
+
                 return True
             except Exception as e:
                 print(e)
                 return False
+
+    def rangeHole(self, Range, X, Y, height, width):
+        # Calculate initial crop boundaries
+        y_start = Y - Range
+        y_end = Y + Range
+        x_start = X - Range
+        x_end = X + Range
+        # Adjust boundaries if they extend past the image edges
+        if y_start < 0:
+            y_end -= y_start  # Shift the end coordinate by the amount the start was off
+            y_start = 0
+
+        if x_start < 0:
+            x_end -= x_start  # Shift the end coordinate
+            x_start = 0
+
+        if y_end > height:
+            y_start -= (y_end - height)  # Shift the start coordinate
+            y_end = height
+
+        if x_end > width:
+            x_start -= (x_end - width)  # Shift the start coordinate
+            x_end = width
+
+        # Final check to prevent negative indices if the image is smaller than the crop size
+        y_start = max(0, y_start)
+        x_start = max(0, x_start)
+
+        return x_start, y_start, x_end, y_end
+
+    def holeCenter2(self, gray_image):
+        """
+        Center detection by correlation with 180-degree rotated image.
+        Correctly handles int16 sensor images.
+        """
+        img = gray_image.astype(np.float64)
+        # Remove background (critical)
+        img -= img.mean()
+        # Rotate image 180 degrees
+        img_rot = img[::-1, ::-1]
+        # Cross-correlation via FFT
+        F1 = np.fft.fft2(img)
+        F2 = np.fft.fft2(img_rot)
+        corr = np.fft.ifft2(F1 * np.conj(F2)).real
+        corr = np.fft.fftshift(corr)
+        # Peak location
+        py, px = np.unravel_index(np.argmax(corr), corr.shape)
+        # Image center
+        h, w = img.shape
+        cy_img = (h - 1) / 2
+        cx_img = (w - 1) / 2
+        # TRUE object center
+        cx = (cx_img + px) / 2
+        cy = (cy_img + py) / 2
+
+        return int(cx), int(cy)
+
+    def holeCenter(self, rawCrop):
+        # 1. Apply a threshold to isolate the circle from the background
+        umbral = np.mean(rawCrop) + np.std(rawCrop)
+        mascara = rawCrop > umbral
+
+        # 2. Get the indices (coordinates) of all pixels above the threshold
+        y_index, x_index= np.where(mascara)
+
+        # 3. Calculate the center of mass (centroid)
+        if len(x_index) > 0:
+            centro_x = np.mean(x_index)
+            centro_y = np.mean(y_index)
+            self.debug(f"Center at: x={centro_x:.2f}, y={centro_y:.2f}")
+            return  int(centro_x), int(centro_y)
+        else:
+            self.info('Hole no centered')
+            return None
 
     def checkNewGrid(self):
         listCompleteGrids = {}
