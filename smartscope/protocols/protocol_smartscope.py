@@ -328,6 +328,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         import re
         counter = 0
         self.info(f'moviesSS: {len(self.MoviesSS)}')
+        self.countCrops = 0
         for m in self.MoviesSS:
             movieHoleId = m.getHoleId() #TODO in detailed of hm there is no hole_id has to be included by Jonathan
             hole = self.SOH.getItem("_hole_id", m.getHoleId())
@@ -396,7 +397,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
     def cropImage(self, hole, X, Y, pathRawCroped, rawDir, separationDiv=4):
         '''Split the png image based on the position of the hole (x,y) and a boxSize'''
-        #TODOif Jonathan provide the multishot parameter would be easy to handle the crop
+        #TODO if Jonathan provide the multishot parameter would be easy to handle the crop
         import numpy as np
         import mrcfile
         if os.path.isfile(rawDir):
@@ -408,8 +409,8 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                         return False
                 height, width = arr.shape[:2]
                 try:
-                    InitialRange = int(hole.getHoleDiam() + (hole.getHoleSeparation() / separationDiv))
-                    Range = int((hole.getHoleDiam() / 2) + (hole.getHoleSeparation() / separationDiv))   # radius + (separation / 2)
+                    InitialRange = int(hole.getHoleDiam() + (hole.getHoleSeparation() / 10))
+                    Range = int((hole.getHoleDiam() / 2) + (hole.getHoleSeparation() / separationDiv))   # radius + (separation / 4)
 
                 except Exception:
                     print(f'rawDir: {rawDir}\nhole: {hole.getName()}\n')
@@ -419,12 +420,14 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                 # Perform the crop using the corrected coordinates
                 rawCrop = arr[y_start:y_end, x_start:x_end]
                 center  = self.holeCenter2(rawCrop)
-
                 if center:
-                    print(f'Center by Smartscope [{X - x_start} - {Y - y_start}] Center calculated: {center} ')
-                    print(f'Diff x y [{X - x_start - center[0]} {Y - y_start - center[1]}')
-                    x_center, y_center = center
-                    x_start, y_start, x_end, y_end = self.rangeHole(Range, x_center, y_center, (y_end - y_start), (x_end - x_start))
+                    if abs(center[0] - (X - x_start)) <= (hole.getHoleDiam()  / 2) and abs(center[1] - (Y - y_start)) <= (hole.getHoleDiam()  / 2):
+                        x_center, y_center = center
+                        x_start, y_start, x_end, y_end = self.rangeHole(Range, x_center, y_center, (y_end - y_start), (x_end - x_start))
+                    else:
+                        self.countCrops += 1
+                        self.info(f'Out of hole {self.countCrops}')
+                        x_start, y_start, x_end, y_end = self.rangeHole(Range, (X - x_start), (Y - y_start), (y_end - y_start), (x_end - x_start))
                     rawCrop = rawCrop[y_start:y_end, x_start:x_end]
 
                 with mrcfile.new(pathRawCroped, overwrite=True) as mrc_out:
@@ -489,31 +492,8 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         cx = (cx_img + px) / 2
         cy = (cy_img + py) / 2
 
-        if self.is_bright_hole(gray_image, cx, cy):
-            return int(cx), int(cy)
-        self.info('No brightness')
 
-
-    def is_bright_hole(self, gray_image, cx, cy, window=20, min_delta=0.05):
-        """
-        Validate that the detected center corresponds to a bright hole.
-        """
-
-        img = gray_image.astype(np.float64)
-        img = (img - img.min()) / (img.max() - img.min())
-
-        cx, cy = int(cx), int(cy)
-        h, w = img.shape
-
-        y0 = max(cy - window, 0)
-        y1 = min(cy + window, h)
-        x0 = max(cx - window, 0)
-        x1 = min(cx + window, w)
-
-        patch = img[y0:y1, x0:x1]
-
-        # Hole must be brighter than global average
-        return patch.mean() > img.mean() + min_delta
+        return int(cx), int(cy)
 
 
     def checkNewGrid(self):

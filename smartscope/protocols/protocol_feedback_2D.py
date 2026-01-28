@@ -36,7 +36,7 @@ from pyworkflow import BETA, UPDATED, NEW, PROD
 from pwem.protocols.protocol_import.base import ProtImport
 from pwem.protocols import ProtBoxSizeCheckpoint
 from pyworkflow.protocol import ProtStreamingBase, getUpdatedProtocol
-from pwem.objects import SetOfClasses2D
+from pwem.objects import SetOfClasses2D, SetOfAverages, Class2D
 from . import smartscopeConnection
 
 import pyworkflow.utils as pwutils
@@ -93,10 +93,21 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
                        pointerClass='SetOfClasses2D',
                        label="Classes2D",
                        help='Set of Classes2D calculated by a classifier')
-        form.addParam('goodClasses2D', params.PointerParam, allowsNull=False,
+        form.addParam('goodClassesOrigin', params.EnumParam, default=0,
+                      choices=['Relion', 'Cryoasses'],
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      label='Select the protocol that generate the good2Dclasses ranked',
+                      help='Relion generates setOf2DClasses and Cryoasses SetOfAverages, select the protocol the good classes come from.')
+        form.addParam('goodClasses2DRelion', params.PointerParam,
+                       condition='goodClassesOrigin==0',
                        pointerClass='SetOfClasses2D',
-                       label="Good Classes2D",
-                       help='Set of good Classes2D calculated by a ranker')
+                       label="Good Classes2D from Relion",
+                       help='Set of good Classes2D calculated by Relion ranker')
+        form.addParam('goodClasses2DCryoasses', params.PointerParam,
+                       condition='goodClassesOrigin==1',
+                       pointerClass='SetOfAverages',
+                       label="Good Classes2D from Cryoasses",
+                       help='Set of good Classes2D calculated by Cryoasses ranker')
         form.addParam('percentGoodPartcilesHole', params.EnumParam,
                       choices=self.percentBins, default=5, display=params.EnumParam.DISPLAY_COMBO,
                       label="Percent good particles to consider good Hole",
@@ -151,7 +162,17 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
             self.movies = updatedProt.MoviesSS
 
         self.totalC = self.totalClasses2D.get()
-        self.goodC = self.goodClasses2D.get()
+        if self.goodClassesOrigin.get() == 0:
+            self.goodC = self.goodClasses2DRelion.get()
+        else:
+            self.goodC = SetOfClasses2D.create(outputPath=self._getPath(), prefix='_goodC')
+            self.goodC.copyInfo(self.totalC)
+            listGood = []
+            for c in self.goodClasses2DCryoasses.get().iterItems():
+                listGood.append(c.getIndex())
+            enableFunc = lambda cls: cls.getObjId() in listGood
+            self.goodC.appendFromClasses(self.totalC, filterClassFunc=enableFunc)
+
         self.badC = []
         self.dictHolesWithMic = {}
         self.dictHolesWithoutMic = {}
