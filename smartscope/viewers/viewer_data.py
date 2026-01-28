@@ -34,6 +34,8 @@ from smartscope.protocols.protocol_feedback_filter import smartscopeFeedbackFilt
 from smartscope.protocols.protocol_feedback_2D import smartscopeFeedback2D
 from smartscope.protocols.protocol_smartscope import smartscopeConnection
 from pyworkflow.protocol.params import LabelParam
+from pwem.objects import SetOfClasses2D
+
 
 # === Standard Library Imports ===
 import base64
@@ -736,7 +738,15 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
             if self.protocol.goodClassesOrigin.get() == 0:
                 goodClasses2d = self.protocol.goodClasses2DRelion.get()
             else:
-                goodClasses2d = self.protocol.goodClasses2DCryoasses.get()
+                totalC = self.protocol.totalClasses2D.get()
+                goodClasses2d = SetOfClasses2D.create(outputPath=self._getPath(), prefix='_goodC')
+                goodClasses2d.copyInfo(totalC)
+                listGood = []
+                for c in self.protocol.goodClasses2DCryoasses.get().iterItems():
+                    listGood.append(c.getIndex())
+                enableFunc = lambda cls: cls.getObjId() in listGood
+                goodClasses2d.appendFromClasses(totalC, filterClassFunc=enableFunc)
+
 
             for c in goodClasses2d:
                 path_mrc = c.getRepresentative().getFileName()
