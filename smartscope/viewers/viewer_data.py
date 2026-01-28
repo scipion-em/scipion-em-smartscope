@@ -733,7 +733,12 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
             self.classesList = sorted(self.classesList, key=lambda x: int(x.split('-')[1]))
 
             self.classImagesDict = {}
-            for c in self.protocol.goodClasses2D.get():
+            if self.protocol.goodClassesOrigin.get() == 0:
+                goodClasses2d = self.protocol.goodClasses2DRelion.get()
+            else:
+                goodClasses2d = self.protocol.goodClasses2DCryoasses.get()
+
+            for c in goodClasses2d:
                 path_mrc = c.getRepresentative().getFileName()
                 classNumber = c.getRepresentative().getIndex()
                 self.classImagesDict[classNumber] = f"{classNumber}@{path_mrc}"
