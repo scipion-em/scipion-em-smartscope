@@ -94,6 +94,9 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                       label="Percent empty bins in the histogram",
                       help="In the histogram of number of holes acquired (with movies), this parameter represent the"
                             " percent of empty bins allowed to feedback Smartscope (20% by default). Higher less restrictive")
+        form.addParam('applyFeedback', params.BooleanParam, default=False, allowsNull=False,
+                      label='Apply the calculated range of intensity back to Smartscope',
+                      help='Set True if you want to apply the range of intensity (ice-thickness) back to Smartscope in real time')
         form.addParam('simulator', params.BooleanParam, default=False,
                       expertLevel=cons.LEVEL_ADVANCED,
                       label="Enable to simulate the screening",
@@ -101,7 +104,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         form.addParam('micsAll', params.PointerParam, pointerClass='SetOfMicrographs',
                       expertLevel=cons.LEVEL_ADVANCED, allowsNull=True,
                       label='Micrographs',
-                      help='Select a set of micrographs from any protocol.')
+                      help='Select a set of micrographs from any protocol if you are simulating')
 
         form.addSection('Streaming')
         form.addParam('refreshMethod', params.EnumParam, default=0,
@@ -123,14 +126,14 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         self.intensityRangeSet = False
         self.initialNumMics = 0
         self.finish = False
-        self.runningPrevious = False
         self.zeroTime = time.time()
-        self.firtsFlag = True
         self.rTime = self.refreshTime.get()
         if self.rTime < 240:
             self.rTime = 240
 
+        self.launchFirstIteration = False
         self.updateProtocolInputs()
+        self.micsNoProcesed = 0
 
     def getInputProtocol(self):
         prot = self.inputProtocol.get()
@@ -159,57 +162,62 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         """
         self.time0 = time.time()
         self._initialize()
-        # DEBUGALBERTO START
-        import os
-        fname = "/home/agarcia/Documents/attachActionDebug.txt"
-        if os.path.exists(fname):
-            os.remove(fname)
-        fjj = open(fname, "a+")
-        fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
-        fjj.close()
-        print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
-        time.sleep(10)
-        # DEBUGALBERTO END
-        while not self.finish:
-            self.fMics = self.micsPassFilter.get()
-            if self.conditionRefresh() or self.firtsFlag:
-                if self.runningPrevious == False:
-                    if len(self.micsPassFilter.get()) >= self.triggerMicrograph.get():
-                        self.updateProtocolInputs()
-                        self.firtsFlag = False
-                        self.runningPrevious = True
-                        self.timeMainSteps = time.time()
-                        self.collectHoles()
-                        self.timeCollect = time.time()
-                        self.assignGridHoles()
-                        self.timeAssign = time.time()
-                        self.statistics()
-                        self.timeStatistics = time.time()
-                        self.createOutputs()
-                        self.timeOutput = time.time()
-                        self.info(f'Collect Time: {round(self.timeCollect - self.timeMainSteps, 0)} s')
-                        self.info(f'Assign Time: {round(self.timeAssign - self.timeCollect, 0)} s')
-                        self.info(f'Statistics Time: {round(self.timeStatistics - self.timeAssign, 0)} s')
-                        self.info(f'Output Time: {round(self.timeOutput - self.timeStatistics, 0)} s')
-                        self.info(f'Total Time: {round(self.timeOutput - self.time0, 0)} s')
-                        if not self.fMics.isStreamOpen():
-                            self.info('Not more micrographs are expected, set closed')
-                            self.finish = True
-                        else:
-                            self.runningPrevious = False
-                    else:
-                        self.info('Waiting enought micrographs to launch protocol.'
-                                  ' triggerMicrograph: {}, micrographsFiltered: {}'.format(self.triggerMicrograph.get(), len(self.micsPassFilter.get())))
+        fMics = self.micsPassFilter.get()
+        self.trigeredMics = self.triggerMicrograph.get()
 
-            time.sleep(30)
+        while True:
+            lenFilteredNics = len(fMics.getFiles())
+            if self.launchFirstIteration and not fMics.isStreamOpen():
+                if self.micsNoProcesed > 0:
+                    self.info(f'\nLaunching protocol with {lenFilteredNics} micrographs filtered...')
+                    self.stepsToRun(fMics)
+                self.info('Not more micrographs are expected; input setOfMicsPassFilter closed')
+                break
+            if not self.launchFirstIteration:
+                if self.trigeredMics <= lenFilteredNics:
+                    self.launchFirstIteration = True
+                    self.initialNumMics = lenFilteredNics
+                    self.info(f'\nLaunching protocol with {lenFilteredNics} micrographs filtered...')
+                    self.stepsToRun(fMics)
+                    continue
+                else:
+                    self.info(f'Waiting {self.trigeredMics} micrographs filtered to launch protocol. '
+                              f'Micrographs Filtered: {lenFilteredNics}')
+                    time.sleep(((self.trigeredMics - lenFilteredNics) * 10))  # 10 secs to process each mic
+                    continue
 
-    def conditionRefresh(self):
-        if self.refreshMethod == 0:
-            numMics = len(self.fMics)
-            if numMics - self.initialNumMics >= self.refreshMics.get():
-                self.initialNumMics = numMics
+            if self.conditionRefresh(lenFilteredNics):
+                self.info(f'\nUpdating the protocol with {lenFilteredNics} micrographs filtered...')
+                self.stepsToRun(fMics)
+
+
+    def stepsToRun(self, fMics):
+        self.updateProtocolInputs()
+        self.timeMainSteps = time.time()
+        self.collectHoles(fMics)
+        self.timeCollect = time.time()
+        self.assignGridHoles()
+        self.timeAssign = time.time()
+        self.statistics()
+        self.timeStatistics = time.time()
+        self.createOutputs()
+        self.timeOutput = time.time()
+        self.info(f'Collect Time: {round(self.timeCollect - self.timeMainSteps, 0)} s')
+        self.info(f'Assign Time: {round(self.timeAssign - self.timeCollect, 0)} s')
+        self.info(f'Statistics Time: {round(self.timeStatistics - self.timeAssign, 0)} s')
+        self.info(f'Output Time: {round(self.timeOutput - self.timeStatistics, 0)} s')
+        self.info(f'Total Time: {round(self.timeOutput - self.time0, 0)} s')
+
+    def conditionRefresh(self, lenFilteredMics):
+        if self.refreshMethod.get() == 0: #mics
+            self.micsNoProcesed = lenFilteredMics - self.initialNumMics
+            if self.micsNoProcesed  >= self.refreshMics.get():
+                self.initialNumMics = lenFilteredMics
                 return True
             else:
+                self.info(f'Waiting new {self.refreshMics.get()} micrographs filtered to update protocol.'
+                          f' New micrographs filtered: {self.micsNoProcesed }')
+                time.sleep(((self.refreshMics.get() - (self.micsNoProcesed )) * 10)) #10 secs to process each mic
                 return False
         else:
             rTime = time.time() - self.zeroTime
@@ -217,10 +225,12 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                 self.zeroTime = time.time()
                 return True
             else:
+                self.info(f'Waiting {self.rTime}s to check new inputs')
+                time.sleep(self.rTime)
                 return False
 
 
-    def collectHoles(self):
+    def collectHoles(self, fMics):
         self.info('\n-Collectiong holes...')
         self.dictMovies = {}
         self.dictHoles = {}
@@ -255,7 +265,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                     self.dictHolesWithMic[m.getHoleId()] = self.dictHoles[m.getHoleId()]['Hole'].clone()
                 self.dictHoles[m.getHoleId()]['Acquired'] += 1
 
-        for mic in self.fMics:
+        for mic in fMics:
             H_ID = self.dictMovies[mic.getMicName()].getHoleId()
             self.dictHoles[H_ID]['Pass'] += 1
             self.dictHoles[H_ID]['Rejected'] = self.dictHoles[H_ID]['Acquired'] - self.dictHoles[H_ID]['Pass']
@@ -351,7 +361,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                 self.listGridsStatistics[grid.getName()]['sigma'] = sigma
 
             #Posting Smartscope
-            if not self.simulator.get():
+            if not self.simulator.get() and self.applyFeedback.get():
                 self.postingBack2Smartscope()
             #Prepare viewer
             self.prepareViewer(gridId, grid.getName(), nBins, minI, maxI)

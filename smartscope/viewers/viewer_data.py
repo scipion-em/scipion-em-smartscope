@@ -34,6 +34,8 @@ from smartscope.protocols.protocol_feedback_filter import smartscopeFeedbackFilt
 from smartscope.protocols.protocol_feedback_2D import smartscopeFeedback2D
 from smartscope.protocols.protocol_smartscope import smartscopeConnection
 from pyworkflow.protocol.params import LabelParam
+from pwem.objects import SetOfClasses2D
+
 
 # === Standard Library Imports ===
 import base64
@@ -114,36 +116,45 @@ class DataViewer_smartscope(ProtocolViewer):
 
     def _visualizeAtlas(self, e=None):
         views = []
-        labels = ('_pngDir _grid_id _atlas_id _binning_factor _status _completion_time _shape_x _shape_y _sampligRate')
+        labels = ('_pngDir _atlas_id _binning_factor _status _completion_time _shape_x _shape_y _sampligRate')
         if hasattr(self.protocol, 'Atlas'):
             views.append(ObjectView(self._project,
                                            self.protocol.Atlas.strId(),
                                            self.protocol.Atlas.getFileName(),
-                               viewParams={VISIBLE: labels,
+                               viewParams={ORDER: labels,
+                                           VISIBLE: labels,
                                            RENDER: '_pngDir',
-                                           SORT_BY: labels}))
+                                           MODE: MODE_MD}))
             return views
 
 
     def _visualizeSquares(self, e=None):
         views = []
-        labels = ('_pngDir _square_id _atlas_id _status _selected _completion_time _area _shape_x _shape_y _sampligRate')
+        labels = ('_pngDir _square_id _status _selected _completion_time _area _shape_x _shape_y _sampligRate')
         if hasattr(self.protocol, 'Squares'):
             views.append(ObjectView(self._project,
                                           self.protocol.Squares.strId(),
                                           self.protocol.Squares.getFileName(),
-                                          viewParams={VISIBLE: labels,
+                                          viewParams={ORDER: labels,
+                                                      VISIBLE: labels,
                                                       RENDER: '_pngDir',
-                                                      SORT_BY: labels}))
+                                                      MODE: MODE_MD}))
             return views
 
 
     def _visualizeHoles(self, e=None):
         from pwem.viewers.mdviewer.viewer import MDView
         views = []
-        #labels = ('_pngDir _rawDir _hole_id _grid_id _selector_value _status _selected _completion_time _shape_x _shape_y _sampligRate _number _area')
+        labels = (' _rawDir _selector_value _selected _completion_time _shape_x _shape_y _sampligRate _area')
         if hasattr(self.protocol, 'Holes'):
-            views.append(MDView(self.protocol.Holes, self.protocol, self._project.port))
+            #views.append(MDView(self.protocol.Holes, self.protocol, self._project.port))
+            views.append(ObjectView(self._project,
+                                          self.protocol.Holes.strId(),
+                                          self.protocol.Holes.getFileName(),
+                                          viewParams={ORDER: labels,
+                                                      VISIBLE: labels,
+                                                      RENDER: '_rawDir',
+                                                      MODE: MODE_MD}))
             return views
 
     def _visualizeMovies(self, e=None):
@@ -197,27 +208,27 @@ class SmartscopeFilterFeedbackViewer(ProtocolViewer):
     def _visualizePassFilteredHoles(self, e=None):
         views = []
         if hasattr(self.protocol, 'SetOfHolesPassFilter'):
-            labels = (
-                '_pngDir _bis_type _hole_id _grid_id _selector_value _status _selected _shape_x _shape_y _sampligRate _number _area')
+            labels = ('_rawDir _selector_value _selected _completion_time _shape_x _shape_y _sampligRate _area')
             views.append(ObjectView(self._project,
                                     self.protocol.SetOfHolesPassFilter.strId(),
                                     self.protocol.SetOfHolesPassFilter.getFileName(),
-                                    viewParams={VISIBLE: labels,
+                                    viewParams={ORDER: labels,
+                                                VISIBLE: labels,
                                                 RENDER: '_rawDir',
-                                                SORT_BY: labels}))
+                                                MODE: MODE_MD}))
             return views
 
     def _visualizeRejectedHoles(self, e=None):
         views = []
         if hasattr(self.protocol, 'SetOfHolesRejected'):
-            labels = (
-                '_pngDir _bis_type _hole_id _grid_id _selector_value _status _selected _shape_x _shape_y _sampligRate _number _area')
+            labels = ('_rawDir _selector_value _selected _completion_time _shape_x _shape_y _sampligRate _area')
             views.append(ObjectView(self._project,
                                           self.protocol.SetOfHolesRejected.strId(),
                                           self.protocol.SetOfHolesRejected.getFileName(),
-                                          viewParams={VISIBLE: labels,
-                                                      RENDER: '_rawDir',
-                                                      SORT_BY: labels}))
+                                          viewParams={ORDER: labels,
+                                                        VISIBLE: labels,
+                                                        RENDER: '_rawDir',
+                                                        MODE: MODE_MD}))
             return views
 
     def _visualizeHistograms(self, e=None):
@@ -718,12 +729,26 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
             }
 
             self.classesList = [c for c, v in dictFiles.items() if "-classes-" in v]
+            print(f'classList: {self.classesList}')
             for v in self.classesList:
                 self.listRanges[v] = np.loadtxt(os.path.join(self.protocol._getExtraPath(), dictFiles[v]))
             self.classesList = sorted(self.classesList, key=lambda x: int(x.split('-')[1]))
 
             self.classImagesDict = {}
-            for c in self.protocol.goodClasses2D.get():
+            if self.protocol.goodClassesOrigin.get() == 0:
+                goodClasses2d = self.protocol.goodClasses2DRelion.get()
+            else:
+                totalC = self.protocol.totalClasses2D.get()
+                goodClasses2d = SetOfClasses2D.create(outputPath=self._getPath(), prefix='_goodC')
+                goodClasses2d.copyInfo(totalC)
+                listGood = []
+                for c in self.protocol.goodClasses2DCryoasses.get().iterItems():
+                    listGood.append(c.getIndex())
+                enableFunc = lambda cls: cls.getObjId() in listGood
+                goodClasses2d.appendFromClasses(totalC, filterClassFunc=enableFunc)
+
+
+            for c in goodClasses2d:
                 path_mrc = c.getRepresentative().getFileName()
                 classNumber = c.getRepresentative().getIndex()
                 self.classImagesDict[classNumber] = f"{classNumber}@{path_mrc}"
@@ -795,7 +820,7 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                                                                     pattern_fgcolor="rgb(196, 230, 200)",
                                                                     pattern_size=7), width=bin_width), row=1, col=2)
         fig_top.update_xaxes(title="Holes Intensity", range=[min(self.xBin), max(self.xBin)], row=1, col=2)
-        fig_top.update_yaxes(title="Particles pero hole", title_standoff=2, row=1, col=2)
+        fig_top.update_yaxes(title="Particles per hole", title_standoff=2, row=1, col=2)
         listMaxYValues.append(max(self.listRanges['particlesPerHole_bin']))
 
         # === Subplot 3: Percent Good ===
@@ -817,7 +842,7 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
             subplot_titles=titles,
             rows=n_rows,
             cols=n_cols_bottom,
-            vertical_spacing=0.08,
+            vertical_spacing=0.1,
             horizontal_spacing=0.03
         )
         fig_bottom.update_layout(
@@ -825,10 +850,10 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
             title_font=dict(size=20, color="darkblue", family="Arial, sans-serif"),
             title_x=0.5,
             width=1200,
-            height=200 * n_rows,
+            height=230 * n_rows,
             barmode="overlay",
             bargap=0.05,
-            margin=dict(l=40, r=40, t=120, b=40),
+            margin=dict(l=40, r=40, t=100, b=100),
             showlegend=False,
         )
 

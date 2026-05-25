@@ -34,8 +34,9 @@ to Smartscope to take decission about the acquisition
 from pyworkflow.utils import Message
 from pyworkflow import BETA, UPDATED, NEW, PROD
 from pwem.protocols.protocol_import.base import ProtImport
+from pwem.protocols import ProtBoxSizeCheckpoint
 from pyworkflow.protocol import ProtStreamingBase, getUpdatedProtocol
-from pwem.objects import SetOfClasses2D
+from pwem.objects import SetOfClasses2D, SetOfAverages, Class2D
 from . import smartscopeConnection
 
 import pyworkflow.utils as pwutils
@@ -85,38 +86,49 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         # You need a params to belong to a section:
         form.addSection(label=Message.LABEL_INPUT)
         form.addParam('inputProtocol', params.PointerParam,
-                      pointerClass='EMProtocol', label="Input Smartscope connection protocols", important=True,
+                      pointerClass='EMProtocol', label="Input Smartscope connection", important=True,
                       help="Smartscope connection protocol")
 
         form.addParam('totalClasses2D', params.PointerParam, allowsNull=False,
                        pointerClass='SetOfClasses2D',
                        label="Classes2D",
                        help='Set of Classes2D calculated by a classifier')
-        form.addParam('goodClasses2D', params.PointerParam, allowsNull=False,
+        form.addParam('goodClassesOrigin', params.EnumParam, default=0,
+                      choices=['Relion', 'Cryoasses'],
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      label='Select the protocol that generate the good2Dclasses ranked',
+                      help='Relion generates setOf2DClasses and Cryoasses SetOfAverages, select the protocol the good classes come from.')
+        form.addParam('goodClasses2DRelion', params.PointerParam,
+                       condition='goodClassesOrigin==0',
                        pointerClass='SetOfClasses2D',
-                       label="Good Classes2D",
-                       help='Set of good Classes2D calculated by a ranker')
+                       label="Good Classes2D from Relion",
+                       help='Set of good Classes2D calculated by Relion ranker')
+        form.addParam('goodClasses2DCryoasses', params.PointerParam,
+                       condition='goodClassesOrigin==1',
+                       pointerClass='SetOfAverages',
+                       label="Good Classes2D from Cryoasses",
+                       help='Set of good Classes2D calculated by Cryoasses ranker')
         form.addParam('percentGoodPartcilesHole', params.EnumParam,
                       choices=self.percentBins, default=5, display=params.EnumParam.DISPLAY_COMBO,
                       label="Percent good particles to consider good Hole",
                       help="Percent of good particles in a Hole to consider that the hole is a good Hole or a Hole to consider. Default 50%")
-        form.addParam('triggerMovies', params.IntParam, default=200,
-                      label="Movies to launch the protocol",
-                      help='Number of movies that pass the filters to launch the statistics')
-        form.addSection('Streaming')
-        form.addParam('refreshMethod', params.EnumParam, default=0,
-                      choices=['Input micrographs', 'Time'],
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      label='Select input to refresh the protocol',
-                      help='Select the parameter which triger the refresh of the protocol.')
-        form.addParam('refreshTime', params.IntParam, default=240,
-                      condition='refreshMethod==1',
-                      label="Time to refresh protocol",
-                      help = "Time to refresh data collected (minimum 240 secs) and update the feedback if neccesary")
-        form.addParam('refreshMovies', params.IntParam, default=200,
-                      condition='refreshMethod==0',
-                      label = 'Input movies to refresh protocol',
-                      help="Number of new movies to refresh data collected and update the feedback if neccesary")
+        # form.addParam('triggerMovies', params.IntParam, default=200,
+        #               label="Movies to launch the protocol",
+        #               help='Number of movies that pass the filters to launch the statistics')
+        # form.addSection('Streaming')
+        # form.addParam('refreshMethod', params.EnumParam, default=0,
+        #               choices=['Input micrographs', 'Time'],
+        #               display=params.EnumParam.DISPLAY_HLIST,
+        #               label='Select input to refresh the protocol',
+        #               help='Select the parameter which triger the refresh of the protocol.')
+        # form.addParam('refreshTime', params.IntParam, default=240,
+        #               condition='refreshMethod==1',
+        #               label="Time to refresh protocol",
+        #               help = "Time to refresh data collected (minimum 240 secs) and update the feedback if neccesary")
+        # form.addParam('refreshMovies', params.IntParam, default=200,
+        #               condition='refreshMethod==0',
+        #               label = 'Input movies to refresh protocol',
+        #               help="Number of new movies to refresh data collected and update the feedback if neccesary")
 
 
     def _initialize(self):
@@ -136,9 +148,6 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         self.SOBestH = SetOfHoles.create(outputPath=self._getPath(),suffix='Best')
         self.outputsToDefine = {'SetOfHoles': self.SOH, 'SetOfBestHoles': self.SOBestH}
         self._defineOutputs(**self.outputsToDefine)
-        self.zeroTime = time.time()
-        self.runningPrevious = False
-
         self.smartscopeConnectionProtocol = self.getInputProtocol()
         updatedProt = getUpdatedProtocol(self.smartscopeConnectionProtocol)
 
@@ -151,15 +160,22 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
             self.holes = updatedProt.Holes
         if hasattr(updatedProt, 'MoviesSS'):
             self.movies = updatedProt.MoviesSS
-        self.firtsFlag = True
-        self.finish = False
-        self.initialNumMovies = 0
 
         self.totalC = self.totalClasses2D.get()
-        self.goodC = self.goodClasses2D.get()
+        if self.goodClassesOrigin.get() == 0:
+            self.goodC = self.goodClasses2DRelion.get()
+        else:
+            self.goodC = SetOfClasses2D.create(outputPath=self._getPath(), prefix='_goodC')
+            self.goodC.copyInfo(self.totalC)
+            listGood = []
+            for c in self.goodClasses2DCryoasses.get().iterItems():
+                listGood.append(c.getIndex())
+            enableFunc = lambda cls: cls.getObjId() in listGood
+            self.goodC.appendFromClasses(self.totalC, filterClassFunc=enableFunc)
+
         self.badC = []
         self.dictHolesWithMic = {}
-        self.dictHolesWithoutMic =  {}
+        self.dictHolesWithoutMic = {}
 
         for t in self.totalC:
             flag = False
@@ -186,35 +202,10 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         call the self._insertFunctionStep method.
         """
         self._initialize()
-
-        while not self.finish:
-            if self.conditionRefresh() or self.firtsFlag:
-                if self.runningPrevious == False:
-                    if len(self.movies) >= self.triggerMovies.get():
-                        self.firtsFlag = False
-                        self.runningPrevious = True
-                        self.readClasses()
-                        self.holesStatistis()
-                        self.smartscopeFeedback()
-                        self.createOutputStep()
-                        self.finish = True #TODO handle when to  finish it, a streaming workflow is needed
-
-
-    def conditionRefresh(self):
-        if self.refreshMethod == 0:
-            numMovies = len(self.movies)
-            if numMovies - self.initialNumMovies >= self.refreshMovies.get():
-                self.initialNumMovies = numMovies
-                return True
-            else:
-                return False
-        else:
-            rTime = time.time() - self.zeroTime
-            if rTime >= self.rTime:
-                self.zeroTime = time.time()
-                return True
-            else:
-                return False
+        self.readClasses()
+        self.holesStatistis()
+        self.smartscopeFeedback()
+        self.createOutputStep()
 
     def readClasses(self):
         self.info('\nReading inputs...')
