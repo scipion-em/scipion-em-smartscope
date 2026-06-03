@@ -156,17 +156,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         zeroTime = time.time()
         if not self.metadataCollected:
             self.metadataCollection()
-        # DEBUGALBERTO START
-        import os
-        fname = "/home/agarcia/Documents/attachActionDebug.txt"
-        if os.path.exists(fname):
-            os.remove(fname)
-        fjj = open(fname, "a+")
-        fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
-        fjj.close()
-        print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
-        time.sleep(10)
-        # DEBUGALBERTO END
+    
         metaTime = time.time()
         self.screeningCollection()
         screenTime = time.time()
