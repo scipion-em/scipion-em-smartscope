@@ -2,6 +2,5 @@ scipion-pyworkflow
 scipion-em
 requests
 scipion-em-xmipp
-Pathlib
-plotly
-dash
+plotly<5.18 
+dash<2.14 #SmartScope uses the old app.run_server API, which newer Dash versions have removed.
