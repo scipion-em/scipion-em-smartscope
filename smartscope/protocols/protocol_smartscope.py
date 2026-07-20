@@ -340,11 +340,12 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                             continue
                         self.cropImage(hole, x, y, pathRawCroped, pathRawPartial, separationDiv=3)
                         os.remove(pathRawPartial)
-                    if self.cropImage(hole, m.getX(), m.getY(), pathRawCroped, rawDir):
-                        counter += 1
-                        self.debug(f'Croped {counter} hole images')
-                        hole.setRawDir(pathRawCroped)
-                        # self.info(f'holeID append: {movieHoleId} movieName: {movieName}')
+                    else:
+                        if self.cropImage(hole, m.getX(), m.getY(), pathRawCroped, rawDir):
+                            counter += 1
+                            self.debug(f'Croped {counter} hole images')
+                            hole.setRawDir(pathRawCroped)
+                            # self.info(f'holeID append: {movieHoleId} movieName: {movieName}')
 
                 self.info(f'Holes croped: {counter}')
                 self.listHoleCropedID.append(movieHoleId)
