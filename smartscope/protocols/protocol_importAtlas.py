@@ -51,6 +51,11 @@ class ProtImportAtlas(ProtImport):
     _devStatus = BETA
 
     def _defineParams(self, form):
+        """Define the input parameters for the protocol form.
+
+        Adds controls for selecting atlas magnification level, the MRC file path,
+        and an optional pointer to a low-mag atlas (visible only for medium-mag imports).
+        """
         form.addSection(label=Message.LABEL_INPUT)
         form.addParam('atlasMag', params.EnumParam, default=0,
                       choices=['Low magnification', 'Medium magnification'],
@@ -72,19 +77,29 @@ class ProtImportAtlas(ProtImport):
 
 
     def readMdocFile(self):
+        """Return the expected mdoc file path by appending '.mdoc' to the MRC file path."""
         return str(self.mrc_file.get() + '.mdoc')
 
     def _insertAllSteps(self):
+        """Register the sequence of execution steps for the protocol."""
         self.initializeParams()
         self._insertFunctionStep('readParameters')
         self._insertFunctionStep('createOutputStep')
 
     def initializeParams(self):
+        """Initialize instance variables before the main processing steps run."""
         self.mdoc_file = self.readMdocFile()
         self.headerDict = {}
         self.zvalueList = []
 
     def readParameters(self):
+        """Parse the mdoc file and populate headerDict and zvalueList.
+
+        Reads the mdoc metadata file associated with the MRC, converts all values
+        to their appropriate Python types, extracts per-slice metadata into
+        zvalueList, and calls createImagesSlices to write individual slice files.
+        Also stores the magnification from the first slice entry.
+        """
         mdoc = MDoc(self.mdoc_file)
         hDict, valueList = mdoc.parseMdoc()
         self.zvalueList = []
@@ -103,6 +118,13 @@ class ProtImportAtlas(ProtImport):
         self.magnification = int(self.zvalueList[0]['Magnification'])
 
     def createOutputStep(self):
+        """Build and register the atlas and its image set as protocol outputs.
+
+        Creates either an AtlasLow or AtlasMed object depending on the selected
+        magnification, populates all metadata fields from the parsed mdoc header
+        and per-slice dictionaries, then defines both the atlas object and the
+        corresponding set of images as named outputs.
+        """
         if self.atlasMag.get() == LOW_MAG:
             atlas = AtlasLow()
             atlas.setObjId(self.magnification)
@@ -174,14 +196,22 @@ class ProtImportAtlas(ProtImport):
         self._defineOutputs(**self.outputsToDefine)
 
     def getLinkingAtlasID(self):
+        """Return the object ID of the linked low-mag atlas (used for medium-mag imports)."""
         self.info(type(self.atlas2Link.get()))
         return self.atlas2Link.get().getObjId()
 
 
     def _validate(self):
+        """Validate protocol inputs before execution. Returns a list of error strings."""
         pass
 
     def createImagesSlices(self):
+        """Extract each Z-slice from the MRC stack and write it as an individual MRC file.
+
+        Reads the full MRC volume, iterates over the first dimension (Z-slices),
+        saves each slice to the extra path with a zero-padded name (e.g. 001_slice.mrc),
+        and updates the corresponding entry in zvalueList with the new file path.
+        """
         if os.path.isfile(self.mrc_file.get()):
             atlasImages = ImageHandler().read(self.mrc_file.get())
             images = atlasImages.getData()
@@ -198,6 +228,12 @@ class ProtImportAtlas(ProtImport):
 
     #UTILS
     def getStringType(self, string):
+        """Convert a raw string value from the mdoc file to its most specific Python type.
+
+        Tries in order: datetime, space-separated list (converted to CSV string),
+        integer, float, and falls back to the original string if none match.
+        Returns None unchanged.
+        """
         if string == None or 'None':
             return string
         try:#date
