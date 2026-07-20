@@ -16,11 +16,12 @@ img_path = "/home/agarcia/develops/HoleIceBreaker/holes/FRO30_3_square133_hole11
 #img_path = "/home/agarcia/develops/HoleIceBreaker/holes/FRO30_3_square133_hole28.mrc"
 #img_path = "/home/agarcia/develops/HoleIceBreaker/holes/LH11_3_square386_hole114.mrc"
 #img_path = "/home/agarcia/develops/HoleIceBreaker/holesSquare/holeSquareDandeyV.png"
-img_path = "/home/agarcia/develops/HoleIceBreaker/holesSquare/holeSquareDandeyV_2.png"
-
+img_path = "/home/agarcia/develops/HoleIceBreaker/holesSquare/holeSquareDandeyV_2.png" #pavlov
+img_path = "/data/agarcia/HoleIceBreaker/holesSquare/holeSquareDandeyV_2.png"#hertz-cinco
+#img_path = "/data/agarcia/HoleIceBreaker/holesSquare/G2_square110_hole173.mrc" #hertz-cinco
 
 #PIXEL_NEIGHBOR = 20 #Critical time cost (80->13 secs 50-> 6 secs
-BIN_LEVELS = 5
+BIN_LEVELS = 8
 SIGMA_GAUSSIAN = 3
 RADIUS = 60
 

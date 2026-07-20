@@ -167,7 +167,6 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 
         while True:
             lenFilteredNics= len(fMics.getFiles())
-            #lenFilteredNics = fMics.getSize()
             self.info(f'fMics.isStreamOpen(): {self.micsPassFilter.get().isStreamOpen()}')
             if self.launchFirstIteration and not fMics.isStreamOpen():
                 if self.micsNoProcesed > 0:
