@@ -166,7 +166,8 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         self.trigeredMics = self.triggerMicrograph.get()
 
         while True:
-            lenFilteredNics = fMics.getSize()
+            lenFilteredNics= len(fMics.getFiles())
+            #lenFilteredNics = fMics.getSize()
             self.info(f'fMics.isStreamOpen(): {self.micsPassFilter.get().isStreamOpen()}')
             if self.launchFirstIteration and not fMics.isStreamOpen():
                 if self.micsNoProcesed > 0:
@@ -295,8 +296,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
 
         for holeID, hole_data in self.dictHoles.items():
             h = hole_data['Hole']
-            shots = hole_data['Shots'] #TODO Jonathan has to fix this value. now is the shots for the hole bis group
-            if shots > 3:shots = 3 #TODO remove when fixed getShots
+            shots = hole_data['Shots']
             acqs = hole_data['Acquired']
             passF = hole_data['Pass']
             reject = hole_data['Rejected']
