@@ -342,14 +342,14 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             if not movieHoleId in self.listHoleCropedID:
                 fileName  = os.path.splitext(os.path.basename(rawDir))[0]
                 if not fileName.startswith('holeUnacquired'):
-                    # if hole.getShots() > 1: #TODO Jonathan have to fix this field, now is the shots for the bis hole-group
-                    #     pathRawPartial = os.path.join(pathcrop, os.path.splitext(rawCroped)[0] + 'partial' + '.mrc')
-                    #     self.cropImage(hole, m.getX(), m.getY(), pathRawPartial, rawDir, separationDiv=2)
-                    #     status, x, y = self.detect_circle_center_scipy(pathRawPartial, radius_estimate=hole.getHoleDiam())
-                    #     if not status:
-                    #         continue
-                    #     self.cropImage(hole, x, y, pathRawCroped, pathRawPartial, separationDiv=3)
-                    #     os.remove(pathRawPartial)
+                    if hole.getShots() > 1:
+                        pathRawPartial = os.path.join(pathcrop, os.path.splitext(rawCroped)[0] + 'partial' + '.mrc')
+                        self.cropImage(hole, m.getX(), m.getY(), pathRawPartial, rawDir, separationDiv=2)
+                        status, x, y = self.detect_circle_center_scipy(pathRawPartial, radius_estimate=hole.getHoleDiam())
+                        if not status:
+                            continue
+                        self.cropImage(hole, x, y, pathRawCroped, pathRawPartial, separationDiv=3)
+                        os.remove(pathRawPartial)
                     if self.cropImage(hole, m.getX(), m.getY(), pathRawCroped, rawDir):
                         counter += 1
                         self.debug(f'Croped {counter} hole images')

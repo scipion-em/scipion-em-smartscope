@@ -166,7 +166,8 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
         self.trigeredMics = self.triggerMicrograph.get()
 
         while True:
-            lenFilteredNics = len(fMics.getFiles())
+            lenFilteredNics = fMics.getSize()
+            self.info(f'fMics.isStreamOpen(): {self.micsPassFilter.get().isStreamOpen()}')
             if self.launchFirstIteration and not fMics.isStreamOpen():
                 if self.micsNoProcesed > 0:
                     self.info(f'\nLaunching protocol with {lenFilteredNics} micrographs filtered...')
@@ -183,7 +184,7 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
                 else:
                     self.info(f'Waiting {self.trigeredMics} micrographs filtered to launch protocol. '
                               f'Micrographs Filtered: {lenFilteredNics}')
-                    time.sleep(((self.trigeredMics - lenFilteredNics) * 10))  # 10 secs to process each mic
+                    time.sleep(((self.trigeredMics - lenFilteredNics) * 1))  # 10 secs to process each mic
                     continue
 
             if self.conditionRefresh(lenFilteredNics):
