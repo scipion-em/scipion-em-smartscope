@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scipion-em-smartscope"
+dynamic = ["version", "dependencies"]
+description = "Plugin to manage Smartscope from Scipion"
+authors = [
+    {name = "Alberto Garcia Mena", email = "alberto.garcia@cnb.csic.es"}
+]
+requires-python = ">=3.8"
+readme = "README.rst"
+license = {text = "GNU General Public License v3 (GPLv3)"}
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
+]
+keywords = [
+    "scipion",
+    "cryoem",
+    "imageprocessing",
+    "scipion-3.0",
+    "screening",
+    "smartscope"
+]
+
+[project.urls]
+Homepage = "https://github.com/scipion-em/scipion-em-smartscope"
+Issues = "https://github.com/scipion-em/scipion-em-smartscope/issues"
+
+[tool.setuptools.dynamic]
+version = {attr = "smartscope.__version__"}
+dependencies = {file = ["requirements.txt"]}
+
+[tool.setuptools.package-data]
+smartscope = ["icon.png", "protocols.conf"]
+
+[project.entry-points."pyworkflow.plugin"]
+smartscope = "smartscope"
