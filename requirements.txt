@@ -1,5 +1,3 @@
-scipion-pyworkflow
-scipion-em
 requests
 scipion-em-xmipp
 plotly<5.18 
