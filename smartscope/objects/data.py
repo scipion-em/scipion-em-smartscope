@@ -925,6 +925,7 @@ class MovieSS(Movie):
         self._shape_y = Integer()
         self._selected = String()
         self._status = String()
+        self._pixel_size = Float()
         self._is_x = Float()
         self._is_y = Float()
         self._offset = Float()
@@ -1004,6 +1005,9 @@ class MovieSS(Movie):
     def setGridId(self, id):
         self._grid_id.set(id)
 
+    def setPixelSize(self, value):
+        self._pixel_size.set(value)
+
     # DETAILED
     def setX(self, x):
         self._x.set(x)
@@ -1074,6 +1078,9 @@ class MovieSS(Movie):
 
     def getGridId(self):
         return self._grid_id.get()
+
+    def getPixelSize(self):
+        return self._pixel_size.get()
 
     #DETAILED
     def getX(self):

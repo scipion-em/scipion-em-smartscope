@@ -181,6 +181,17 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         self.listHoleCropedID = []
         self.zeroTime = time.time()
         self.rTime = self.refreshTime.get()
+        # DEBUGALBERTO START
+        import os
+        fname = "/home/agarcia/Documents/attachActionDebug.txt"
+        if os.path.exists(fname):
+            os.remove(fname)
+        fjj = open(fname, "a+")
+        fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+        fjj.close()
+        print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+        time.sleep(10)
+        # DEBUGALBERTO END
         if self.rTime < 240:
             self.rTime = 240
         if self.Grids is None:
@@ -312,6 +323,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
     def cropHolePNG(self):
         self.info('Cropping hole images...')
+        self.dictHoleMovieCoord_multishot = {}
         pathcrop = os.path.join(self._getExtraPath(), 'cropedHoles')
         if not os.path.exists(pathcrop):
             os.makedirs(pathcrop)
@@ -324,6 +336,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             hole = self.SOH.getItem("_hole_id", m.getHoleId())
             movieName = m.getName()
             matchHole = re.search(r'hole(\d+)', movieName)
+            shotNumber = int(re.search(r'_(\d+)_hm$', movieName).group(1))
             holeNum = int(matchHole.group(1))
             rawDir = hole.getRawDir()
             baseNameRaw = os.path.basename(rawDir)
@@ -333,22 +346,30 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                 fileName  = os.path.splitext(os.path.basename(rawDir))[0]
                 if not fileName.startswith('holeUnacquired'):
                     if hole.getShots() > 1:
-                        pathRawPartial = os.path.join(pathcrop, os.path.splitext(rawCroped)[0] + 'partial' + '.mrc')
-                        self.cropImage(hole, m.getX(), m.getY(), pathRawPartial, rawDir, separationDiv=2)
-                        status, x, y = self.detect_circle_center_scipy(pathRawPartial, radius_estimate=hole.getHoleDiam())
-                        if not status:
-                            continue
-                        self.cropImage(hole, x, y, pathRawCroped, pathRawPartial, separationDiv=3)
-                        os.remove(pathRawPartial)
+                        if movieHoleId not in self.dictHoleMovieCoord_multishot:
+                            self.dictHoleMovieCoord_multishot[movieHoleId] = {}
+                        self.dictHoleMovieCoord_multishot[movieHoleId][shotNumber] = (m.getX(), m.getY())
+                        if len(self.dictHoleMovieCoord_multishot[movieHoleId]) == hole.getShots():
+                            #calculate the center
+                            coords = self.dictHoleMovieCoord_multishot[movieHoleId].values()
+                            x_mean = sum(x for x, y in coords) / len(coords)
+                            y_mean = sum(y for x, y in coords) / len(coords)
+                            self.cropImage(hole, x_mean, y_mean, pathRawCroped, rawDir)
+                            counter += 1
+                            self.debug(f'Croped {counter} hole images')
+                            hole.setRawDir(pathRawCroped)
+                            # self.info(f'holeID append: {movieHoleId} movieName: {movieName}')
+                            self.info(f'Holes croped: {counter}')
+                            self.listHoleCropedID.append(movieHoleId)
                     else:
                         if self.cropImage(hole, m.getX(), m.getY(), pathRawCroped, rawDir):
                             counter += 1
                             self.debug(f'Croped {counter} hole images')
                             hole.setRawDir(pathRawCroped)
                             # self.info(f'holeID append: {movieHoleId} movieName: {movieName}')
+                            self.info(f'Holes croped: {counter}')
+                            self.listHoleCropedID.append(movieHoleId)
 
-                self.info(f'Holes croped: {counter}')
-                self.listHoleCropedID.append(movieHoleId)
             self.SOH.update(hole)
         self.SOH.write()
         self._store(self.SOH)
@@ -388,7 +409,6 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
     def cropImage(self, hole, X, Y, pathRawCroped, rawDir, separationDiv=4):
         '''Split the png image based on the position of the hole (x,y) and a boxSize'''
-        #TODO if Jonathan provide the multishot parameter would be easy to handle the crop
         import numpy as np
         import mrcfile
         if os.path.isfile(rawDir):
@@ -407,7 +427,10 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                     print(f'rawDir: {rawDir}\nhole: {hole.getName()}\n')
                     return False
                 x_start, y_start, x_end, y_end = self.rangeHole(InitialRange, X, Y, height, width)
-
+                x_start = int(round(x_start))
+                x_end = int(round(x_end))
+                y_start = int(round(y_start))
+                y_end = int(round(y_end))
                 # Perform the crop using the corrected coordinates
                 rawCrop = arr[y_start:y_end, x_start:x_end]
                 center  = self.holeCenter2(rawCrop)
@@ -594,6 +617,8 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         movie2Add.setCtffit(movieSS['ctffit'])
         movie2Add.setGridId(movieSS['grid_id'])
         movie2Add.setHoleId(movieSS['hole_id'])
+        movie2Add.setPixelSize(movieSS['pixel_size'])
+
 
         SOMSS.append(movie2Add)
 
