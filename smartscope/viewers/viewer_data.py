@@ -658,7 +658,7 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
     def _visualizeBestHolesWithParticles(self, e=None):
         views = []
         if hasattr(self.protocol, 'SetOfBestHoles'):
-            labels = ('_pngDir _hole_id _grid_id _goodParticles _badParticles _totalParticles')
+            labels = ('_pngDir _hole_id _grid_id _goodParticles _badParticles _totalParticles _meanLocalIntensity')
             views.append(ObjectView(self._project,
                                     self.protocol.SetOfBestHoles.strId(),
                                     self.protocol.SetOfBestHoles.getFileName(),

@@ -668,6 +668,9 @@ class Hole(Image):
         self._goodParticles = Integer(0)
         self._badParticles = Integer(0)
         self._totalParticles = Integer(0)
+        self._meanLocalIntensity = Float(0)
+        self._meanMicIntensity = Float(0)
+        self._stdMicIntensity = Float(0)
 
         #EXTERNAL
         self._hole_diam = Float()
@@ -781,6 +784,14 @@ class Hole(Image):
     def setHoleSeparation(self, value):
         self._hole_separation.set(value)
 
+    def setMeanLocalIntensity(self, value):
+        self._meanLocalIntensity.set(value)
+
+    def setMeanMicIntensity(self, value):
+        self._meanMicIntensity.set(value)
+
+    def setStdMicIntensity(self, value):
+        self._stdMicIntensity.set(value)
 
     # Getters
 
@@ -889,6 +900,16 @@ class Hole(Image):
 
     def getTotalParticles(self):
         return self._totalParticles
+
+    def getMeanLocalIntensity(self, value):
+        return self._meanLocalIntensity
+
+    def getMeanMicIntensity(self, value):
+        return self._meanMicIntensity
+
+    def getStdMicIntensity(self, value):
+        return self._stdMicIntensity
+
 
 class MovieSS(Movie):
     """ Represents an EM Movie object """

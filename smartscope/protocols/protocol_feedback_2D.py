@@ -36,7 +36,7 @@ from pyworkflow import BETA, UPDATED, NEW, PROD
 from pwem.protocols.protocol_import.base import ProtImport
 from pwem.protocols import ProtBoxSizeCheckpoint
 from pyworkflow.protocol import ProtStreamingBase, getUpdatedProtocol
-from pwem.objects import SetOfClasses2D, SetOfAverages, Class2D
+from pwem.objects import SetOfClasses2D, SetOfAverages, Class2D, SetOfMicrographs
 from . import smartscopeConnection
 
 import pyworkflow.utils as pwutils
@@ -129,6 +129,11 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         #               condition='refreshMethod==0',
         #               label = 'Input movies to refresh protocol',
         #               help="Number of new movies to refresh data collected and update the feedback if neccesary")
+
+        form.addParam('micrographs', params.PointerParam,
+                       pointerClass='SetOfMicrographs',
+                       label="Microgaphs",
+                       help='Micrographs')
 
 
     def _initialize(self):
@@ -236,21 +241,22 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
             intensity = hole.getSelectorValue()
             try:
                 if self.movies.getItem("_hole_id", H_ID):
-                    self.dictHolesWithMic[H_ID] = {'goodParticles': 0, 'badParticles': 0, 'intensity': intensity, 'ClassDistribution': {}}
+                    self.dictHolesWithMic[H_ID] = {'goodParticles': 0, 'badParticles': 0, 'intensity': intensity, 'sumLocalIntP': 0, 'meanLocalIntensity': None,  'meanMicIntensity': None, 'stdMicIntensity': None, 'ClassDistribution': {}}
             except UnboundLocalError:
                 #self.dictHolesWithoutMic[H_ID]['intensity']
-                self.dictHolesWithoutMic[H_ID] = {'goodParticles': 0, 'badParticles': 0, 'intensity': intensity, 'ClassDistribution': {}}
+                self.dictHolesWithoutMic[H_ID] = {'goodParticles': 0, 'badParticles': 0, 'intensity': intensity, 'sumLocalIntP': 0, 'meanLocalIntensity': None, 'meanMicIntensity': None,'stdMicIntensity': None,  'ClassDistribution': {}}
 
         time2 = time.time()
         self.info(f'iter to collect all holes  Time: {round(time2 - time1, 0)} s')
-
         for p in self.totalC.iterClassItems(): #iterRows
             mic_name = p.getCoordinate().getMicName()
+            mic = self.micrographs.get().getItem("_micName", mic_name)
             if mic_name in movie_cache:
                 movie = movie_cache[mic_name]
             else:
                 movie = self.movies.getItem("_micName", mic_name)
                 movie_cache[mic_name] = movie
+
             H_ID = movie.getHoleId()
             #self.debug(f"micName: {p.getCoordinate().getMicName()} | H_ID: {H_ID}")
             obj_id = p.getObjId()
@@ -266,6 +272,14 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
                 self.dictHolesWithMic[H_ID]['badParticles'] += 1
                 #self.debug('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(movie.getMicName())))
 
+            if  p.hasAttribute('_xmipp_localAverage'):
+                self.dictHolesWithMic[H_ID]['sumLocalIntP'] += float(p.getAttributeValue('_xmipp_localAverage'))
+                self.dictHolesWithMic[H_ID]['meanLocalIntensity'] = self.dictHolesWithMic[H_ID]['sumLocalIntP'] / (self.dictHolesWithMic[H_ID]['goodParticles'] + self.dictHolesWithMic[H_ID]['badParticles'])
+
+            if not self.dictHolesWithMic[H_ID]['meanMicIntensity']:
+                mean, std, min, max = mic.getImage().computeStats()
+                self.dictHolesWithMic[H_ID]['meanMicIntensity'] = mean
+                self.dictHolesWithMic[H_ID]['stdMicIntensity'] = std
 
         time3 = time.time()
         self.info(f'Assign good/bad particles to holes Time: {round(time3 - time2, 0)} s')
@@ -430,6 +444,9 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
             h.setGoodParticles(good)
             h.setBadParticles(bad)
             h.setTotalParticles(total)
+            h.setMeanLocalIntensity(value['meanLocalIntensity'])
+            h.setMeanMicIntensity(value['meanMicIntensity'])
+            h.setStdMicIntensity(value['stdMicIntensity'])
             hole2Add_copy = Hole()
             hole2Add_copy.copy(h, copyId=False)
             self.SOH.append(hole2Add_copy)
