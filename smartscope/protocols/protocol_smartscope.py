@@ -442,6 +442,10 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                         self.countCrops += 1
                         self.info(f'Out of hole {self.countCrops}')
                         x_start, y_start, x_end, y_end = self.rangeHole(Range, (X - x_start), (Y - y_start), (y_end - y_start), (x_end - x_start))
+                        x_start = int(round(x_start))
+                        x_end = int(round(x_end))
+                        y_start = int(round(y_start))
+                        y_end = int(round(y_end))
                     rawCrop = rawCrop[y_start:y_end, x_start:x_end]
 
                 with mrcfile.new(pathRawCroped, overwrite=True) as mrc_out:
