@@ -675,6 +675,9 @@ class Hole(Image):
         #EXTERNAL
         self._hole_diam = Float()
         self._hole_separation = Float()
+        self._holeCropedXOrigin = Integer(0)
+        self._holeCropedYOrigin = Integer(0)
+
 
     # Setters
 
@@ -793,6 +796,12 @@ class Hole(Image):
     def setStdMicIntensity(self, value):
         self._stdMicIntensity.set(value)
 
+    def setCropedXOrigin(self, value):
+        self._holeCropedXOrigin.set(value)
+
+    def setCropedYOrigin(self, value):
+        self._holeCropedYOrigin.set(value)
+
     # Getters
 
     def getHoleId(self):
@@ -893,22 +902,28 @@ class Hole(Image):
         return self._classifier_label.get()
 
     def getBadParticles(self):
-        return self._badParticles
+        return self._badParticles.get()
 
     def getGoodParticles(self):
-        return self._goodParticles
+        return self._goodParticles.get()
 
     def getTotalParticles(self):
-        return self._totalParticles
+        return self._totalParticles.get()
 
     def getMeanLocalIntensity(self, value):
-        return self._meanLocalIntensity
+        return self._meanLocalIntensity.get()
 
-    def getMeanMicIntensity(self, value):
-        return self._meanMicIntensity
+    def getMeanMicIntensity(self):
+        return self._meanMicIntensity.get()
 
-    def getStdMicIntensity(self, value):
-        return self._stdMicIntensity
+    def getStdMicIntensity(self):
+        return self._stdMicIntensity.get()
+
+    def getCropedXOrigin(self):
+        return self._holeCropedXOrigin.get()
+
+    def getCropedYOrigin(self):
+        return self._holeCropedYOrigin.get()
 
 
 class MovieSS(Movie):

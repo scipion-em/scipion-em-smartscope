@@ -215,6 +215,8 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
     def readClasses(self):
         self.info('\nReading inputs...')
         self.info(f'Total classe: {len(self.totalC)} Good Classe: {len(self.goodC)}')
+        self.holePixelSize = None
+        self.moviePixelSize = None
 
         totalParticlesNum = sum(c.getSize() for c in self.totalC.iterItems())
         goodParticlesNum = sum(c.getSize() for c in self.goodC.iterItems())
@@ -227,6 +229,7 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         good_ids = set(p.getObjId() for p in self.goodC.iterClassItems())
         self.goodClasses = set(c.getObjId() for c in self.goodC.iterItems(orderBy='id', direction='ASC'))
 
+        self.particlesCoords = {'Good': {}, 'Bad': {}}
         dictClassParticles = {}
         for c in self.goodC.iterItems(orderBy='id', direction='ASC'):
             dictClassParticles[c.getObjId()] = c
@@ -256,30 +259,48 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
             else:
                 movie = self.movies.getItem("_micName", mic_name)
                 movie_cache[mic_name] = movie
+            if not self.holePixelSize and hole.getPixelSize():
+                self.holePixelSize = hole.getPixelSize()
+            if not self.moviePixelSize and movie.getPixelSize():
+                self.moviePixelSize = movie.getPixelSize()
 
             H_ID = movie.getHoleId()
+            hole = self.holes.getItem("_hole_id", H_ID)
+            partClassID = p.getClassId()
             #self.debug(f"micName: {p.getCoordinate().getMicName()} | H_ID: {H_ID}")
             obj_id = p.getObjId()
             is_good = obj_id in good_ids
             if is_good:
+                if not partClassID in self.particlesCoords['Good']:
+                    self.particlesCoords['Good'][partClassID] = {}
+                if not H_ID in self.particlesCoords['Good'][partClassID]:
+                    self.particlesCoords['Good'][partClassID][H_ID] = []
+                self.particlesCoords['Good'][partClassID][H_ID].append((self.coord_highMag2MedMag(hole, movie, p.getCoordinate().getX(), p.getCoordinate().getY())))
+
                 self.dictHolesWithMic[H_ID]['goodParticles'] += 1
-                if self.dictHolesWithMic[H_ID]['ClassDistribution'].get(p.getClassId()):
-                    self.dictHolesWithMic[H_ID]['ClassDistribution'][p.getClassId()] += 1
+                if self.dictHolesWithMic[H_ID]['ClassDistribution'].get(partClassID):
+                    self.dictHolesWithMic[H_ID]['ClassDistribution'][partClassID] += 1
                 else:
-                    self.dictHolesWithMic[H_ID]['ClassDistribution'][p.getClassId()] = 1
+                    self.dictHolesWithMic[H_ID]['ClassDistribution'][partClassID] = 1
             #self.debug('H_ID: {}  resolution: {}'.format(H_ID, p.getCTF().getResolution()))
             else:
+                if not partClassID in self.particlesCoords['Bad']:
+                    self.particlesCoords['Bad'][partClassID] = {}
+                if not H_ID in self.particlesCoords['Bad'][partClassID]:
+                    self.particlesCoords['Bad'][partClassID][H_ID] = []
+                self.particlesCoords['Bad'][partClassID][H_ID].append((self.coord_highMag2MedMag(hole, movie, p.getCoordinate().getX(), p.getCoordinate().getY())))
+
                 self.dictHolesWithMic[H_ID]['badParticles'] += 1
                 #self.debug('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(movie.getMicName())))
 
-            if  p.hasAttribute('_xmipp_localAverage'):
-                self.dictHolesWithMic[H_ID]['sumLocalIntP'] += float(p.getAttributeValue('_xmipp_localAverage'))
-                self.dictHolesWithMic[H_ID]['meanLocalIntensity'] = self.dictHolesWithMic[H_ID]['sumLocalIntP'] / (self.dictHolesWithMic[H_ID]['goodParticles'] + self.dictHolesWithMic[H_ID]['badParticles'])
-
-            if not self.dictHolesWithMic[H_ID]['meanMicIntensity']:
-                mean, std, min, max = mic.getImage().computeStats()
-                self.dictHolesWithMic[H_ID]['meanMicIntensity'] = mean
-                self.dictHolesWithMic[H_ID]['stdMicIntensity'] = std
+            # if  p.hasAttribute('_xmipp_localAverage'):
+            #     self.dictHolesWithMic[H_ID]['sumLocalIntP'] += float(p.getAttributeValue('_xmipp_localAverage'))
+            #     self.dictHolesWithMic[H_ID]['meanLocalIntensity'] = self.dictHolesWithMic[H_ID]['sumLocalIntP'] / (self.dictHolesWithMic[H_ID]['goodParticles'] + self.dictHolesWithMic[H_ID]['badParticles'])
+            #
+            # if not self.dictHolesWithMic[H_ID]['meanMicIntensity']:
+            #     mean, std, min, max = mic.getImage().computeStats()
+            #     self.dictHolesWithMic[H_ID]['meanMicIntensity'] = mean
+            #     self.dictHolesWithMic[H_ID]['stdMicIntensity'] = std
 
         time3 = time.time()
         self.info(f'Assign good/bad particles to holes Time: {round(time3 - time2, 0)} s')
@@ -303,6 +324,19 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
                        f'Good particles: {goodParticlesNum}\n' +
                        f'Bad particles: {totalParticlesNum - goodParticlesNum}')
         summaryF.close()
+
+    def coord_highMag2MedMag(self, hole, movie, xp, yp):
+        X_p_hm_mic = xp
+        X_p_mm_mic = X_p_hm_mic * (self.moviePixelSize / self.holePixelSize)
+        X_p_mm_hole =  X_p_mm_mic + movie.getX() - (movie.getShapeX() / 2)
+        X_p_mm_holeCroped = X_p_mm_hole - hole.getCropedXOrigin()
+
+        Y_p_hm_mic = yp
+        Y_p_mm_mic = Y_p_hm_mic * (self.moviePixelSize / self.holePixelSize)
+        Y_p_mm_hole =  Y_p_mm_mic + movie.getY() - (movie.getShapeY() / 2)
+        Y_p_mm_holeCroped = Y_p_mm_hole - hole.getCropedYOrigin()
+
+        return X_p_mm_holeCroped, Y_p_mm_holeCroped
 
     def sturgesBinsCalc(self, numElementes):
         import math
@@ -444,9 +478,9 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
             h.setGoodParticles(good)
             h.setBadParticles(bad)
             h.setTotalParticles(total)
-            h.setMeanLocalIntensity(value['meanLocalIntensity'])
-            h.setMeanMicIntensity(value['meanMicIntensity'])
-            h.setStdMicIntensity(value['stdMicIntensity'])
+            # h.setMeanLocalIntensity(value['meanLocalIntensity'])
+            # h.setMeanMicIntensity(value['meanMicIntensity'])
+            # h.setStdMicIntensity(value['stdMicIntensity'])
             hole2Add_copy = Hole()
             hole2Add_copy.copy(h, copyId=False)
             self.SOH.append(hole2Add_copy)

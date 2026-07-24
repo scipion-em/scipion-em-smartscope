@@ -178,7 +178,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         self.detectorDict = {}
         self.sessionDict = {}
         self.initialNumMovies = 0
-        self.listHoleCropedID = []
+        self.listHoleCropedID = {}
         self.zeroTime = time.time()
         self.rTime = self.refreshTime.get()
         # DEBUGALBERTO START
@@ -334,6 +334,8 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
         for m in self.MoviesSS:
             movieHoleId = m.getHoleId() #TODO in detailed of hm there is no hole_id has to be included by Jonathan
             hole = self.SOH.getItem("_hole_id", m.getHoleId())
+            if movieHoleId == 'LH11_3_square386_holHaumxfhnHO':
+                pass
             movieName = m.getName()
             matchHole = re.search(r'hole(\d+)', movieName)
             shotNumber = int(re.search(r'_(\d+)_hm$', movieName).group(1))
@@ -342,7 +344,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
             baseNameRaw = os.path.basename(rawDir)
             rawCroped = re.sub(r'(hole)\d+', 'hole{}'.format(holeNum), baseNameRaw)
             pathRawCroped = os.path.join(pathcrop, os.path.splitext(rawCroped)[0] + '.mrc')
-            if not movieHoleId in self.listHoleCropedID:
+            if not movieHoleId in self.listHoleCropedID.keys():
                 fileName  = os.path.splitext(os.path.basename(rawDir))[0]
                 if not fileName.startswith('holeUnacquired'):
                     if hole.getShots() > 1:
@@ -354,21 +356,25 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                             coords = self.dictHoleMovieCoord_multishot[movieHoleId].values()
                             x_mean = sum(x for x, y in coords) / len(coords)
                             y_mean = sum(y for x, y in coords) / len(coords)
-                            self.cropImage(hole, x_mean, y_mean, pathRawCroped, rawDir)
-                            counter += 1
-                            self.debug(f'Croped {counter} hole images')
-                            hole.setRawDir(pathRawCroped)
-                            # self.info(f'holeID append: {movieHoleId} movieName: {movieName}')
-                            self.info(f'Holes croped: {counter}')
-                            self.listHoleCropedID.append(movieHoleId)
+                            status, x_start, y_start = self.cropImage(hole, x_mean, y_mean, pathRawCroped, rawDir)
+                            if status:
+                                counter += 1
+                                self.debug(f'Croped {counter} hole images')
+                                hole.setRawDir(pathRawCroped)
+                                # self.info(f'holeID append: {movieHoleId} movieName: {movieName}')
+                                self.listHoleCropedID[movieHoleId] = (x_start, y_start)
+                                hole.setCropedXOrigin(self.listHoleCropedID[movieHoleId][0])
+                                hole.setCropedYOrigin(self.listHoleCropedID[movieHoleId][1])
                     else:
-                        if self.cropImage(hole, m.getX(), m.getY(), pathRawCroped, rawDir):
+                        status, x_start, y_start = self.cropImage(hole, m.getX(), m.getY(), pathRawCroped, rawDir)
+                        if status:
                             counter += 1
                             self.debug(f'Croped {counter} hole images')
                             hole.setRawDir(pathRawCroped)
                             # self.info(f'holeID append: {movieHoleId} movieName: {movieName}')
-                            self.info(f'Holes croped: {counter}')
-                            self.listHoleCropedID.append(movieHoleId)
+                            self.listHoleCropedID[movieHoleId] = (x_start, y_start)
+                            hole.setCropedXOrigin(self.listHoleCropedID[movieHoleId][0])
+                            hole.setCropedYOrigin(self.listHoleCropedID[movieHoleId][1])
 
             self.SOH.update(hole)
         self.SOH.write()
@@ -417,7 +423,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                     arr = mrc.data
                     if arr is None or arr.size == 0:
                         self.error("MRC data is empty or unreadable.")
-                        return False
+                        return False, None, None
                 height, width = arr.shape[:2]
                 try:
                     InitialRange = int(hole.getHoleDiam() + (hole.getHoleSeparation() / 10))
@@ -425,7 +431,7 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
 
                 except Exception:
                     print(f'rawDir: {rawDir}\nhole: {hole.getName()}\n')
-                    return False
+                    return False, None, None
                 x_start, y_start, x_end, y_end = self.rangeHole(InitialRange, X, Y, height, width)
                 x_start = int(round(x_start))
                 x_end = int(round(x_end))
@@ -433,28 +439,28 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
                 y_end = int(round(y_end))
                 # Perform the crop using the corrected coordinates
                 rawCrop = arr[y_start:y_end, x_start:x_end]
-                center  = self.holeCenter2(rawCrop)
-                if center:
-                    if abs(center[0] - (X - x_start)) <= (hole.getHoleDiam()  / 2) and abs(center[1] - (Y - y_start)) <= (hole.getHoleDiam()  / 2):
-                        x_center, y_center = center
-                        x_start, y_start, x_end, y_end = self.rangeHole(Range, x_center, y_center, (y_end - y_start), (x_end - x_start))
-                    else:
-                        self.countCrops += 1
-                        self.info(f'Out of hole {self.countCrops}')
-                        x_start, y_start, x_end, y_end = self.rangeHole(Range, (X - x_start), (Y - y_start), (y_end - y_start), (x_end - x_start))
-                        x_start = int(round(x_start))
-                        x_end = int(round(x_end))
-                        y_start = int(round(y_start))
-                        y_end = int(round(y_end))
-                    rawCrop = rawCrop[y_start:y_end, x_start:x_end]
+                # center  = self.holeCenter2(rawCrop)
+                # if center:
+                #     if abs(center[0] - (X - x_start)) <= (hole.getHoleDiam()  / 2) and abs(center[1] - (Y - y_start)) <= (hole.getHoleDiam()  / 2):
+                #         x_center, y_center = center
+                #         x_start, y_start, x_end, y_end = self.rangeHole(Range, x_center, y_center, (y_end - y_start), (x_end - x_start))
+                #     else:
+                #         self.countCrops += 1
+                #         self.info(f'Out of hole {self.countCrops}')
+                #         x_start, y_start, x_end, y_end = self.rangeHole(Range, (X - x_start), (Y - y_start), (y_end - y_start), (x_end - x_start))
+                #         x_start = int(round(x_start))
+                #         x_end = int(round(x_end))
+                #         y_start = int(round(y_start))
+                #         y_end = int(round(y_end))
+                #     rawCrop = rawCrop[y_start:y_end, x_start:x_end]
 
                 with mrcfile.new(pathRawCroped, overwrite=True) as mrc_out:
                     mrc_out.set_data(rawCrop.astype(np.float32))
 
-                return True
+                return True, x_start, y_start
             except Exception as e:
-                print(e)
-                return False
+                self.error(e)
+                return False, None, None
 
     def rangeHole(self, Range, X, Y, height, width):
         # Calculate initial crop boundaries
