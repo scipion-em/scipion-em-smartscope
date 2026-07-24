@@ -217,6 +217,8 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         self.info(f'Total classe: {len(self.totalC)} Good Classe: {len(self.goodC)}')
         self.holePixelSize = None
         self.moviePixelSize = None
+        self.movieShapeX = None
+        self.movieShapeY = None
 
         totalParticlesNum = sum(c.getSize() for c in self.totalC.iterItems())
         goodParticlesNum = sum(c.getSize() for c in self.goodC.iterItems())
@@ -249,25 +251,30 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
                 #self.dictHolesWithoutMic[H_ID]['intensity']
                 self.dictHolesWithoutMic[H_ID] = {'goodParticles': 0, 'badParticles': 0, 'intensity': intensity, 'sumLocalIntP': 0, 'meanLocalIntensity': None, 'meanMicIntensity': None,'stdMicIntensity': None,  'ClassDistribution': {}}
 
+            if not self.holePixelSize and hole.getPixelSize():
+                self.holePixelSize = hole.getPixelSize()
+
         time2 = time.time()
         self.info(f'iter to collect all holes  Time: {round(time2 - time1, 0)} s')
         for p in self.totalC.iterClassItems(): #iterRows
             mic_name = p.getCoordinate().getMicName()
-            mic = self.micrographs.get().getItem("_micName", mic_name)
+
             if mic_name in movie_cache:
                 movie = movie_cache[mic_name]
             else:
                 movie = self.movies.getItem("_micName", mic_name)
                 movie_cache[mic_name] = movie
-            if not self.holePixelSize and hole.getPixelSize():
-                self.holePixelSize = hole.getPixelSize()
-            if not self.moviePixelSize and movie.getPixelSize():
-                self.moviePixelSize = movie.getPixelSize()
+
+            if not self.moviePixelSize and movie.getSamplingRate():
+                self.moviePixelSize = movie.getSamplingRate()
+            if not self.movieShapeX and movie.getShapeX():
+                self.movieShapeX = movie.getShapeX()
+                self.movieShapeY = movie.getShapeY()
 
             H_ID = movie.getHoleId()
-            hole = self.holes.getItem("_hole_id", H_ID)
             partClassID = p.getClassId()
             #self.debug(f"micName: {p.getCoordinate().getMicName()} | H_ID: {H_ID}")
+
             obj_id = p.getObjId()
             is_good = obj_id in good_ids
             if is_good:
@@ -328,12 +335,12 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
     def coord_highMag2MedMag(self, hole, movie, xp, yp):
         X_p_hm_mic = xp
         X_p_mm_mic = X_p_hm_mic * (self.moviePixelSize / self.holePixelSize)
-        X_p_mm_hole =  X_p_mm_mic + movie.getX() - (movie.getShapeX() / 2)
+        X_p_mm_hole =  X_p_mm_mic + movie.getX() - (self.movieShapeX / 2)
         X_p_mm_holeCroped = X_p_mm_hole - hole.getCropedXOrigin()
 
         Y_p_hm_mic = yp
         Y_p_mm_mic = Y_p_hm_mic * (self.moviePixelSize / self.holePixelSize)
-        Y_p_mm_hole =  Y_p_mm_mic + movie.getY() - (movie.getShapeY() / 2)
+        Y_p_mm_hole =  Y_p_mm_mic + movie.getY() - (self.movieShapeY / 2)
         Y_p_mm_holeCroped = Y_p_mm_hole - hole.getCropedYOrigin()
 
         return X_p_mm_holeCroped, Y_p_mm_holeCroped

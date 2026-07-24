@@ -648,11 +648,16 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
         group2.addParam('interactiveClassHoles', LabelParam,
                        label="Class distribution of particles by intensity",
                        help="")
+        group2.addParam('interactiveParticlesInHoles', LabelParam,
+                       label="Good/bad particles in holes visualization",
+                       help="")
+
 
     def _getVisualizeDict(self):
         return {
                  'visualizeBestHolesWithParticles': self._visualizeBestHolesWithParticles,
                  'interactiveClassHoles': self._interactiveClassHoles,
+                 'interactiveParticlesInHoles: ': self._interactiveParticlesInHoles,
                 }
 
     def _visualizeBestHolesWithParticles(self, e=None):
@@ -666,6 +671,10 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
                                                 RENDER: '_rawDir',
                                                 SORT_BY: labels}))
             return views
+
+    def _interactiveParticlesInHoles(self, e=None):
+        dictP = self.protocol.particlesCoords
+        print(dictP)
 
     def _interactiveClassHoles(self, e=None):
         self.dataCollection()
@@ -1211,6 +1220,7 @@ class SmartscopeParticlesFeedbackInteractive(ProtocolViewer):
         print("Server Dash running: http://127.0.0.1:8050/")
 
         # === Retrieve Intensity Range from Smartscope ===
+
     def collectingRangeSmartscope(self):
         for i, grid in enumerate(self.gridsList):
             gridID = self.gridsIdList[i]

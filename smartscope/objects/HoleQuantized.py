@@ -21,7 +21,7 @@ img_path = "/data/agarcia/HoleIceBreaker/holesSquare/holeSquareDandeyV_2.png"#he
 #img_path = "/data/agarcia/HoleIceBreaker/holesSquare/G2_square110_hole173.mrc" #hertz-cinco
 
 #PIXEL_NEIGHBOR = 20 #Critical time cost (80->13 secs 50-> 6 secs
-BIN_LEVELS = 8
+BIN_LEVELS = 5
 SIGMA_GAUSSIAN = 3
 RADIUS = 60
 
