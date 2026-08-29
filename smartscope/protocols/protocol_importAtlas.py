@@ -46,6 +46,68 @@ MED_MAG_ID = 1000
 
 class ProtImportAtlas(ProtImport):
     """ Protocol to import Atlas. """
+
+    """
+        Imports cryo-EM atlas datasets from MRC and MDOC files, generating
+        structured atlas objects and image slices for visualization and
+        downstream screening workflows.
+
+        AI Generated:
+
+        Import Atlas (ProtImportAtlas) — User Manual
+            Overview
+
+            The Import Atlas protocol imports atlas datasets generated during
+            cryo-EM acquisition sessions. Its main purpose is to organize atlas
+            metadata and image slices from MRC and MDOC files into structured
+            Scipion objects that can later be used for screening, navigation,
+            and microscope workflow analysis.
+
+            The protocol supports both low- and medium-magnification atlases,
+            allowing users to reconstruct the acquisition layout and preserve
+            important imaging metadata associated with each atlas slice.
+
+            Inputs and Workflow
+
+            The protocol requires an atlas MRC file containing the image stack.
+            The associated MDOC metadata file is automatically detected and
+            parsed using the same base filename. Users can select whether the
+            imported atlas corresponds to low or medium magnification.
+
+            During execution, the protocol reads the MDOC metadata, converts
+            parameters into their appropriate internal data types, and extracts
+            individual image slices from the MRC stack. Each slice is stored as
+            an independent atlas image linked to the corresponding atlas object.
+
+            Metadata Handling
+
+            The protocol preserves a wide range of acquisition metadata,
+            including magnification, pixel spacing, stage position, defocus,
+            exposure conditions, image shifts, detector settings, and acquisition
+            timestamps. This information allows the atlas to retain the original
+            microscope acquisition context.
+
+            For medium-magnification atlases, the protocol can also establish
+            hierarchical links to previously imported low-magnification atlases,
+            preserving spatial relationships between acquisition levels.
+
+            Outputs
+
+            After execution, the protocol generates an atlas object together
+            with a corresponding set of atlas images. Each image contains both
+            the extracted slice and its associated metadata parameters.
+
+            The imported atlas can later be used for visualization, navigation,
+            and automated cryo-EM screening workflows within Scipion.
+
+            Final Perspective
+
+            The Import Atlas protocol provides a structured mechanism for
+            integrating microscope atlas acquisitions into Scipion workflows.
+            By preserving both image data and acquisition metadata, the protocol
+            facilitates reproducible screening, atlas visualization, and
+            hierarchical cryo-EM data organization.
+        """
     _label = 'import Atlas'
     _mdoc_file = ''
     _devStatus = BETA

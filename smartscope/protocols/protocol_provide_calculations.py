@@ -51,6 +51,53 @@ class provideCalculations(ProtImport, ProtStreamingBase):
     """
     This protocol provide the CTF and or the alignment to Smartscope
     """
+
+    """
+        Provide Calculations (provideCalculations) — User Manual
+
+        Overview
+
+        The Provide Calculations protocol synchronizes CTF estimations and
+        aligned micrographs generated in Scipion with the Smartscope platform
+        during streaming cryo-EM workflows. Its purpose is to continuously
+        update Smartscope sessions with processing results in real time,
+        improving live monitoring and remote quality inspection.
+
+        Inputs and Workflow
+
+        The protocol requires a Smartscope movie set and optionally accepts
+        calculated CTFs and aligned micrographs. During execution, it monitors
+        the streaming inputs, detects newly generated items, and uploads only
+        data that has not been previously synchronized.
+
+        Micrograph and CTF Synchronization
+
+        For micrographs, the protocol uploads both the original `.mrc` file
+        and a thumbnail preview linked to the corresponding Smartscope movie.
+        For CTF estimations, it transfers optical parameters such as defocus,
+        astigmatism, fit quality, and PSD preview images associated with the
+        correct high-magnification acquisition.
+
+        Streaming Behaviour
+
+        The protocol continuously checks whether the input streams remain
+        active. As new data appears, synchronization continues automatically.
+        Once all streams are closed and no pending items remain, execution
+        finishes automatically.
+
+        Validation and Connectivity
+
+        Before execution, the protocol validates Smartscope configuration
+        parameters including authentication tokens, API endpoints, and data
+        paths. It also verifies server connectivity to ensure successful
+        communication with Smartscope services.
+
+        Final Perspective
+
+        This protocol functions as a real-time integration layer between
+        Scipion and Smartscope, allowing automated synchronization of
+        processing results and acquisition metadata during cryo-EM sessions.
+        """
     _label = 'Provide calculations'
     _devStatus = BETA
 

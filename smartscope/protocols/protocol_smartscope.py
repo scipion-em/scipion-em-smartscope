@@ -51,6 +51,64 @@ class smartscopeConnection(ProtImport, ProtStreamingBase):
     Smartscope. As input require the movies from Import Movies protocol,
     as output all the metadata as objects and the movies enrich with the metadatada
     """
+    """
+    Smartscope Connection (smartscopeConnection) — User Manual
+
+    Overview
+
+    The Smartscope Connection protocol integrates Smartscope automated
+    screening metadata into Scipion streaming workflows. Its main purpose
+    is to continuously synchronize cryo-EM acquisition information,
+    screening hierarchy metadata, and high-magnification movie parameters
+    during automated data collection sessions.
+
+    The protocol connects imported movies with Smartscope API metadata,
+    allowing the preservation of acquisition context including grids,
+    atlas images, squares, holes, microscope information, acquisition
+    coordinates, and imaging parameters. The workflow operates in streaming
+    mode and periodically refreshes metadata either after a configurable
+    number of movies or after a user-defined time interval.
+
+    Metadata and Screening Import
+
+    During execution, the protocol retrieves metadata related to acquisition
+    sessions, microscopes, detectors, and screening objects directly from
+    the Smartscope API. It continuously imports and updates the complete
+    screening hierarchy, including grids, atlas images, squares, holes,
+    and high-magnification acquisitions.
+
+    Movies are synchronized with Smartscope metadata and enriched with
+    parameters such as pixel size, defocus, astigmatism, CTF statistics,
+    grid identifiers, hole identifiers, and acquisition coordinates. This
+    creates a metadata-rich dataset suitable for downstream cryo-EM
+    processing and automated analysis workflows.
+
+    Hole Cropping and Image Processing
+
+    The protocol also generates cropped hole images associated with each
+    high-magnification movie. To improve cropping precision, several image
+    processing strategies are implemented, including positional correction,
+    rotational symmetry correlation, and Fourier-based center detection.
+    These methods improve robustness when acquisition coordinates are not
+    perfectly centered.
+
+    Streaming and Validation
+
+    The workflow is designed for long-running streaming acquisitions and
+    performs repeated synchronization cycles while acquisition remains
+    active. During execution, the protocol validates Smartscope
+    configuration, server connectivity, session paths, and API access.
+    Runtime exception handling is implemented to prevent interruptions
+    caused by missing metadata or corrupted image files.
+
+    Final Perspective
+
+    The Smartscope Connection protocol acts as a bridge between automated
+    cryo-EM acquisition systems and Scipion processing environments.
+    Through continuous synchronization and metadata enrichment, the protocol
+    transforms raw acquisition streams into structured datasets suitable
+    for advanced cryo-EM analysis and facility-scale workflows.
+    """
     _label = 'Connection'
     _devStatus = BETA
     _possibleOutputs = {
