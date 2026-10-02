@@ -267,9 +267,10 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
 
             if not self.moviePixelSize and movie.getSamplingRate():
                 self.moviePixelSize = movie.getSamplingRate()
-            if not self.movieShapeX and movie.getShapeX():
-                self.movieShapeX = movie.getShapeX()
-                self.movieShapeY = movie.getShapeY()
+            if not self.movieShapeX and movie.getDimensions():
+                self.movieShapeX = movie.getDimensions()[0]
+                self.movieShapeY = movie.getDimensions()[1]
+
 
             H_ID = movie.getHoleId()
             partClassID = p.getClassId()
