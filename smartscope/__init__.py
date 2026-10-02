@@ -41,7 +41,7 @@ _references = ['Bouvette2022']
 class Plugin(pwem.Plugin):
     pass
     @classmethod
-    def getEnviron(cls, xmippFirst=True):
+    def getEnviron(cls):
         pass
 
     @classmethod
@@ -52,5 +52,4 @@ class Plugin(pwem.Plugin):
 
         #https://docs.smartscope.org/getting_started/installation/docker/docker/#6-the-installation-is-done
 
-    #conda create --name smartscopeenv python==3.9
 

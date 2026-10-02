@@ -85,5 +85,81 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         Params:
             form: this is the form to be populated with sections and params.
         """
-        # You need a params to belong to a section:
+        # --------------------------- INPUT section ---------------------------
+        form.addSection(label=Message.LABEL_INPUT)
+        form.addParam('inputProtocol', params.PointerParam,
+                      pointerClass='EMProtocol', label="Input Smartscope connection", important=True,
+                      help="Smartscope connection protocol")
+
+        # --------------------------- 2D feedback section ---------------------
+        form.addSection(label='Feedback from particles')
+        form.addParam('totalClasses2D', params.PointerParam, allowsNull=False,
+                       pointerClass='SetOfClasses2D',
+                       label="Classes2D",
+                       help='Set of Classes2D calculated by a classifier')
+        form.addParam('goodClassesOrigin', params.EnumParam, default=0,
+                      choices=['Relion', 'Cryoasses'],
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      label='Select the protocol that generate the good2Dclasses ranked',
+                      help='Relion generates setOf2DClasses and Cryoasses SetOfAverages, select the protocol the good classes come from.')
+        form.addParam('goodClasses2DRelion', params.PointerParam,
+                       condition='goodClassesOrigin==0',
+                       pointerClass='SetOfClasses2D',
+                       label="Good Classes2D from Relion",
+                       help='Set of good Classes2D calculated by Relion ranker')
+        form.addParam('goodClasses2DCryoasses', params.PointerParam,
+                       condition='goodClassesOrigin==1',
+                       pointerClass='SetOfAverages',
+                       label="Good Classes2D from Cryoasses",
+                       help='Set of good Classes2D calculated by Cryoasses ranker')
+        form.addParam('percentGoodPartcilesHole', params.EnumParam,
+                      choices=self.percentBins, default=5, display=params.EnumParam.DISPLAY_COMBO,
+                      label="Percent good particles to consider good Hole",
+                      help="Percent of good particles in a Hole to consider that the hole is a good Hole or a Hole to consider. Default 50%")
+        form.addParam('micrographs', params.PointerParam,
+                       pointerClass='SetOfMicrographs',
+                       label="Microgaphs",
+                       help='Micrographs')
+
+        # --------------------------- Filter feedback section -----------------
+        form.addSection(label='Feedback from micrographs')
+        form.addParam('micsPassFilter', params.PointerParam, pointerClass='SetOfMicrographs',
+                      important=True, allowsNull=False,
+                      label='Filtered micrographs',
+                      help='Select a set of micrographs filtered by any protocol.')
+        form.addParam('triggerMicrograph', params.IntParam, default=200,
+                      label="Micrographs to launch the protocol",
+                      help='Number of micrographs that pass the filters to launch the statistics')
+        form.addParam('emptyBinsPercent', params.EnumParam,
+                      choices=self.percentBins, default=2, display=params.EnumParam.DISPLAY_COMBO,
+                      label="Percent empty bins in the histogram",
+                      help="In the histogram of number of holes acquired (with movies), this parameter represent the"
+                            " percent of empty bins allowed to feedback Smartscope (20% by default). Higher less restrictive")
+        form.addParam('applyFeedback', params.BooleanParam, default=False, allowsNull=False,
+                      label='Apply the calculated range of intensity back to Smartscope',
+                      help='Set True if you want to apply the range of intensity (ice-thickness) back to Smartscope in real time')
+        form.addParam('simulator', params.BooleanParam, default=False,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      label="Enable to simulate the screening",
+                      help='If True the number of movies available will be the ones related to the micrographs. If False the number of movies will be the number reported by SmartscopeConnection')
+        form.addParam('micsAll', params.PointerParam, pointerClass='SetOfMicrographs',
+                      expertLevel=params.LEVEL_ADVANCED, allowsNull=True,
+                      label='Micrographs',
+                      help='Select a set of micrographs from any protocol if you are simulating')
+
+        # --------------------------- Streaming section -----------------------
+        form.addSection('Streaming')
+        form.addParam('refreshMethod', params.EnumParam, default=0,
+                      choices=['Input micrographs', 'Time'],
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      label='Select input to refresh the protocol',
+                      help='Select the parameter which triger the refresh of the protocol.')
+        form.addParam('refreshTime', params.IntParam, default=240,
+                      condition='refreshMethod==1',
+                      label="Time to refresh protocol",
+                      help="Time to refresh data collected (minimum 240 secs) and update the feedback if neccesary")
+        form.addParam('refreshMics', params.IntParam, default=200,
+                      condition='refreshMethod==0',
+                      label='Input micrographs to refresh protocol',
+                      help="Number of new micrographs to refresh data collected and update the feedback if neccesary")
 
