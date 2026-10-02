@@ -52,7 +52,7 @@ import numpy as np
 NUMBER_HOLES_TO_VIEW = 100
 
 
-class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
+class smartscopeFeedback(ProtImport, ProtStreamingBase):
     """
     This protocol will provide a weight distribution for the intensity ranges (ice tickness ranges)
     based on the processing pipeline. If only is provided the micrographs filtered, it will provide a weight distribution
@@ -91,8 +91,35 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
                       pointerClass='EMProtocol', label="Input Smartscope connection", important=True,
                       help="Smartscope connection protocol")
 
+
+        # --------------------------- Filter feedback section -----------------
+        form.addSection(label='Feedback from micrographs')
+        form.addParam('micsPassFilter', params.PointerParam, pointerClass='SetOfMicrographs',
+                      important=True, allowsNull=False,
+                      label='Filtered micrographs',
+                      help='Select a set of micrographs filtered by any protocol.')
+        form.addParam('triggerMicrograph', params.IntParam, default=200,
+                      label="Micrographs to launch the protocol",
+                      help='Number of micrographs that pass the filters to launch the statistics')
+        form.addParam('emptyBinsPercent', params.EnumParam,
+                      choices=self.percentBins, default=2, display=params.EnumParam.DISPLAY_COMBO,
+                      label="Percent empty bins in the histogram",
+                      help="In the histogram of number of holes acquired (with movies), this parameter represent the"
+                            " percent of empty bins allowed to feedback Smartscope (20% by default). Higher less restrictive")
+        form.addParam('applyFeedback', params.BooleanParam, default=False, allowsNull=False,
+                      label='Apply the calculated range of intensity back to Smartscope',
+                      help='Set True if you want to apply the range of intensity (ice-thickness) back to Smartscope in real time')
+        form.addParam('simulator', params.BooleanParam, default=False,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      label="Enable to simulate the screening",
+                      help='If True the number of movies available will be the ones related to the micrographs. If False the number of movies will be the number reported by SmartscopeConnection')
+        form.addParam('micsAll', params.PointerParam, pointerClass='SetOfMicrographs',
+                      expertLevel=params.LEVEL_ADVANCED, allowsNull=True,
+                      label='Micrographs',
+                      help='Select a set of micrographs from any protocol if you are simulating')
+
         # --------------------------- 2D feedback section ---------------------
-        form.addSection(label='Feedback from particles')
+        form.addSection(label='Feedback from 2D')
         form.addParam('totalClasses2D', params.PointerParam, allowsNull=False,
                        pointerClass='SetOfClasses2D',
                        label="Classes2D",
@@ -121,45 +148,10 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
                        label="Microgaphs",
                        help='Micrographs')
 
-        # --------------------------- Filter feedback section -----------------
-        form.addSection(label='Feedback from micrographs')
-        form.addParam('micsPassFilter', params.PointerParam, pointerClass='SetOfMicrographs',
-                      important=True, allowsNull=False,
-                      label='Filtered micrographs',
-                      help='Select a set of micrographs filtered by any protocol.')
-        form.addParam('triggerMicrograph', params.IntParam, default=200,
-                      label="Micrographs to launch the protocol",
-                      help='Number of micrographs that pass the filters to launch the statistics')
-        form.addParam('emptyBinsPercent', params.EnumParam,
-                      choices=self.percentBins, default=2, display=params.EnumParam.DISPLAY_COMBO,
-                      label="Percent empty bins in the histogram",
-                      help="In the histogram of number of holes acquired (with movies), this parameter represent the"
-                            " percent of empty bins allowed to feedback Smartscope (20% by default). Higher less restrictive")
-        form.addParam('applyFeedback', params.BooleanParam, default=False, allowsNull=False,
-                      label='Apply the calculated range of intensity back to Smartscope',
-                      help='Set True if you want to apply the range of intensity (ice-thickness) back to Smartscope in real time')
-        form.addParam('simulator', params.BooleanParam, default=False,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      label="Enable to simulate the screening",
-                      help='If True the number of movies available will be the ones related to the micrographs. If False the number of movies will be the number reported by SmartscopeConnection')
-        form.addParam('micsAll', params.PointerParam, pointerClass='SetOfMicrographs',
-                      expertLevel=params.LEVEL_ADVANCED, allowsNull=True,
-                      label='Micrographs',
-                      help='Select a set of micrographs from any protocol if you are simulating')
-
         # --------------------------- Streaming section -----------------------
         form.addSection('Streaming')
-        form.addParam('refreshMethod', params.EnumParam, default=0,
-                      choices=['Input micrographs', 'Time'],
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      label='Select input to refresh the protocol',
-                      help='Select the parameter which triger the refresh of the protocol.')
         form.addParam('refreshTime', params.IntParam, default=240,
-                      condition='refreshMethod==1',
                       label="Time to refresh protocol",
                       help="Time to refresh data collected (minimum 240 secs) and update the feedback if neccesary")
-        form.addParam('refreshMics', params.IntParam, default=200,
-                      condition='refreshMethod==0',
-                      label='Input micrographs to refresh protocol',
-                      help="Number of new micrographs to refresh data collected and update the feedback if neccesary")
+
 
