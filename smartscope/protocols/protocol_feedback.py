@@ -141,8 +141,9 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         form.addParam('totalClasses2D', params.PointerParam, allowsNull=False,
                       condition='Classes2DFilter',
                       pointerClass='SetOfClasses2D',
-                       label="Classes2D",
-                       help='Set of Classes2D calculated by a classifier')
+                      important=True,
+                      label="Classes2D",
+                      help='Set of Classes2D calculated by a classifier')
         form.addParam('goodClassesOrigin', params.EnumParam, default=0,
                       condition='Classes2DFilter',
                       choices=['Relion', 'Cryoasses'],
