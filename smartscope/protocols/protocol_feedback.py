@@ -90,15 +90,13 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         form.addParam('MicrographsFilter', params.BooleanParam, default=True,
                       label="Enable microgrpahs feedback",
                       help='Allow to calculate feedback based on a set of micrographs that pass an specific threshold as resolution threshold')
-
         form.addParam('ParticlesFilter', params.BooleanParam, default=True,
                       label="Enable particle feedback",
                       help='Allow to calculate feedback based on a set of particles')
-
         form.addParam('Classes2DFilter', params.BooleanParam, default=True,
-                      condition='ParticlesFilter',
                       label="Enable 2DClasses feedback",
                       help='Allow to calculate feedback based on a set of 2DClasses')
+
 
         form.addParam('micrographs', params.PointerParam,
                        pointerClass='SetOfMicrographs',
@@ -166,7 +164,6 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                       choices=self.percentBins, default=5, display=params.EnumParam.DISPLAY_COMBO,
                       label="Percent good particles to consider good Hole",
                       help="Percent of good particles in a Hole to consider that the hole is a good Hole or a Hole to consider. Default 50%")
-
 
         # --------------------------- Streaming section -----------------------
         form.addSection('Streaming')
@@ -256,3 +253,55 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         """
         self.time0 = time.time()
         self._initialize()
+
+
+
+    def _validate(self):
+        errors = []
+        if Plugin.getVar(
+        	    SMARTSCOPE_TOKEN) == 'Read Smartscope documentation to get the token...':
+            errors.append('SMARTSCOPE_TOKEN has not been configured, '
+                          'please visit https://github.com/scipion-em/scipion-em-smartscope#configuration \n')
+        if Plugin.getVar(SMARTSCOPE_LOCALHOST) == None:
+            errors.append(
+        	    'SMARTSCOPE_LOCALHOST has not been configured, please visit https://github.com/scipion-em/scipion-em-smartscope#configuration \n')
+        dataPath = Plugin.getVar(SMARTSCOPE_DATA_SESSION_PATH)
+        if dataPath == 'Path assigned to the data in the Smartscope installation':
+            errors.append(
+        	    'SMARTSCOPE_DATA_SESSION_PATH has not been configured, '
+        	    'please visit https://github.com/scipion-em/scipion-em-smartscope#configuration \n')
+        if not os.path.isdir(dataPath):
+            errors.append(
+        	    f'SMARTSCOPE_DATA_SESSION_PATH: {dataPath} has wrong configuration, '
+        	    'please visit https://github.com/scipion-em/scipion-em-smartscope#configuration \n')
+
+
+        if self.getInputProtocol() == False:
+            errors.append('Protocol imnported is not the SmartscopeConnection one')
+        response = self.checkSmartscopeConnection()
+        try:
+            response[0]['username']
+        except Exception as e:
+            try:
+                errors.append('Error Smartscope connection:\n{}'.format(
+        		    response['detail']))
+            except Exception:
+                errors.append(
+        		    'Error Smartscope connection. Maybe launch Smartscope container...\n\n{}'.format(
+        			    response))
+
+        if self.MicrographsFilter.get():
+            if not self.micsPassFilter.get():
+                errors.append('Filtered micrographs parameter has to be filled in')
+        if self.ParticlesFilter.get():
+            if not self.inputParticles.get():
+                errors.append('Input particles parameter has to be filled in')
+        if self.Classes2DFilter.get():
+            if not self.totalClasses2D.get():
+                errors.append('Good Classes2D from X parameter has to be filled in')
+            if not self.goodClasses2DRelion.get() or not self.goodClasses2DCryoasses.get():
+                errors.append('Good Classes2D from X parameter has to be filled in')
+
+        return errors
+
+
