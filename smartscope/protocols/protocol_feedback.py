@@ -128,7 +128,8 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                       help='Select a set of micrographs from any protocol if you are simulating')
 
         # ---------------------------Particles feedback section ---------------------
-        form.addParam('inputParticles', PointerParam,
+        form.addParam('inputParticles', params.PointerParam,
+                      condition='feedbackInputs==1',
                       label="Input particles",
                       important=True, pointerClass='SetOfParticles',
                       help='Select the input particles (images)')
@@ -146,12 +147,12 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                       label='Select the protocol that generate the good2Dclasses ranked',
                       help='Relion generates setOf2DClasses and Cryoasses SetOfAverages, select the protocol the good classes come from.')
         form.addParam('goodClasses2DRelion', params.PointerParam,
-                       condition='goodClassesOrigin==0',
+                       condition='goodClassesOrigin==0 and feedbackInputs==2',
                        pointerClass='SetOfClasses2D',
                        label="Good Classes2D from Relion",
                        help='Set of good Classes2D calculated by Relion ranker')
         form.addParam('goodClasses2DCryoasses', params.PointerParam,
-                       condition='goodClassesOrigin==1',
+                       condition='goodClassesOrigin==1 and feedbackInputs==2',
                        pointerClass='SetOfAverages',
                        label="Good Classes2D from Cryoasses",
                        help='Set of good Classes2D calculated by Cryoasses ranker')
