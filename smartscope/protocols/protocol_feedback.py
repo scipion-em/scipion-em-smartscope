@@ -95,7 +95,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                       label="Enable particle feedback",
                       help='Allow to calculate feedback based on a set of particles')
 
-        form.addParam('2DClassesFilter', params.BooleanParam, default=True,
+        form.addParam('Classes2DFilter', params.BooleanParam, default=True,
                       condition='ParticlesFilter',
                       label="Enable 2DClasses feedback",
                       help='Allow to calculate feedback based on a set of 2DClasses')
@@ -141,28 +141,28 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
 
         # --------------------------- 2D feedback section ---------------------
         form.addParam('totalClasses2D', params.PointerParam, allowsNull=False,
-                      condition='2DClassesFilter',
+                      condition='Classes2DFilter',
                       pointerClass='SetOfClasses2D',
                        label="Classes2D",
                        help='Set of Classes2D calculated by a classifier')
         form.addParam('goodClassesOrigin', params.EnumParam, default=0,
-                      condition='2DClassesFilter',
+                      condition='Classes2DFilter',
                       choices=['Relion', 'Cryoasses'],
                       display=params.EnumParam.DISPLAY_HLIST,
                       label='Select the protocol that generate the good2Dclasses ranked',
                       help='Relion generates setOf2DClasses and Cryoasses SetOfAverages, select the protocol the good classes come from.')
         form.addParam('goodClasses2DRelion', params.PointerParam,
-                       condition='goodClassesOrigin==0 and 2DClassesFilter',
+                       condition='goodClassesOrigin==0 and Classes2DFilter',
                        pointerClass='SetOfClasses2D',
                        label="Good Classes2D from Relion",
                        help='Set of good Classes2D calculated by Relion ranker')
         form.addParam('goodClasses2DCryoasses', params.PointerParam,
-                       condition='goodClassesOrigin==1 and 2DClassesFilter',
+                       condition='goodClassesOrigin==1 and Classes2DFilter',
                        pointerClass='SetOfAverages',
                        label="Good Classes2D from Cryoasses",
                        help='Set of good Classes2D calculated by Cryoasses ranker')
         form.addParam('percentGoodPartcilesHole', params.EnumParam,
-                      condition='2DClassesFilter',
+                      condition='Classes2DFilter',
                       choices=self.percentBins, default=5, display=params.EnumParam.DISPLAY_COMBO,
                       label="Percent good particles to consider good Hole",
                       help="Percent of good particles in a Hole to consider that the hole is a good Hole or a Hole to consider. Default 50%")
