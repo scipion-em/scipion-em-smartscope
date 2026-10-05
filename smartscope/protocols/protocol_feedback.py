@@ -81,50 +81,66 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
 
 
     def _defineParams(self, form):
-        """ Define the input parameters that will be used.
-        Params:
-            form: this is the form to be populated with sections and params.
-        """
         # --------------------------- INPUT section ---------------------------
         form.addSection(label=Message.LABEL_INPUT)
         form.addParam('inputProtocol', params.PointerParam,
                       pointerClass='EMProtocol', label="Input Smartscope connection", important=True,
                       help="Smartscope connection protocol")
 
+        form.addParam('feedbackInputs', params.EnumParam, default=0,
+                      choices=['Micrographs filter', 'Particles', '2DClasses'],
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      label='Select the inputs that allows to calculate a feedback',
+                      help='At least is requiered to choose one of this.'
+                           'Micrographs filter: Set of micrographs that pass an specific threshold as resolution threshold'
+                           'Particles: Set of particles picked from the microgaphs of the sesson'
+                           '2DClasses: Set of 2D classes and set of good 2D classes')
 
+        form.addParam('micrographs', params.PointerParam,
+                       pointerClass='SetOfMicrographs',
+                       label="Microgaphs",
+                       help='Micrographs')
         # --------------------------- Filter feedback section -----------------
-        form.addSection(label='Feedback from micrographs')
         form.addParam('micsPassFilter', params.PointerParam, pointerClass='SetOfMicrographs',
                       important=True, allowsNull=False,
+                      condition='feedbackInputs==0',
                       label='Filtered micrographs',
                       help='Select a set of micrographs filtered by any protocol.')
         form.addParam('triggerMicrograph', params.IntParam, default=200,
+                      condition='feedbackInputs==0',
                       label="Micrographs to launch the protocol",
                       help='Number of micrographs that pass the filters to launch the statistics')
         form.addParam('emptyBinsPercent', params.EnumParam,
                       choices=self.percentBins, default=2, display=params.EnumParam.DISPLAY_COMBO,
+                      condition='feedbackInputs==0',
                       label="Percent empty bins in the histogram",
                       help="In the histogram of number of holes acquired (with movies), this parameter represent the"
                             " percent of empty bins allowed to feedback Smartscope (20% by default). Higher less restrictive")
-        form.addParam('applyFeedback', params.BooleanParam, default=False, allowsNull=False,
-                      label='Apply the calculated range of intensity back to Smartscope',
-                      help='Set True if you want to apply the range of intensity (ice-thickness) back to Smartscope in real time')
         form.addParam('simulator', params.BooleanParam, default=False,
                       expertLevel=params.LEVEL_ADVANCED,
+                      condition='feedbackInputs==0',
                       label="Enable to simulate the screening",
                       help='If True the number of movies available will be the ones related to the micrographs. If False the number of movies will be the number reported by SmartscopeConnection')
         form.addParam('micsAll', params.PointerParam, pointerClass='SetOfMicrographs',
+                      condition='feedbackInputs==0',
                       expertLevel=params.LEVEL_ADVANCED, allowsNull=True,
-                      label='Micrographs',
+                      label='Micrographs Simulated',
                       help='Select a set of micrographs from any protocol if you are simulating')
 
+        # ---------------------------Particles feedback section ---------------------
+        form.addParam('inputParticles', PointerParam,
+                      label="Input particles",
+                      important=True, pointerClass='SetOfParticles',
+                      help='Select the input particles (images)')
+
         # --------------------------- 2D feedback section ---------------------
-        form.addSection(label='Feedback from 2D')
         form.addParam('totalClasses2D', params.PointerParam, allowsNull=False,
-                       pointerClass='SetOfClasses2D',
+                      condition='feedbackInputs==2',
+                      pointerClass='SetOfClasses2D',
                        label="Classes2D",
                        help='Set of Classes2D calculated by a classifier')
         form.addParam('goodClassesOrigin', params.EnumParam, default=0,
+                      condition='feedbackInputs==2',
                       choices=['Relion', 'Cryoasses'],
                       display=params.EnumParam.DISPLAY_HLIST,
                       label='Select the protocol that generate the good2Dclasses ranked',
@@ -140,13 +156,11 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                        label="Good Classes2D from Cryoasses",
                        help='Set of good Classes2D calculated by Cryoasses ranker')
         form.addParam('percentGoodPartcilesHole', params.EnumParam,
+                      condition='feedbackInputs==2',
                       choices=self.percentBins, default=5, display=params.EnumParam.DISPLAY_COMBO,
                       label="Percent good particles to consider good Hole",
                       help="Percent of good particles in a Hole to consider that the hole is a good Hole or a Hole to consider. Default 50%")
-        form.addParam('micrographs', params.PointerParam,
-                       pointerClass='SetOfMicrographs',
-                       label="Microgaphs",
-                       help='Micrographs')
+
 
         # --------------------------- Streaming section -----------------------
         form.addSection('Streaming')
@@ -154,4 +168,85 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                       label="Time to refresh protocol",
                       help="Time to refresh data collected (minimum 240 secs) and update the feedback if neccesary")
 
+    def getInputProtocol(self):
+        prot = self.inputProtocol.get()
+        prot.setProject(self.getProject())
+        if isinstance(prot, smartscopeConnection):
+            return prot
+        else:
+            return False
 
+    def updateProtocolInputs(self):
+        updatedProt = getUpdatedProtocol(self.getInputProtocol())
+        if hasattr(updatedProt, 'Grids'):
+            self.grids = updatedProt.Grids
+        if hasattr(updatedProt, 'Holes'):
+            self.holes = updatedProt.Holes
+        if hasattr(updatedProt, 'MoviesSS'):
+            self.movies = updatedProt.MoviesSS
+        if hasattr(updatedProt, 'Session'):
+            self.sessionId = updatedProt.Session
+
+
+
+    def _initialize(self):
+        # Streaming state (from feedback filter)
+        self.intensityRangeSet = False
+        self.initialNumMics = 0
+        self.finish = False
+        self.zeroTime = time.time()
+        self.rTime = self.refreshTime.get()
+        if self.rTime < 240:
+            self.rTime = 240
+        self.launchFirstIteration = False
+        self.micsNoProcesed = 0
+
+        # Load Smartscope outputs and session info
+        self.updateProtocolInputs()
+        updatedProt = getUpdatedProtocol(self.getInputProtocol())
+        self.saveInExtraFile('urlSmartscope', open(os.path.join(updatedProt._getExtraPath(), 'URLsmartscopeSession.txt')).read())
+        self.saveInExtraFile('sessionDetails', open(os.path.join(updatedProt._getExtraPath(), 'summary.txt')).read())
+
+        # Output sets (from feedback 2D)
+        self.SOH = SetOfHoles.create(outputPath=self._getPath())
+        self.SOBestH = SetOfHoles.create(outputPath=self._getPath(), suffix='Best')
+        self.outputsToDefine = {'SetOfHoles': self.SOH, 'SetOfBestHoles': self.SOBestH}
+        self._defineOutputs(**self.outputsToDefine)
+
+        # 2D classes setup (from feedback 2D) — only if 2D inputs are provided
+        if self.totalClasses2D.get() is not None:
+            self.totalC = self.totalClasses2D.get()
+            if self.goodClassesOrigin.get() == 0:
+                self.goodC = self.goodClasses2DRelion.get()
+            else:
+                self.goodC = SetOfClasses2D.create(outputPath=self._getPath(), prefix='_goodC')
+                self.goodC.copyInfo(self.totalC)
+                listGood = [c.getIndex() for c in self.goodClasses2DCryoasses.get().iterItems()]
+                enableFunc = lambda cls: cls.getObjId() in listGood
+                self.goodC.appendFromClasses(self.totalC, filterClassFunc=enableFunc)
+
+            self.badC = []
+            for t in self.totalC:
+                flag = any(t.getObjId() == g.getObjId() for g in self.goodC)
+                if not flag:
+                    self.badC.append(t)
+
+        # Hole dictionaries
+        self.dictHolesWithMic = {}
+        self.dictHolesWithoutMic = {}
+
+    def saveInExtraFile(self, fileName, text):
+        fileP = self._getExtraPath(f"{fileName}.txt")
+        with open(fileP, "w") as f:
+            f.write(text)
+
+
+
+    def stepsGeneratorStep(self):
+        """
+        This step should be implemented by any streaming protocol.
+        It should check its input and when ready conditions are met
+        call the self._insertFunctionStep method.
+        """
+        self.time0 = time.time()
+        self._initialize()
