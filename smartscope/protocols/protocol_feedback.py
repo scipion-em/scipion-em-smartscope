@@ -255,6 +255,12 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         self._initialize()
 
 
+    # --------------------------- VALIDATION functions -----------------------------------
+    def checkSmartscopeConnection(self):
+        response = self.pyClient.getDetailsFromParameter('users')
+        return response
+
+
 
     def _validate(self):
         errors = []
