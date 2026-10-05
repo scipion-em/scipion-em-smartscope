@@ -88,18 +88,14 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                       help="Smartscope connection protocol")
 
         form.addParam('MicrographsFilter', params.BooleanParam, default=True,
-                      expertLevel=params.LEVEL_ADVANCED,
                       label="Enable microgrpahs feedback",
                       help='Allow to calculate feedback based on a set of micrographs that pass an specific threshold as resolution threshold')
 
         form.addParam('ParticlesFilter', params.BooleanParam, default=True,
-                      expertLevel=params.LEVEL_ADVANCED,
-
                       label="Enable particle feedback",
                       help='Allow to calculate feedback based on a set of particles')
 
         form.addParam('2DClassesFilter', params.BooleanParam, default=True,
-                      expertLevel=params.LEVEL_ADVANCED,
                       condition='ParticlesFilter',
                       label="Enable 2DClasses feedback",
                       help='Allow to calculate feedback based on a set of 2DClasses')
