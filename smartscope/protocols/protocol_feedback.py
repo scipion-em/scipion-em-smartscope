@@ -297,17 +297,6 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         		    'Error Smartscope connection. Maybe launch Smartscope container...\n\n{}'.format(
         			    response))
 
-        if self.MicrographsFilter.get():
-            if not self.micsPassFilter.get():
-                errors.append('Filtered micrographs parameter has to be filled in')
-        if self.ParticlesFilter.get():
-            if not self.inputParticles.get():
-                errors.append('Input particles parameter has to be filled in')
-        if self.Classes2DFilter.get():
-            if not self.totalClasses2D.get():
-                errors.append('Good Classes2D from X parameter has to be filled in')
-            if not self.goodClasses2DRelion.get() or not self.goodClasses2DCryoasses.get():
-                errors.append('Good Classes2D from X parameter has to be filled in')
 
         return errors
 
