@@ -87,78 +87,87 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                       pointerClass='EMProtocol', label="Input Smartscope connection", important=True,
                       help="Smartscope connection protocol")
 
-        form.addParam('feedbackInputs', params.EnumParam, default=0,
-                      choices=['Micrographs filter', 'Particles', '2DClasses'],
-                      display=params.EnumParam.DISPLAY_HLIST,
-                      allowsMultiple=True,
-                      label='Select the inputs that allows to calculate a feedback',
-                      help='At least is requiered to choose one of this.'
-                           'Micrographs filter: Set of micrographs that pass an specific threshold as resolution threshold'
-                           'Particles: Set of particles picked from the microgaphs of the sesson'
-                           '2DClasses: Set of 2D classes and set of good 2D classes')
+        form.addParam('MicrographsFilter', params.BooleanParam, default=False,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      condition='feedbackInputs==0',
+                      label="Enable microgrpahs feedback",
+                      help='Allow to calculate feedback based on a set of micrographs that pass an specific threshold as resolution threshold')
+
+        form.addParam('ParticlesFilter', params.BooleanParam, default=False,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      condition='feedbackInputs==0',
+                      label="Enable particle feedback",
+                      help='Allow to calculate feedback based on a set of particles')
+
+        form.addParam('2DClassesFilter', params.BooleanParam, default=False,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      condition='ParticlesFilter==True',
+                      label="Enable 2DClasses feedback",
+                      help='Allow to calculate feedback based on a set of 2DClasses')
 
         form.addParam('micrographs', params.PointerParam,
                        pointerClass='SetOfMicrographs',
                        label="Microgaphs",
                        help='Micrographs')
+
         # --------------------------- Filter feedback section -----------------
         form.addParam('micsPassFilter', params.PointerParam, pointerClass='SetOfMicrographs',
                       important=True, allowsNull=False,
-                      condition='0 in feedbackInputs',
+                      condition='MicrographsFilter==True',
                       label='Filtered micrographs',
                       help='Select a set of micrographs filtered by any protocol.')
         form.addParam('triggerMicrograph', params.IntParam, default=200,
-                      condition='0 in feedbackInputs',
+                      condition='MicrographsFilter==True',
                       label="Micrographs to launch the protocol",
                       help='Number of micrographs that pass the filters to launch the statistics')
         form.addParam('emptyBinsPercent', params.EnumParam,
                       choices=self.percentBins, default=2, display=params.EnumParam.DISPLAY_COMBO,
-                      condition='0 in feedbackInputs',
+                      condition='MicrographsFilter==True',
                       label="Percent empty bins in the histogram",
                       help="In the histogram of number of holes acquired (with movies), this parameter represent the"
                             " percent of empty bins allowed to feedback Smartscope (20% by default). Higher less restrictive")
         form.addParam('simulator', params.BooleanParam, default=False,
                       expertLevel=params.LEVEL_ADVANCED,
-                      condition='0 in feedbackInputs',
+                      condition='MicrographsFilter==True',
                       label="Enable to simulate the screening",
                       help='If True the number of movies available will be the ones related to the micrographs. If False the number of movies will be the number reported by SmartscopeConnection')
         form.addParam('micsAll', params.PointerParam, pointerClass='SetOfMicrographs',
-                      condition='0 in feedbackInputs',
+                      condition='MicrographsFilter==True',
                       expertLevel=params.LEVEL_ADVANCED, allowsNull=True,
                       label='Micrographs Simulated',
                       help='Select a set of micrographs from any protocol if you are simulating')
 
         # ---------------------------Particles feedback section ---------------------
         form.addParam('inputParticles', params.PointerParam,
-                      condition='1 in feedbackInputs',
+                      condition='ParticlesFilter==True',
                       label="Input particles",
                       important=True, pointerClass='SetOfParticles',
                       help='Select the input particles (images)')
 
         # --------------------------- 2D feedback section ---------------------
         form.addParam('totalClasses2D', params.PointerParam, allowsNull=False,
-                      condition='2 in feedbackInputs',
+                      condition='2DClassesFilter==True',
                       pointerClass='SetOfClasses2D',
                        label="Classes2D",
                        help='Set of Classes2D calculated by a classifier')
         form.addParam('goodClassesOrigin', params.EnumParam, default=0,
-                      condition='2 in feedbackInputs',
+                      condition='2DClassesFilter==True',
                       choices=['Relion', 'Cryoasses'],
                       display=params.EnumParam.DISPLAY_HLIST,
                       label='Select the protocol that generate the good2Dclasses ranked',
                       help='Relion generates setOf2DClasses and Cryoasses SetOfAverages, select the protocol the good classes come from.')
         form.addParam('goodClasses2DRelion', params.PointerParam,
-                       condition='goodClassesOrigin==0 and 2 in feedbackInputs',
+                       condition='goodClassesOrigin==0 and 2DClassesFilter==True',
                        pointerClass='SetOfClasses2D',
                        label="Good Classes2D from Relion",
                        help='Set of good Classes2D calculated by Relion ranker')
         form.addParam('goodClasses2DCryoasses', params.PointerParam,
-                       condition='goodClassesOrigin==1 and 2 in feedbackInputs',
+                       condition='goodClassesOrigin==1 and 2DClassesFilter==True',
                        pointerClass='SetOfAverages',
                        label="Good Classes2D from Cryoasses",
                        help='Set of good Classes2D calculated by Cryoasses ranker')
         form.addParam('percentGoodPartcilesHole', params.EnumParam,
-                      condition='2 in feedbackInputs',
+                      condition='2DClassesFilter==True',
                       choices=self.percentBins, default=5, display=params.EnumParam.DISPLAY_COMBO,
                       label="Percent good particles to consider good Hole",
                       help="Percent of good particles in a Hole to consider that the hole is a good Hole or a Hole to consider. Default 50%")
