@@ -97,7 +97,6 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                       label="Enable 2DClasses feedback",
                       help='Allow to calculate feedback based on a set of 2DClasses')
 
-
         form.addParam('micrographs', params.PointerParam,
                        pointerClass='SetOfMicrographs',
                        label="Microgaphs",
@@ -191,9 +190,19 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         if hasattr(updatedProt, 'Session'):
             self.sessionId = updatedProt.Session
 
-
-
     def _initialize(self):
+        # DEBUGALBERTO START
+        import os
+        fname = "/home/agarcia/Documents/attachActionDebug.txt"
+        if os.path.exists(fname):
+            os.remove(fname)
+        fjj = open(fname, "a+")
+        fjj.write('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+        fjj.close()
+        print('ALBERTO--------->onDebugMode PID {}'.format(os.getpid()))
+        import time
+        time.sleep(10)
+        # DEBUGALBERTO END
         # Streaming state (from feedback filter)
         self.intensityRangeSet = False
         self.initialNumMics = 0
@@ -211,10 +220,22 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         self.saveInExtraFile('urlSmartscope', open(os.path.join(updatedProt._getExtraPath(), 'URLsmartscopeSession.txt')).read())
         self.saveInExtraFile('sessionDetails', open(os.path.join(updatedProt._getExtraPath(), 'summary.txt')).read())
 
-        # Output sets (from feedback 2D)
-        self.SOH = SetOfHoles.create(outputPath=self._getPath())
-        self.SOBestH = SetOfHoles.create(outputPath=self._getPath(), suffix='Best')
-        self.outputsToDefine = {'SetOfHoles': self.SOH, 'SetOfBestHoles': self.SOBestH}
+        # Output sets
+        if self.MicrographsFilter.get() and self.ParticlesFilter.get() or self.Classes2DFilter.get():
+            self.SOHR = SetOfHoles.create(outputPath=self._getPath(), prefix='Rejected')
+            self.SOHPF = SetOfHoles.create(outputPath=self._getPath(), prefix='Pass')
+            self.SOBestH = SetOfHoles.create(outputPath=self._getPath(), suffix='Best')
+            self.outputsToDefine = {'SetOfBestHoles': self.SOBestH,
+                                'SetOfHolesPass': self.SOHPF,
+                                'SetOfHolesRejected': self.SOHR}
+        elif self.MicrographsFilter.get() and not self.ParticlesFilter.get() or self.Classes2DFilter.get():
+            self.SOHR = SetOfHoles.create(outputPath=self._getPath(), prefix='Rejected')
+            self.SOHPF = SetOfHoles.create(outputPath=self._getPath(), prefix='Pass')
+            self.outputsToDefine = {'SetOfHolesPass': self.SOHPF, 'SetOfHolesRejected': self.SOHR}
+        else: #Just particles or 2DClasses
+            self.SOBestH = SetOfHoles.create(outputPath=self._getPath(), suffix='Best')
+            self.outputsToDefine = {'SetOfBestHoles': self.SOBestH}
+
         self._defineOutputs(**self.outputsToDefine)
 
         # protocol parameters steps
@@ -242,14 +263,10 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                     if not flag:
                         self.badC.append(t)
 
-
-
     def saveInExtraFile(self, fileName, text):
         fileP = self._getExtraPath(f"{fileName}.txt")
         with open(fileP, "w") as f:
             f.write(text)
-
-
 
     def stepsGeneratorStep(self):
         """
@@ -260,12 +277,16 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         self.time0 = time.time()
         self._initialize()
         self.collectHoles()
-
+        self.createOutputs()
 
 
     def collectHoles(self):
         sessionshots = self.collectSessionShots()
+        self.holePixelSize = None
         self.dictHoles = {}
+        self.dictMovies = {}
+        self.dictPassHoles = {}
+        self.dictRejectHoles = {}
 
         # HOLE COLLECTION----------
         for hole in self.holes:
@@ -282,7 +303,10 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                 self.holePixelSize = hole.getPixelSize()
 
         for m in self.movies:
+            self.dictMovies[m.getMicName()] = m.clone()
             self.dictHoles[m.getHoleId()]['Acquired'] += 1
+            self.dictHoles[m.getHoleId()]['Rejected'] += 1
+
 
         # MICROGRAPHS COLLECTION----------
         if self.MicrographsFilter.get():
@@ -290,7 +314,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
             for mic in fMics:
                 H_ID = self.dictMovies[mic.getMicName()].getHoleId()
                 self.dictHoles[H_ID]['Pass'] += 1
-                self.dictHoles[H_ID]['Rejected'] = self.dictHoles[H_ID]['Acquired'] - self.dictHoles[H_ID]['Pass']
+                self.dictHoles[H_ID]['Rejected'] -= 1
 
             for key, value in self.dictHoles.items():
                 #self.debug(f'{key} {value}')
@@ -298,8 +322,11 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                 totalParts = int(value['particles'])
                 hole.setTotalParticles(totalParts)
 
-            print(self.dictHoles)
-
+            for hole_id, hole in self.dictHoles.items():
+                if hole['Pass'] >= hole['Rejected']:
+                    self.dictPassHoles[hole_id] = hole['Hole'].clone()
+                else:
+                    self.dictRejectHoles[hole_id] = hole['Hole'].clone()
 
         # 2DCLASSES COLLECTION----------
         if self.Classes2DFilter.get():
@@ -382,6 +409,52 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
             print(self.dictHoles)
 
 
+    def collectSessionShots(self):
+        #Assign number of shots for the holes not acquired
+        #We assume that all holes in the same session have the same shots per hole
+        for hole in self.holes:
+            shots = hole.getShots()
+            if shots != 0:
+                return shots
+
+
+    # --------------------------- CREATE OUTPUTS functions -----------------------------------
+    def createOutputs(self):
+        self.info('\n-Generating outputs ...')
+
+        if self.dictPassHoles:
+            for h in self.dictPassHoles:
+                self.createOutputStepPassFilter(self.SOHPF,self.dictPassHoles[h])
+        if self.dictRejectHoles:
+            for h in self.dictRejectHoles:
+                self.createOutputStepRejected(self.SOHR,self.dictRejectHoles[h])
+
+
+    def createOutputStepRejected(self, SOHR, hole):
+        SOHR.copyInfo(self.holes)
+        hole2Add_copy = Hole()
+        hole2Add_copy.copy(hole, copyId=False)
+        SOHR.append(hole2Add_copy)
+        if self.hasAttribute('SetOfHolesRejected'):
+            SOHR.write()
+            outputAttr = getattr(self, 'SetOfHolesRejected')
+            outputAttr.copy(SOHR, copyId=False)
+            self._store(outputAttr)
+        # STORE SQLITE
+        self._store(SOHR)
+
+    def createOutputStepPassFilter(self, SOHPF, hole):
+        SOHPF.copyInfo(self.holes)
+        hole2Add_copy = Hole()
+        hole2Add_copy.copy(hole, copyId=False)
+        SOHPF.append(hole2Add_copy)
+        if self.hasAttribute('SetOfHolesPassFilter'):
+            SOHPF.write()
+            outputAttr = getattr(self, 'SetOfHolesPassFilter')
+            outputAttr.copy(SOHPF, copyId=False)
+            self._store(outputAttr)
+        # STORE SQLITE
+        self._store(SOHPF)
 
 
     # --------------------------- VALIDATION functions -----------------------------------
