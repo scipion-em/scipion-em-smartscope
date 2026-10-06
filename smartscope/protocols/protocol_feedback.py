@@ -224,6 +224,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         if self.MicrographsFilter.get() and self.ParticlesFilter.get() or self.Classes2DFilter.get():
             self.SOHR = SetOfHoles.create(outputPath=self._getPath(), prefix='Rejected')
             self.SOHPF = SetOfHoles.create(outputPath=self._getPath(), prefix='Pass')
+            self.SOH = SetOfHoles.create(outputPath=self._getPath(), suffix='All')
             self.SOBestH = SetOfHoles.create(outputPath=self._getPath(), suffix='Best')
             self.outputsToDefine = {'SetOfBestHoles': self.SOBestH,
                                 'SetOfHolesPass': self.SOHPF,
@@ -310,6 +311,8 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
 
         # MICROGRAPHS COLLECTION----------
         if self.MicrographsFilter.get():
+            self.info('Micrographs information hole collection')
+
             fMics = self.micsPassFilter.get()
             for mic in fMics:
                 H_ID = self.dictMovies[mic.getMicName()].getHoleId()
@@ -330,6 +333,8 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
 
         # 2DCLASSES COLLECTION----------
         if self.Classes2DFilter.get():
+            self.info('2DClasses information hole collection')
+
             self.info(f'Total classe: {len(self.totalC)} Good Classe: {len(self.goodC)}')
             self.holePixelSize = None
             self.moviePixelSize = None
@@ -382,7 +387,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                     self.dictHoles[H_ID]['particles'] += 1
                     # self.debug('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(movie.getMicName())))
 
-            for key, value in self.dictHoles.items():
+            for key, value in self.dictHoles.items():#TODO maybe just in create output
                 #self.debug(f'{key} {value}')
                 hole = self.holes.getItem('_hole_id', key)
                 good = int(value['goodParticles'])
@@ -396,6 +401,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
 
         # PARTICLES COLLECTION----------
         elif self.ParticlesFilter.get():
+            self.info('Particles information hole collection')
             movie_cache = {}
             for p in self.inputParticles.get():
                 mic_name = p.getCoordinate().getMicName()
@@ -422,12 +428,64 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
     def createOutputs(self):
         self.info('\n-Generating outputs ...')
 
-        if self.dictPassHoles:
-            for h in self.dictPassHoles:
-                self.createOutputStepPassFilter(self.SOHPF,self.dictPassHoles[h])
-        if self.dictRejectHoles:
-            for h in self.dictRejectHoles:
-                self.createOutputStepRejected(self.SOHR,self.dictRejectHoles[h])
+        if self.MicrographsFilter.get():
+            if self.dictPassHoles:
+                for h in self.dictPassHoles:
+                    self.createOutputStepPassFilter(self.SOHPF,self.dictPassHoles[h])
+            if self.dictRejectHoles:
+                for h in self.dictRejectHoles:
+                    self.createOutputStepRejected(self.SOHR,self.dictRejectHoles[h])
+
+        if self.Classes2DFilter.get():
+            self.SOH.copyInfo(self.holes)
+            self.SOBestH.copyInfo(self.holes)
+            for key, value in self.dictHoles.items():
+                self.debug(key)
+                self.debug(value)
+                h = self.holes.getItem("_hole_id", key)
+                good = int(value['goodParticles'])
+                bad = int(value['badParticles'])
+                total = good + bad
+                h.setGoodParticles(good)
+                h.setBadParticles(bad)
+                h.setTotalParticles(total)
+                hole2Add_copy = Hole()
+                hole2Add_copy.copy(h, copyId=False)
+                self.SOH.append(hole2Add_copy)
+                if self.hasAttribute('SetOfHoles'):
+                    self.SOH.write()
+                    outputAttr = getattr(self, 'SetOfHoles')
+                    outputAttr.copy(self.SOH, copyId=False)
+            self._store(self.SOH)
+
+            for hole in self.SOH.iterItems(orderBy='_goodParticles', direction='DESC', limit=NUMBER_HOLES_TO_VIEW):  #
+                hole2Add_copy = Hole()
+                hole2Add_copy.copy(hole, copyId=False)
+                self.SOBestH.append(hole2Add_copy)
+                if self.hasAttribute('SetOfBestHoles'):
+                    self.SOBestH.write()
+                    outputAttr = getattr(self, 'SetOfBestHoles')
+                    outputAttr.copy(self.SOBestH, copyId=False)
+            self._store(self.SOBestH)
+            # self._store(self.SOH)
+
+        if self.ParticlesFilter.get():
+            self.SOBestH.copyInfo(self.holes)
+            bestHoles = sorted(self.dictHoles.items(),
+                               key=lambda item: int(item[1]['particles']), reverse=True)[:NUMBER_HOLES_TO_VIEW]
+            for key, value in bestHoles:
+                total = int(value['particles'])
+                h = self.holes.getItem("_hole_id", key)
+                h.setTotalParticles(total)
+                hole2Add_copy = Hole()
+                hole2Add_copy.copy(h, copyId=False)
+                self.SOBestH.append(hole2Add_copy)
+            self.SOBestH.write()
+            if self.hasAttribute('SetOfBestHoles'):
+                outputAttr = getattr(self, 'SetOfBestHoles')
+                outputAttr.copy(self.SOBestH, copyId=False)
+
+            self._store(self.SOBestH)
 
 
     def createOutputStepRejected(self, SOHR, hole):
