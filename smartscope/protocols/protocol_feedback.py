@@ -217,27 +217,32 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         self.outputsToDefine = {'SetOfHoles': self.SOH, 'SetOfBestHoles': self.SOBestH}
         self._defineOutputs(**self.outputsToDefine)
 
-        # 2D classes setup (from feedback 2D) — only if 2D inputs are provided
-        if self.totalClasses2D.get() is not None:
-            self.totalC = self.totalClasses2D.get()
-            if self.goodClassesOrigin.get() == 0:
-                self.goodC = self.goodClasses2DRelion.get()
-            else:
-                self.goodC = SetOfClasses2D.create(outputPath=self._getPath(), prefix='_goodC')
-                self.goodC.copyInfo(self.totalC)
-                listGood = [c.getIndex() for c in self.goodClasses2DCryoasses.get().iterItems()]
-                enableFunc = lambda cls: cls.getObjId() in listGood
-                self.goodC.appendFromClasses(self.totalC, filterClassFunc=enableFunc)
+        # protocol parameters steps
+        self.info(f'MicrographsFilter: {self.MicrographsFilter.get()}\n'
+                  f'ParticlesFilter: {self.ParticlesFilter.get()}\n'
+                  f' Classes2DFilter: {self.Classes2DFilter.get()}\n')
 
-            self.badC = []
-            for t in self.totalC:
-                flag = any(t.getObjId() == g.getObjId() for g in self.goodC)
-                if not flag:
-                    self.badC.append(t)
 
-        # Hole dictionaries
-        self.dictHolesWithMic = {}
-        self.dictHolesWithoutMic = {}
+        if self.Classes2DFilter.get():
+            # 2D classes setup (from feedback 2D) — only if 2D inputs are provided
+            if self.totalClasses2D.get() is not None:
+                self.totalC = self.totalClasses2D.get()
+                if self.goodClassesOrigin.get() == 0:
+                    self.goodC = self.goodClasses2DRelion.get()
+                else:
+                    self.goodC = SetOfClasses2D.create(outputPath=self._getPath(), prefix='_goodC')
+                    self.goodC.copyInfo(self.totalC)
+                    listGood = [c.getIndex() for c in self.goodClasses2DCryoasses.get().iterItems()]
+                    enableFunc = lambda cls: cls.getObjId() in listGood
+                    self.goodC.appendFromClasses(self.totalC, filterClassFunc=enableFunc)
+
+                self.badC = []
+                for t in self.totalC:
+                    flag = any(t.getObjId() == g.getObjId() for g in self.goodC)
+                    if not flag:
+                        self.badC.append(t)
+
+
 
     def saveInExtraFile(self, fileName, text):
         fileP = self._getExtraPath(f"{fileName}.txt")
@@ -254,14 +259,135 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         """
         self.time0 = time.time()
         self._initialize()
+        self.collectHoles()
+
+
+
+    def collectHoles(self):
+        sessionshots = self.collectSessionShots()
+        self.dictHoles = {}
+
+        # HOLE COLLECTION----------
+        for hole in self.holes:
+            H_ID = hole.getHoleId()
+            holeC = hole.clone()
+            intensity = hole.getSelectorValue()
+            try:
+                if self.movies.getItem("_hole_id", H_ID):
+                    self.dictHoles[H_ID] = {'Hole': holeC, 'GridID': hole.getGridId(), 'Shots': sessionshots, 'Acquired': 0, 'Pass': 0, 'Rejected': 0, 'particles': 0, 'goodParticles': 0, 'badParticles': 0, 'intensity': intensity, 'ClassDistribution': {}}
+            except UnboundLocalError:
+                self.dictHoles[H_ID] = {'Hole': holeC, 'GridID': hole.getGridId(), 'Shots': sessionshots, 'Acquired': 0, 'Pass': 0, 'Rejected': 0, 'particles': 0, 'goodParticles': 0, 'badParticles': 0, 'intensity': intensity, 'ClassDistribution': {}}
+
+            if not self.holePixelSize and hole.getPixelSize():
+                self.holePixelSize = hole.getPixelSize()
+
+        for m in self.movies:
+            self.dictHoles[m.getHoleId()]['Acquired'] += 1
+
+        # MICROGRAPHS COLLECTION----------
+        if self.MicrographsFilter.get():
+            fMics = self.micsPassFilter.get()
+            for mic in fMics:
+                H_ID = self.dictMovies[mic.getMicName()].getHoleId()
+                self.dictHoles[H_ID]['Pass'] += 1
+                self.dictHoles[H_ID]['Rejected'] = self.dictHoles[H_ID]['Acquired'] - self.dictHoles[H_ID]['Pass']
+
+            for key, value in self.dictHoles.items():
+                #self.debug(f'{key} {value}')
+                hole = self.holes.getItem('_hole_id', key)
+                totalParts = int(value['particles'])
+                hole.setTotalParticles(totalParts)
+
+            print(self.dictHoles)
+
+
+        # 2DCLASSES COLLECTION----------
+        if self.Classes2DFilter.get():
+            self.info(f'Total classe: {len(self.totalC)} Good Classe: {len(self.goodC)}')
+            self.holePixelSize = None
+            self.moviePixelSize = None
+            self.movieShapeX = None
+            self.movieShapeY = None
+
+            totalParticlesNum = sum(c.getSize() for c in self.totalC.iterItems())
+            goodParticlesNum = sum(c.getSize() for c in self.goodC.iterItems())
+            self.info(f'Total particles: {totalParticlesNum}\n'
+                      f'Good particles: {goodParticlesNum}\n'
+                      f'Bad particles: {totalParticlesNum - goodParticlesNum}')
+
+            movie_cache = {}
+            self.info('\nCollecting particles from good classes...')
+            good_ids = set(p.getObjId() for p in self.goodC.iterClassItems())
+            self.goodClasses = set(c.getObjId() for c in self.goodC.iterItems(orderBy='id', direction='ASC'))
+            self.particlesCoords = {'Good': {}, 'Bad': {}}
+            dictClassParticles = {}
+
+            for c in self.goodC.iterItems(orderBy='id', direction='ASC'):
+                dictClassParticles[c.getObjId()] = c
+            for p in self.totalC.iterClassItems():  # iterRows
+                mic_name = p.getCoordinate().getMicName()
+                if mic_name in movie_cache:
+                    movie = movie_cache[mic_name]
+                else:
+                    movie = self.movies.getItem("_micName", mic_name)
+                    movie_cache[mic_name] = movie
+                if not self.moviePixelSize and movie.getSamplingRate():
+                    self.moviePixelSize = movie.getSamplingRate()
+                if not self.movieShapeX and movie.getDimensions():
+                    self.movieShapeX = movie.getDimensions()[0]
+                    self.movieShapeY = movie.getDimensions()[1]
+
+                H_ID = movie.getHoleId()
+                partClassID = p.getClassId()
+                # self.debug(f"micName: {p.getCoordinate().getMicName()} | H_ID: {H_ID}")
+
+                if p.getObjId() in good_ids:
+                    self.dictHoles[H_ID]['goodParticles'] += 1
+                    self.dictHoles[H_ID]['particles'] += 1
+
+                    if self.dictHoles[H_ID]['ClassDistribution'].get(partClassID):
+                        self.dictHoles[H_ID]['ClassDistribution'][partClassID] += 1
+                    else:
+                        self.dictHoles[H_ID]['ClassDistribution'][partClassID] = 1
+                # self.debug('H_ID: {}  resolution: {}'.format(H_ID, p.getCTF().getResolution()))
+                else:
+                    self.dictHoles[H_ID]['badParticles'] += 1
+                    self.dictHoles[H_ID]['particles'] += 1
+                    # self.debug('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(movie.getMicName())))
+
+            for key, value in self.dictHoles.items():
+                #self.debug(f'{key} {value}')
+                hole = self.holes.getItem('_hole_id', key)
+                good = int(value['goodParticles'])
+                bad = int(value['badParticles'])
+                hole.setGoodParticles(good)
+                hole.setBadParticles(good)
+                hole.setTotalParticles(good + bad)
+
+            print(self.dictHoles)
+
+
+        # PARTICLES COLLECTION----------
+        elif self.ParticlesFilter.get():
+            movie_cache = {}
+            for p in self.inputParticles.get():
+                mic_name = p.getCoordinate().getMicName()
+                if mic_name in movie_cache:
+                    movie = movie_cache[mic_name]
+                else:
+                    movie = self.movies.getItem("_micName", mic_name)
+                    movie_cache[mic_name] = movie
+                H_ID = movie.getHoleId()
+                self.dictHoles[H_ID]['particles'] += 1
+            print(self.dictHoles)
+
+
 
 
     # --------------------------- VALIDATION functions -----------------------------------
     def checkSmartscopeConnection(self):
         response = self.pyClient.getDetailsFromParameter('users')
         return response
-
-
 
     def _validate(self):
         errors = []

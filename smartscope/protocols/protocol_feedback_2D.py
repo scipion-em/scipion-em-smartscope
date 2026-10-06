@@ -191,6 +191,7 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
             if flag == False:
                 self.badC.append(t)
 
+
     def getInputProtocol(self):
         prot = self.inputProtocol.get()
         prot.setProject(self.getProject())
@@ -211,6 +212,7 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         self.holesStatistis()
         self.smartscopeFeedback()
         self.createOutputStep()
+
 
     def readClasses(self):
         self.info('\nReading inputs...')
@@ -333,6 +335,7 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
                        f'Bad particles: {totalParticlesNum - goodParticlesNum}')
         summaryF.close()
 
+
     def coord_highMag2MedMag(self, hole, movie, xp, yp):
         X_p_hm_mic = xp
         X_p_mm_mic = X_p_hm_mic * (self.moviePixelSize / self.holePixelSize)
@@ -345,6 +348,7 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         Y_p_mm_holeCroped = Y_p_mm_hole - hole.getCropedYOrigin()
 
         return X_p_mm_holeCroped, Y_p_mm_holeCroped
+
 
     def sturgesBinsCalc(self, numElementes):
         import math
@@ -472,6 +476,7 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         '''
         pass
 
+
     def createOutputStep(self):
         time0 = time.time()
         self.SOH.copyInfo(self.holes)
@@ -512,6 +517,7 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
         #self._store(self.SOH)
         time1 = time.time()
         self.info(f'Create output step Time: {round(time1 - time0, 0)} s')
+
 
     def checkSmartscopeConnection(self):
         response = self.pyClient.getDetailsFromParameter('users')
