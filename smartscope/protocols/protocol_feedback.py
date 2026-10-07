@@ -324,9 +324,30 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                         t1 = time.perf_counter()
                         self.collectHoles()
                         t2 = time.perf_counter()
+                        self.info("collectHoles: %.3f s" % (t2 - t1))
+
+                        if self.MicrographsF:
+                            t10 = time.perf_counter()
+                            self.micsStatistics()
+                            t11 = time.perf_counter()
+                            self.info("micsStatistics: %.3f s" % (t11 - t10))
+                        if self.ParticlesFilter or self.Classes2DFilter:
+                            t10 = time.perf_counter()
+                            self.particlesStatistisc()
+                            t11 = time.perf_counter()
+                            self.info("particlesStatistisc: %.3f s" % (t11 - t10))
+                        if self.Classes2DFilter:
+                            t10 = time.perf_counter()
+                            self.class2DStatistics()
+                            t11 = time.perf_counter()
+                            self.info("class2DStatistics: %.3f s" % (t11 - t10))
+
+
+
+
+
                         self.createOutputs()
                         t3 = time.perf_counter()
-                        self.info("collectHoles: %.3f s" % (t2 - t1))
                         self.info("createOutputs: %.3f s" % (t3 - t2))
                     else:
                         self.info(f'Waitting next iteration. Refreshing time: {self.rTime}')
@@ -443,8 +464,6 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                     self.dictHoles[H_ID]['badParticles'] += 1
                     self.dictHoles[H_ID]['particles'] += 1
                     # self.debug('hole: {} \t- movie: {}'.format(H_ID, os.path.basename(movie.getMicName())))
-            print(self.dictHoles)
-
 
         # PARTICLES COLLECTION----------
         elif self.ParticlesFilter:
@@ -478,7 +497,6 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                 if not flag:
                     self.badC.append(t)
 
-
     def collectSessionShots(self):
         #Assign number of shots for the holes not acquired
         #We assume that all holes in the same session have the same shots per hole
@@ -486,6 +504,53 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
             shots = hole.getShots()
             if shots != 0:
                 return shots
+
+
+    # --------------------------- STATISTICS ------------------------------------
+    def micsStatistics(self):
+        '''This function create list of holes based on the behaves of a grids'''
+        self.info('\nmicsStatistics ...')
+
+        self.totalMicssByGrid = defaultdict(list) #TODO it does not consider the multishot, the hole does not know about how many shots it will have
+        self.acquiredMicssByGrid = defaultdict(list)
+        self.passMicsByGrid = defaultdict(list)
+        self.rejectedMicssByGrid = defaultdict(list)
+
+        for holeID, hole_data in self.dictHoles.items():
+            h = hole_data['Hole']
+            shots = hole_data['Shots']
+            acqs = hole_data['Acquired']
+            passF = hole_data['Pass']
+            reject = hole_data['Rejected']
+            intensity = hole_data['intensity']
+            if intensity == None or intensity == '':
+                self.error(f'hole without intensity: {holeID}')
+            grid_id = h.getGridId()
+
+            for s in range(shots):
+                self.totalMicssByGrid[grid_id].append(intensity)
+            if acqs != 0:
+                for a in range(acqs):
+                    self.acquiredMicssByGrid[grid_id].append(intensity)
+            if passF != 0:
+                for a in range(passF):
+                    self.passMicsByGrid[grid_id].append(intensity)
+            if reject != 0:
+                for a in range(reject):
+                    self.rejectedMicssByGrid[grid_id].append(intensity)
+
+    def particlesStatistisc(self):
+        self.particlesByIntensityByGrid = defaultdict(list)
+        for holeID, hole_data in self.dictHoles.items():
+            h = hole_data['Hole']
+            intensity = hole_data['intensity']
+            if intensity == None or intensity == '':
+                self.error(f'hole without intensity: {holeID}')
+            else:
+                self.particlesByIntensityByGrid[h.getGridId()].append({'intensity': int(round(intensity, 1)), 'particles': hole_data['particles']})
+
+    def class2DStatistics(self):
+        pass
 
     # --------------------------- CREATE OUTPUTS functions ----------------------
     def createOutputs(self):
