@@ -79,7 +79,6 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         self.pyClient = MainPyClient(self.token, self.endpoint)
         self.connectionClient = dataCollection(self.pyClient)
 
-
     def _defineParams(self, form):
         # --------------------------- INPUT section ---------------------------
         form.addSection(label=Message.LABEL_INPUT)
@@ -90,13 +89,12 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         form.addParam('MicrographsFilter', params.BooleanParam, default=True,
                       label="Enable microgrpahs feedback",
                       help='Allow to calculate feedback based on a set of micrographs that pass an specific threshold as resolution threshold')
-        form.addParam('ParticlesFilter', params.BooleanParam, default=True,
-                      label="Enable particle feedback",
-                      help='Allow to calculate feedback based on a set of particles')
-        form.addParam('Classes2DFilter', params.BooleanParam, default=True,
-                      label="Enable 2DClasses feedback",
-                      help='Allow to calculate feedback based on a set of 2DClasses')
-
+        form.addParam('particles_2DClass', params.EnumParam, default=0,
+                      choices=['None', 'ParticlesFilter', 'Classes2DFilter'],
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      label='Enable particles or 2DClasses feedback',
+                      help='Enable particles or 2DClasses based on the availability on the workflow. If there is 2D Classes the statistics will be enrich')
+        
         form.addParam('micrographs', params.PointerParam,
                        pointerClass='SetOfMicrographs',
                        label="Microgaphs",
@@ -109,11 +107,13 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                       label='Filtered micrographs',
                       help='Select a set of micrographs filtered by any protocol.')
         form.addParam('triggerMicrograph', params.IntParam, default=200,
+                      expertLevel=params.LEVEL_ADVANCED,
                       condition='MicrographsFilter',
                       label="Micrographs to launch the protocol",
-                      help='Number of micrographs that pass the filters to launch the statistics')
+                      help='Number of micrographs that pass the filters to launch the statistics. Default 200')
         form.addParam('emptyBinsPercent', params.EnumParam,
                       choices=self.percentBins, default=2, display=params.EnumParam.DISPLAY_COMBO,
+                      expertLevel=params.LEVEL_ADVANCED,
                       condition='MicrographsFilter',
                       label="Percent empty bins in the histogram",
                       help="In the histogram of number of holes acquired (with movies), this parameter represent the"
@@ -131,36 +131,42 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
 
         # ---------------------------Particles feedback section ---------------------
         form.addParam('inputParticles', params.PointerParam,
-                      condition='ParticlesFilter',
+                      condition='particles_2DClass==1',
                       label="Input particles",
                       important=True, pointerClass='SetOfParticles',
                       help='Select the input particles (images)')
+        form.addParam('triggerParticles', params.IntParam, default=5000,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      condition='particles_2DClass==1',
+                      label="Particles to launch the evaluations",
+                      help='Number of particles to evaluate the statistics. Default 5000 particles')
 
         # --------------------------- 2D feedback section ---------------------
         form.addParam('totalClasses2D', params.PointerParam, allowsNull=False,
-                      condition='Classes2DFilter',
+                      condition='particles_2DClass==2',
                       pointerClass='SetOfClasses2D',
                       important=True,
                       label="Classes2D",
                       help='Set of Classes2D calculated by a classifier')
         form.addParam('goodClassesOrigin', params.EnumParam, default=0,
-                      condition='Classes2DFilter',
+                      condition='particles_2DClass==2',
                       choices=['Relion', 'Cryoasses'],
                       display=params.EnumParam.DISPLAY_HLIST,
                       label='Select the protocol that generate the good2Dclasses ranked',
                       help='Relion generates setOf2DClasses and Cryoasses SetOfAverages, select the protocol the good classes come from.')
         form.addParam('goodClasses2DRelion', params.PointerParam,
-                       condition='goodClassesOrigin==0 and Classes2DFilter',
+                       condition='goodClassesOrigin==0 and particles_2DClass==2',
                        pointerClass='SetOfClasses2D',
                        label="Good Classes2D from Relion",
                        help='Set of good Classes2D calculated by Relion ranker')
         form.addParam('goodClasses2DCryoasses', params.PointerParam,
-                       condition='goodClassesOrigin==1 and Classes2DFilter',
+                       condition='goodClassesOrigin==1 and particles_2DClass==2',
                        pointerClass='SetOfAverages',
                        label="Good Classes2D from Cryoasses",
                        help='Set of good Classes2D calculated by Cryoasses ranker')
         form.addParam('percentGoodPartcilesHole', params.EnumParam,
-                      condition='Classes2DFilter',
+                      condition='particles_2DClass==2',
+                      expertLevel=params.LEVEL_ADVANCED,
                       choices=self.percentBins, default=5, display=params.EnumParam.DISPLAY_COMBO,
                       label="Percent good particles to consider good Hole",
                       help="Percent of good particles in a Hole to consider that the hole is a good Hole or a Hole to consider. Default 50%")
@@ -209,10 +215,19 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         self.finish = False
         self.zeroTime = time.time()
         self.rTime = self.refreshTime.get()
-        if self.rTime < 240:
-            self.rTime = 240
+        # if self.rTime < 240: #TODO uncomment it
+        #     self.rTime = 240
         self.launchFirstIteration = False
         self.micsNoProcesed = 0
+        self.stopIteration = False
+        self.launchIteration = False
+
+        # Input sets
+        self.ParticlesFilter = self.particles_2DClass == 1
+        self.Classes2DFilter = self.particles_2DClass == 2
+        self.fMics = self.micsPassFilter.get()
+        self.Particles = self.inputParticles.get()
+        self.MicrographsF = self.MicrographsFilter.get()
 
         # Load Smartscope outputs and session info
         self.updateProtocolInputs()
@@ -221,59 +236,100 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         self.saveInExtraFile('sessionDetails', open(os.path.join(updatedProt._getExtraPath(), 'summary.txt')).read())
 
         # Output sets
-        if self.MicrographsFilter.get() and (self.ParticlesFilter.get() or self.Classes2DFilter.get()):
+        if self.MicrographsF and (self.ParticlesFilter or self.Classes2DFilter):
             self.SOH = SetOfHoles.create(outputPath=self._getPath(), suffix='All')
             self.outputsToDefine = {'SetOfBestHoles': SetOfHoles.create(outputPath=self._getPath(), suffix='Best'),
                                 'SetOfHolesPass': SetOfHoles.create(outputPath=self._getPath(), prefix='Pass'),
                                 'SetOfHolesRejected': SetOfHoles.create(outputPath=self._getPath(), prefix='Rejected')}
-        elif self.MicrographsFilter.get() and not (self.ParticlesFilter.get() or self.Classes2DFilter.get()):
+        elif self.MicrographsF and not (self.ParticlesFilter or self.Classes2DFilter):
             self.outputsToDefine = {'SetOfHolesPass': SetOfHoles.create(outputPath=self._getPath(), prefix='Pass'),
                                     'SetOfHolesRejected': SetOfHoles.create(outputPath=self._getPath(), prefix='Rejected')}
         else: #Just particles or 2DClasses
             self.outputsToDefine = {'SetOfBestHoles':SetOfHoles.create(outputPath=self._getPath(), suffix='Best')}
-
         self._defineOutputs(**self.outputsToDefine)
 
         # protocol parameters steps
-        self.info(f'MicrographsFilter: {self.MicrographsFilter.get()}\n'
-                  f'ParticlesFilter: {self.ParticlesFilter.get()}\n'
-                  f'Classes2DFilter: {self.Classes2DFilter.get()}\n')
+        self.info(f'MicrographsF: {self.MicrographsF}\n'
+                  f'ParticlesFilter: {self.ParticlesFilter}\n'
+                  f'Classes2DFilter: {self.Classes2DFilter}\n')
 
-
-        if self.Classes2DFilter.get():
-            # 2D classes setup (from feedback 2D) — only if 2D inputs are provided
-            if self.totalClasses2D.get() is not None:
-                self.totalC = self.totalClasses2D.get()
-                if self.goodClassesOrigin.get() == 0:
-                    self.goodC = self.goodClasses2DRelion.get()
-                else:
-                    self.goodC = SetOfClasses2D.create(outputPath=self._getPath(), prefix='_goodC')
-                    self.goodC.copyInfo(self.totalC)
-                    listGood = [c.getIndex() for c in self.goodClasses2DCryoasses.get().iterItems()]
-                    enableFunc = lambda cls: cls.getObjId() in listGood
-                    self.goodC.appendFromClasses(self.totalC, filterClassFunc=enableFunc)
-
-                self.badC = []
-                for t in self.totalC:
-                    flag = any(t.getObjId() == g.getObjId() for g in self.goodC)
-                    if not flag:
-                        self.badC.append(t)
 
     def saveInExtraFile(self, fileName, text):
         fileP = self._getExtraPath(f"{fileName}.txt")
         with open(fileP, "w") as f:
             f.write(text)
 
+    def checkFinish(self):
+        # Evaluate if the protocol has to finish after the next iteration
+        if self.MicrographsF and not self.ParticlesFilter and not self.Classes2DFilter:
+            return not self.fMics.isStreamOpen()
+        elif self.MicrographsF and self.ParticlesFilter and not self.Classes2DFilter:
+            return self.fMics.isStreamOpen() and self.Particles.isStreamOpen()
+        elif self.MicrographsF and not self.ParticlesFilter and self.Classes2DFilter:
+            return not self.fMics.isStreamOpen()  # TODO relion and cryoasses class ranker not implemented on streaming
+        elif not self.MicrographsF and self.ParticlesFilter:
+            return not self.Particles.isStreamOpen()
+        elif not self.MicrographsF and self.Classes2DFilter:
+            return True # TODO relion and cryoasses class ranker not implemented on streaming
+
+    def checkStartIteration(self):
+        # Evaluate if the steps has to be launched based on time or elements criteria
+        def evaluateMicsNum():
+            if len(self.fMics.getFiles()) >= self.triggerMicrograph.get():
+                self.info(f'Input micrographs {len(self.fMics.getFiles())} >= trigger micrographs set {self.triggerMicrograph.get()}')
+                return True
+            return False
+
+        def evaluatePartNum():
+            if len(self.Particles) >= self.triggerParticles.get():
+                self.info(f'Input particles {len(self.Particles)} >= trigger particles set {self.triggerParticles.get()}')
+                return True
+            return False
+
+        if self.MicrographsF and self.ParticlesFilter:
+            return evaluateMicsNum() and evaluatePartNum()
+
+        elif self.MicrographsF and not self.ParticlesFilter:
+            return evaluateMicsNum()
+
+        elif not self.MicrographsF and self.ParticlesFilter:
+            return evaluatePartNum()
+
+        elif not self.MicrographsF and not self.ParticlesFilter:
+            return True
+
+    # --------------------------- STEPS ---------------------------------------
     def stepsGeneratorStep(self):
         """
         This step should be implemented by any streaming protocol.
         It should check its input and when ready conditions are met
         call the self._insertFunctionStep method.
         """
-        self.time0 = time.time()
+        self.startIterationTime = time.time()
         self._initialize()
-        self.collectHoles()
-        self.createOutputs()
+        while True:
+            if  self.checkStartIteration():
+                while self.stopIteration == False:
+                    if time.time() - self.startIterationTime >= self.rTime:
+                        self.startIterationTime = time.time()
+                        self.fMics = self.micsPassFilter.get()
+                        self.Particles = self.inputParticles.get()
+                        self.MicrographsF = self.MicrographsFilter.get()
+                        self.stopIteration = self.checkFinish()
+
+                        if self.Classes2DFilter:
+                            self.collect2DClasses()
+                        self.collectHoles()
+                        self.createOutputs()
+                    else:
+                        self.info(f'Waitting next iteration. Refreshing time: {self.rTime}')
+                        time.sleep(self.rTime / 2)
+
+                self.info('Finished iterations')
+                return
+            self.info('Iterations has no started')
+            time.sleep(30)
+
 
 
     def collectHoles(self):
@@ -305,11 +361,10 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
 
 
         # MICROGRAPHS COLLECTION----------
-        if self.MicrographsFilter.get():
+        if self.MicrographsF:
             self.info('Micrographs information hole collection')
 
-            fMics = self.micsPassFilter.get()
-            for mic in fMics:
+            for mic in self.fMics:
                 H_ID = self.dictMovies[mic.getMicName()].getHoleId()
                 self.dictHoles[H_ID]['Pass'] += 1
                 self.dictHoles[H_ID]['Rejected'] -= 1
@@ -327,7 +382,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                     self.dictRejectHoles[hole_id] = hole['Hole'].clone()
 
         # 2DCLASSES COLLECTION----------
-        if self.Classes2DFilter.get():
+        if self.Classes2DFilter:
             self.info('2DClasses information hole collection')
 
             self.info(f'Total classe: {len(self.totalC)} Good Classe: {len(self.goodC)}')
@@ -385,7 +440,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
 
 
         # PARTICLES COLLECTION----------
-        elif self.ParticlesFilter.get():
+        elif self.ParticlesFilter:
             self.info('Particles information hole collection')
             movie_cache = {}
             for p in self.inputParticles.get():
@@ -398,6 +453,24 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                 H_ID = movie.getHoleId()
                 self.dictHoles[H_ID]['particles'] += 1
 
+    def collect2DClasses(self):
+        if self.totalClasses2D.get() is not None:
+            self.totalC = self.totalClasses2D.get()
+            if self.goodClassesOrigin.get() == 0:
+                self.goodC = self.goodClasses2DRelion.get()
+            else:
+                self.goodC = SetOfClasses2D.create(outputPath=self._getPath(), prefix='_goodC')
+                self.goodC.copyInfo(self.totalC)
+                listGood = [c.getIndex() for c in self.goodClasses2DCryoasses.get().iterItems()]
+                enableFunc = lambda cls: cls.getObjId() in listGood
+                self.goodC.appendFromClasses(self.totalC, filterClassFunc=enableFunc)
+
+            self.badC = []
+            for t in self.totalC:
+                flag = any(t.getObjId() == g.getObjId() for g in self.goodC)
+                if not flag:
+                    self.badC.append(t)
+
 
     def collectSessionShots(self):
         #Assign number of shots for the holes not acquired
@@ -408,11 +481,11 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                 return shots
 
 
-    # --------------------------- CREATE OUTPUTS functions -----------------------------------
+    # --------------------------- CREATE OUTPUTS functions ----------------------
     def createOutputs(self):
         self.info('\nGenerating outputs ...')
 
-        if self.MicrographsFilter.get():
+        if self.MicrographsF:
             self.info('Outputs from micrographFilters')
             if self.dictPassHoles:
                 for h in self.dictPassHoles:
@@ -421,7 +494,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                 for h in self.dictRejectHoles:
                     self.createOutputStepRejected(self.SetOfHolesRejected,self.dictRejectHoles[h])
 
-        if self.Classes2DFilter.get():
+        if self.Classes2DFilter:
             self.SetOfBestHoles.copyInfo(self.holes)
             bestHoles = nlargest(NUMBER_HOLES_TO_VIEW, self.dictHoles.items(),
                 key=lambda item: int(item[1]['goodParticles']))
@@ -438,7 +511,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                 self.SetOfBestHoles.append(hole2Add_copy)
             self.SetOfBestHoles.write()
 
-        elif self.ParticlesFilter.get():
+        elif self.ParticlesFilter:
             self.SetOfBestHoles.copyInfo(self.holes)
             bestHoles = sorted(self.dictHoles.items(),
                                key=lambda item: int(item[1]['particles']), reverse=True)[:NUMBER_HOLES_TO_VIEW]
@@ -452,7 +525,6 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
 
             self.SetOfBestHoles.write()
 
-
     def createOutputStepRejected(self, SOHR, hole):
         SOHR.copyInfo(self.holes)
         hole2Add_copy = Hole()
@@ -463,8 +535,6 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
             outputAttr = getattr(self, 'SetOfHolesRejected')
             outputAttr.copy(SOHR, copyId=False)
             self._store(outputAttr)
-        # STORE SQLITE
-        #self._store(SOHR)
 
     def createOutputStepPassFilter(self, SOHPF, hole):
         SOHPF.copyInfo(self.holes)
@@ -476,11 +546,9 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
             outputAttr = getattr(self, 'SetOfHolesPassFilter')
             outputAttr.copy(SOHPF, copyId=False)
             self._store(outputAttr)
-        # STORE SQLITE
-        #self._store(SOHPF)
 
 
-    # --------------------------- VALIDATION functions -----------------------------------
+    # --------------------------- VALIDATION functions --------------------------
     def checkSmartscopeConnection(self):
         response = self.pyClient.getDetailsFromParameter('users')
         return response
