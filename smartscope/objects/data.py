@@ -671,6 +671,7 @@ class Hole(Image):
         self._meanLocalIntensity = Float(0)
         self._meanMicIntensity = Float(0)
         self._stdMicIntensity = Float(0)
+        self._2DClassRepresentatives = String()
 
         #EXTERNAL
         self._hole_diam = Float()
@@ -780,6 +781,9 @@ class Hole(Image):
 
     def setTotalParticles(self, value):
         self._totalParticles.set(value)
+
+    def set2DClassRepresentatives(self, value):
+        self._2DClassRepresentatives.set(value)
 
     def setHoleDiam(self, value):
         self._hole_diam.set(value)
@@ -909,6 +913,9 @@ class Hole(Image):
 
     def getTotalParticles(self):
         return self._totalParticles.get()
+
+    def get2DClassRepresentatives(self):
+        return self._2DClassRepresentatives.get()
 
     def getMeanLocalIntensity(self, value):
         return self._meanLocalIntensity.get()

@@ -253,7 +253,6 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                   f'ParticlesFilter: {self.ParticlesFilter}\n'
                   f'Classes2DFilter: {self.Classes2DFilter}\n')
 
-
     def saveInExtraFile(self, fileName, text):
         fileP = self._getExtraPath(f"{fileName}.txt")
         with open(fileP, "w") as f:
@@ -317,10 +316,18 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                         self.MicrographsF = self.MicrographsFilter.get()
                         self.stopIteration = self.checkFinish()
 
+                        t0 = time.perf_counter()
                         if self.Classes2DFilter:
                             self.collect2DClasses()
+                            t01 = time.perf_counter()
+                            self.info("collect2DClasses: %.3f s" % (t01 - t0))
+                        t1 = time.perf_counter()
                         self.collectHoles()
+                        t2 = time.perf_counter()
                         self.createOutputs()
+                        t3 = time.perf_counter()
+                        self.info("collectHoles: %.3f s" % (t2 - t1))
+                        self.info("createOutputs: %.3f s" % (t3 - t2))
                     else:
                         self.info(f'Waitting next iteration. Refreshing time: {self.rTime}')
                         time.sleep(self.rTime / 2)
@@ -480,7 +487,6 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
             if shots != 0:
                 return shots
 
-
     # --------------------------- CREATE OUTPUTS functions ----------------------
     def createOutputs(self):
         self.info('\nGenerating outputs ...')
@@ -506,6 +512,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                 h.setGoodParticles(good)
                 h.setBadParticles(bad)
                 h.setTotalParticles(total)
+                h.set2DClassRepresentatives(String(value['ClassDistribution']))
                 hole2Add_copy = Hole()
                 hole2Add_copy.copy(h, copyId=False)
                 self.SetOfBestHoles.append(hole2Add_copy)
