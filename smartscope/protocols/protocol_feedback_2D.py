@@ -60,6 +60,45 @@ class smartscopeFeedback2D(ProtImport, ProtStreamingBase):
     on the good particles of each hole. After knowing the good holes, will
     sort the queue of hole acquisition that Smartscope uses.
     """
+
+    """
+        smartscopeFeedback2D analyzes particle classification results obtained during
+        cryo EM data collection in order to identify the most productive acquisition
+        holes within a Smartscope session. The protocol evaluates the distribution of
+        good and bad particles across holes and generates statistical feedback that
+        can be used to optimize automated microscope acquisition strategies.
+
+        The workflow starts from a Smartscope acquisition session together with a set
+        of 2D classification results. Good particle classes can originate from either
+        Relion or CryoAsses classification pipelines. The protocol compares all
+        particles against the selected good classes and assigns every particle to its
+        corresponding acquisition hole through the associated micrograph metadata.
+
+        For each hole, the protocol calculates the number of good particles, bad
+        particles, total particles, particle class distributions, and intensity based
+        statistics. Holes are then grouped according to intensity ranges using
+        histogram based binning methods, allowing the protocol to estimate which
+        acquisition conditions produce the highest proportion of biologically useful
+        particles.
+
+        The resulting statistics provide an experimental feedback mechanism capable
+        of identifying optimal acquisition regions during ongoing cryo EM sessions.
+        This strategy is especially useful for large scale automated data collection
+        workflows where acquisition efficiency directly affects microscope usage,
+        particle quality, and downstream reconstruction performance.
+
+        The protocol generates detailed statistical files describing particle
+        distributions, hole quality metrics, class abundances, and intensity
+        dependent behavior. It also creates ordered sets of all analyzed holes and
+        the best ranked holes, facilitating rapid visualization and selection of
+        high quality acquisition regions.
+
+        From a biological and data acquisition perspective, this protocol helps
+        prioritize microscope acquisition toward regions producing cleaner particle
+        populations and better 2D classes, improving overall dataset quality while
+        reducing the collection of low information micrographs during automated
+        Smartscope sessions.
+        """
     _label = 'Feedback from particles'
     _devStatus = BETA
     _possibleOutputs = {'SetOfHoles': SetOfHoles,

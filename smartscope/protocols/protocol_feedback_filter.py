@@ -52,6 +52,72 @@ class smartscopeFeedbackFilter(ProtImport, ProtStreamingBase):
     on the micrographs filtered by alignment, CTF estimations.... After knowing the good holes, will
     send the range of intensities of hole that Smartscope uses.
     """
+
+    """
+        Filters Smartscope micrographs in streaming mode to identify the most
+        suitable hole intensity ranges for cryo-EM acquisition. The protocol
+        analyzes accepted and rejected micrographs, estimates optimal intensity
+        distributions, and can automatically send feedback to Smartscope in
+        real time.
+
+        AI Generated:
+
+        Smartscope Feedback Filter (smartscopeFeedbackFilter) — User Manual
+            Overview
+
+            The Smartscope Feedback Filter protocol evaluates micrographs that
+            pass quality-control workflows such as alignment or CTF estimation
+            in order to determine which hole intensity ranges produce the best
+            cryo-EM data. The protocol is designed for automated and streaming
+            acquisition environments where data quality must be monitored during
+            collection.
+
+            Inputs and Workflow
+
+            The protocol requires a Smartscope connection and a set of filtered
+            micrographs. During execution, it continuously monitors incoming
+            micrographs and updates the analysis either after a fixed number of
+            new inputs or after a configurable time interval.
+
+            Holes are classified according to whether their associated
+            micrographs passed or failed filtering criteria. The protocol then
+            groups the information by grid and analyzes the intensity
+            distribution of acquired, accepted, and rejected holes.
+
+            Statistical Analysis
+
+            Histogram statistics are calculated using intensity distributions
+            from the acquired holes. The protocol evaluates whether the sampled
+            intensity space is sufficiently representative and estimates the
+            optimal acquisition interval using the mean intensity and standard
+            deviation of the accepted micrographs.
+
+            The final recommended range corresponds to the intensity interval
+            most likely to produce usable cryo-EM images.
+
+            Streaming Feedback
+
+            When enabled, the protocol automatically posts the calculated
+            intensity range back to Smartscope through its API. This allows
+            future acquisitions to prioritize hole regions associated with
+            higher-quality micrographs.
+
+            Outputs
+
+            The protocol generates separate outputs containing holes associated
+            with accepted and rejected micrographs. If the statistical analysis
+            is successful, it also produces the recommended intensity range for
+            acquisition together with summary and histogram files for
+            visualization.
+
+            Final Perspective
+
+            The Smartscope Feedback Filter protocol provides an adaptive
+            acquisition strategy that converts micrograph quality measurements
+            into real-time feedback for automated cryo-EM screening workflows,
+            improving acquisition efficiency and reducing collection of
+            low-quality regions.
+        """
     _label = 'Feedback from micrographs'
     _devStatus = BETA
     _possibleOutputs = {'SetOfHolesRejected': SetOfHoles,
