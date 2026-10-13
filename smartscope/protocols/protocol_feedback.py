@@ -221,6 +221,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         self.micsNoProcesed = 0
         self.stopIteration = False
         self.launchIteration = False
+        self.nBins = 10
 
         # Input sets
         self.ParticlesFilter = self.particles_2DClass == 1
@@ -228,6 +229,11 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         self.fMics = self.micsPassFilter.get()
         self.Particles = self.inputParticles.get()
         self.MicrographsF = self.MicrographsFilter.get()
+
+        self.totalMicssByGrid = defaultdict(list) #TODO it does not consider the multishot, the hole does not know about how many shots it will have
+        self.acquiredMicssByGrid = defaultdict(list)
+        self.passMicsByGrid = defaultdict(list)
+        self.rejectedMicssByGrid = defaultdict(list)
 
         # Load Smartscope outputs and session info
         self.updateProtocolInputs()
@@ -320,35 +326,34 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                         if self.Classes2DFilter:
                             self.collect2DClasses()
                             t01 = time.perf_counter()
-                            self.info("collect2DClasses: %.3f s" % (t01 - t0))
+                            self.info("[TIME]: collect2DClasses: %.3f s" % (t01 - t0))
                         t1 = time.perf_counter()
                         self.collectHoles()
                         t2 = time.perf_counter()
-                        self.info("collectHoles: %.3f s" % (t2 - t1))
+                        self.info("[TIME]: collectHoles: %.3f s" % (t2 - t1))
 
                         if self.MicrographsF:
                             t10 = time.perf_counter()
                             self.micsStatistics()
                             t11 = time.perf_counter()
-                            self.info("micsStatistics: %.3f s" % (t11 - t10))
+                            self.info("[TIME]: micsStatistics: %.3f s" % (t11 - t10))
                         if self.ParticlesFilter or self.Classes2DFilter:
                             t10 = time.perf_counter()
                             self.particlesStatistisc()
                             t11 = time.perf_counter()
-                            self.info("particlesStatistisc: %.3f s" % (t11 - t10))
+                            self.info("[TIME]: particlesStatistisc: %.3f s" % (t11 - t10))
                         if self.Classes2DFilter:
                             t10 = time.perf_counter()
                             self.class2DStatistics()
                             t11 = time.perf_counter()
-                            self.info("class2DStatistics: %.3f s" % (t11 - t10))
-
-
-
-
+                            self.info("[TIME]: class2DStatistics: %.3f s" % (t11 - t10))
+                        self.writeStatisticsJSON()
 
                         self.createOutputs()
                         t3 = time.perf_counter()
-                        self.info("createOutputs: %.3f s" % (t3 - t2))
+                        self.info("[TIME]: createOutputs: %.3f s" % (t3 - t2))
+                        tFinal = time.perf_counter()
+                        self.info("[TIME]: Total time: %.3f s" % (tFinal - t0))
                     else:
                         self.info(f'Waitting next iteration. Refreshing time: {self.rTime}')
                         time.sleep(self.rTime / 2)
@@ -357,8 +362,6 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                 return
             self.info('Iterations has no started')
             time.sleep(30)
-
-
 
     def collectHoles(self):
         sessionshots = self.collectSessionShots()
@@ -430,10 +433,10 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
             good_ids = set(p.getObjId() for p in self.goodC.iterClassItems())
             self.goodClasses = set(c.getObjId() for c in self.goodC.iterItems(orderBy='id', direction='ASC'))
             self.particlesCoords = {'Good': {}, 'Bad': {}}
-            dictClassParticles = {}
+            self.dictClassParticles = {}
 
             for c in self.goodC.iterItems(orderBy='id', direction='ASC'):
-                dictClassParticles[c.getObjId()] = c
+                self.dictClassParticles[c.getObjId()] = c
             for p in self.totalC.iterClassItems():  # iterRows
                 mic_name = p.getCoordinate().getMicName()
                 if mic_name in movie_cache:
@@ -511,11 +514,6 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         '''This function create list of holes based on the behaves of a grids'''
         self.info('\nmicsStatistics ...')
 
-        self.totalMicssByGrid = defaultdict(list) #TODO it does not consider the multishot, the hole does not know about how many shots it will have
-        self.acquiredMicssByGrid = defaultdict(list)
-        self.passMicsByGrid = defaultdict(list)
-        self.rejectedMicssByGrid = defaultdict(list)
-
         for holeID, hole_data in self.dictHoles.items():
             h = hole_data['Hole']
             shots = hole_data['Shots']
@@ -539,6 +537,8 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                 for a in range(reject):
                     self.rejectedMicssByGrid[grid_id].append(intensity)
 
+        self.nBins = self.sturgesBinsCalc(len(self.totalMicssByGrid))
+
     def particlesStatistisc(self):
         self.particlesByIntensityByGrid = defaultdict(list)
         for holeID, hole_data in self.dictHoles.items():
@@ -549,10 +549,122 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
             else:
                 self.particlesByIntensityByGrid[h.getGridId()].append({'intensity': int(round(intensity, 1)), 'particles': hole_data['particles']})
 
-    def class2DStatistics(self):
-        pass
+        self.nBins = self.sturgesBinsCalc(len(self.dictHoles))
 
-    # --------------------------- CREATE OUTPUTS functions ----------------------
+    def class2DStatistics(self):
+        self.particlesClassIntensityByGrid = {}
+
+        for holeID, hole_data in self.dictHoles.items():
+            for classID, goodParticles in hole_data['ClassDistribution'].items():
+                self.particlesClassIntensityByGrid.setdefault(classID, []).append({
+                    'HoleID': holeID,
+                    'intensity': int(round(hole_data['intensity'], 1)),
+                    'goodParticles': goodParticles
+                })
+
+        self.nBins = self.sturgesBinsCalc(len(self.dictHoles))
+
+    def writeStatisticsJSON(self):
+        """Export statistics for the WebBrowser viewer."""
+
+        outputPath = self._getExtraPath("grid_statistics.json")
+        binsPath = self._getExtraPath("statistics_bins.json")
+
+        def toFloat(value):
+            try:
+                value = float(value)
+                return value if np.isfinite(value) else None
+            except (TypeError, ValueError):
+                return None
+
+        # Intensities used to define a common histogram range.
+        intensities = [
+            value
+            for holeData in self.dictHoles.values()
+            if (value := toFloat(holeData['intensity'])) is not None
+        ]
+
+        if not intensities:
+            return None
+
+        # Same bin edges for every grid and every micrograph category.
+        binEdges = np.histogram_bin_edges(intensities, bins=self.nBins)
+
+        def histogramByGrid(dataByGrid):
+            result = {}
+            for gridID, values in dataByGrid.items():
+                validValues = [
+                    value for v in values
+                    if (value := toFloat(v)) is not None
+                ]
+                counts, _ = np.histogram(validValues, bins=binEdges)
+                result[str(gridID)] = counts.tolist()
+            return result
+
+        # Keep grid information available for every class 2D point.
+        gridByHole = {
+            holeID: str(data['Hole'].getGridId())
+            for holeID, data in self.dictHoles.items()
+        }
+
+        particlesByGrid = {}
+        for gridID, rows in self.particlesByIntensityByGrid.items():
+            particlesByGrid[str(gridID)] = [
+                {
+                    'intensity': toFloat(row['intensity']),
+                    'particles': int(row['particles'])
+                }
+                for row in rows
+                if toFloat(row['intensity']) is not None
+            ]
+
+        particlesByClass = {}
+        for classID, rows in self.particlesClassIntensityByGrid.items():
+            particlesByClass[str(classID)] = [
+                {
+                    'holeID': str(row['HoleID']),
+                    'gridID': gridByHole.get(row['HoleID']),
+                    'intensity': toFloat(row['intensity']),
+                    'goodParticles': int(row['goodParticles'])
+                }
+                for row in rows
+                if toFloat(row['intensity']) is not None
+            ]
+
+        data = {
+            'micrographsByIntensity': {
+                'nBins': self.nBins,
+                'binEdges': binEdges.tolist(),
+                'binCenters': (
+                        (binEdges[:-1] + binEdges[1:]) / 2
+                ).tolist(),
+                'total': histogramByGrid(self.totalMicssByGrid),
+                'acquired': histogramByGrid(self.acquiredMicssByGrid),
+                'pass': histogramByGrid(self.passMicsByGrid),
+                'rejected': histogramByGrid(self.rejectedMicssByGrid)
+            },
+            'particlesByIntensityByGrid': particlesByGrid,
+            'particlesClassIntensityByGrid': particlesByClass
+        }
+
+        os.makedirs(os.path.dirname(outputPath), exist_ok=True)
+
+        with open(outputPath, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, allow_nan=False)
+
+        return outputPath
+
+        # --------------------------- CREATE OUTPUTS functions ----------------------
+
+
+    # --------------------------- UTILS ------------------------------------
+    def sturgesBinsCalc(self, numElementes):
+        import math
+        return int(round(1 + math.log2(numElementes)))
+
+
+    # --------------------------- OUTPUTS ------------------------------------
+
     def createOutputs(self):
         self.info('\nGenerating outputs ...')
 
