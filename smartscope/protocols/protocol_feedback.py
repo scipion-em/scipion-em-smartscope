@@ -234,6 +234,8 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
         self.acquiredMicssByGrid = defaultdict(list)
         self.passMicsByGrid = defaultdict(list)
         self.rejectedMicssByGrid = defaultdict(list)
+        self.particlesClassIntensityByGrid = {}
+
 
         # Load Smartscope outputs and session info
         self.updateProtocolInputs()
@@ -347,11 +349,13 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                             self.class2DStatistics()
                             t11 = time.perf_counter()
                             self.info("[TIME]: class2DStatistics: %.3f s" % (t11 - t10))
-                        self.writeStatisticsJSON()
-
-                        self.createOutputs()
                         t3 = time.perf_counter()
-                        self.info("[TIME]: createOutputs: %.3f s" % (t3 - t2))
+                        self.writeStatisticsJSON()
+                        t4 = time.perf_counter()
+                        self.info("[TIME]: writeStatisticsJSON: %.3f s" % (t4 - t3))
+                        self.createOutputs()
+                        t5 = time.perf_counter()
+                        self.info("[TIME]: createOutputs: %.3f s" % (t5 - t4))
                         tFinal = time.perf_counter()
                         self.info("[TIME]: Total time: %.3f s" % (tFinal - t0))
                     else:
@@ -513,7 +517,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
     def micsStatistics(self):
         '''This function create list of holes based on the behaves of a grids'''
         self.info('\nmicsStatistics ...')
-
+        self.gridIDList = []
         for holeID, hole_data in self.dictHoles.items():
             h = hole_data['Hole']
             shots = hole_data['Shots']
@@ -524,7 +528,7 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
             if intensity == None or intensity == '':
                 self.error(f'hole without intensity: {holeID}')
             grid_id = h.getGridId()
-
+            if not grid_id in self.gridIDList: self.gridIDList.append(grid_id)
             for s in range(shots):
                 self.totalMicssByGrid[grid_id].append(intensity)
             if acqs != 0:
@@ -537,23 +541,21 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
                 for a in range(reject):
                     self.rejectedMicssByGrid[grid_id].append(intensity)
 
-        self.nBins = self.sturgesBinsCalc(len(self.totalMicssByGrid))
-
     def particlesStatistisc(self):
+        self.gridIDList = []
+
         self.particlesByIntensityByGrid = defaultdict(list)
         for holeID, hole_data in self.dictHoles.items():
             h = hole_data['Hole']
+            gridID = h.getGridId()
+            if not gridID in self.gridIDList: self.gridIDList.append(gridID)
             intensity = hole_data['intensity']
             if intensity == None or intensity == '':
                 self.error(f'hole without intensity: {holeID}')
             else:
-                self.particlesByIntensityByGrid[h.getGridId()].append({'intensity': int(round(intensity, 1)), 'particles': hole_data['particles']})
-
-        self.nBins = self.sturgesBinsCalc(len(self.dictHoles))
+                self.particlesByIntensityByGrid[gridID].append({'intensity': int(round(intensity, 1)), 'particles': hole_data['particles']})
 
     def class2DStatistics(self):
-        self.particlesClassIntensityByGrid = {}
-
         for holeID, hole_data in self.dictHoles.items():
             for classID, goodParticles in hole_data['ClassDistribution'].items():
                 self.particlesClassIntensityByGrid.setdefault(classID, []).append({
@@ -567,92 +569,116 @@ class smartscopeFeedback(ProtImport, ProtStreamingBase):
     def writeStatisticsJSON(self):
         """Export statistics for the WebBrowser viewer."""
 
-        outputPath = self._getExtraPath("grid_statistics.json")
-        binsPath = self._getExtraPath("statistics_bins.json")
+        import json
+        import os
+        import numpy as np
 
-        def toFloat(value):
-            try:
-                value = float(value)
-                return value if np.isfinite(value) else None
-            except (TypeError, ValueError):
-                return None
+        for grid in self.gridIDList:
+            outputPath = self._getExtraPath(f'grid_statistics_{grid}.json')
 
-        # Intensities used to define a common histogram range.
-        intensities = [
-            value
-            for holeData in self.dictHoles.values()
-            if (value := toFloat(holeData['intensity'])) is not None
-        ]
+            def toInt(value):
+                try:
+                    value = float(value)
+                    return int(round(value)) if np.isfinite(value) else None
+                except (TypeError, ValueError):
+                    return None
 
-        if not intensities:
-            return None
+            def isEnabled(value):
+                return bool(value.get()) if hasattr(value, 'get') else bool(value)
 
-        # Same bin edges for every grid and every micrograph category.
-        binEdges = np.histogram_bin_edges(intensities, bins=self.nBins)
+            micrographsEnabled = isEnabled(self.MicrographsF)
+            particlesEnabled = isEnabled(self.ParticlesFilter)
+            classesEnabled = isEnabled(self.Classes2DFilter)
 
-        def histogramByGrid(dataByGrid):
-            result = {}
-            for gridID, values in dataByGrid.items():
-                validValues = [
-                    value for v in values
-                    if (value := toFloat(v)) is not None
-                ]
-                counts, _ = np.histogram(validValues, bins=binEdges)
-                result[str(gridID)] = counts.tolist()
-            return result
-
-        # Keep grid information available for every class 2D point.
-        gridByHole = {
-            holeID: str(data['Hole'].getGridId())
-            for holeID, data in self.dictHoles.items()
-        }
-
-        particlesByGrid = {}
-        for gridID, rows in self.particlesByIntensityByGrid.items():
-            particlesByGrid[str(gridID)] = [
-                {
-                    'intensity': toFloat(row['intensity']),
-                    'particles': int(row['particles'])
-                }
-                for row in rows
-                if toFloat(row['intensity']) is not None
+            # Common histogram bins, independent of the statistics filters.
+            intensities = [
+                value
+                for holeData in self.dictHoles.values()
+                if (value := toInt(holeData['intensity'])) is not None
             ]
 
-        particlesByClass = {}
-        for classID, rows in self.particlesClassIntensityByGrid.items():
-            particlesByClass[str(classID)] = [
-                {
-                    'holeID': str(row['HoleID']),
-                    'gridID': gridByHole.get(row['HoleID']),
-                    'intensity': toFloat(row['intensity']),
-                    'goodParticles': int(row['goodParticles'])
-                }
-                for row in rows
-                if toFloat(row['intensity']) is not None
-            ]
+            if intensities:
+                binEdges = np.histogram_bin_edges(intensities, bins=self.nBins)
+                binCenters = ((binEdges[:-1] + binEdges[1:]) / 2).tolist()
+                binEdges = binEdges.tolist()
+            else:
+                binEdges = []
+                binCenters = []
 
-        data = {
-            'micrographsByIntensity': {
+            data = {
                 'nBins': self.nBins,
-                'binEdges': binEdges.tolist(),
-                'binCenters': (
-                        (binEdges[:-1] + binEdges[1:]) / 2
-                ).tolist(),
-                'total': histogramByGrid(self.totalMicssByGrid),
-                'acquired': histogramByGrid(self.acquiredMicssByGrid),
-                'pass': histogramByGrid(self.passMicsByGrid),
-                'rejected': histogramByGrid(self.rejectedMicssByGrid)
-            },
-            'particlesByIntensityByGrid': particlesByGrid,
-            'particlesClassIntensityByGrid': particlesByClass
-        }
+                'binEdges': binEdges,
+                'binCenters': binCenters
+            }
 
-        os.makedirs(os.path.dirname(outputPath), exist_ok=True)
+            # Micrograph statistics
+            if micrographsEnabled:
+                self.nBins = self.sturgesBinsCalc(len(self.totalMicssByGrid[grid]))
 
-        with open(outputPath, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2, allow_nan=False)
+                def intensitiesByGrid(dataByGrid):
+                    return {
+                        str(gridID): [
+                            value
+                            for v in values
+                            if (value := toInt(v)) is not None
+                        ]
+                        for gridID, values in dataByGrid.items()
+                    }
 
-        return outputPath
+                if micrographsEnabled:
+                    data['micrographsByIntensity'] = {
+                        'total': intensitiesByGrid(self.totalMicssByGrid),
+                        'acquired': intensitiesByGrid(self.acquiredMicssByGrid),
+                        'pass': intensitiesByGrid(self.passMicsByGrid),
+                        'rejected': intensitiesByGrid(self.rejectedMicssByGrid)
+                    }
+
+            # Particle statistics
+            if particlesEnabled or classesEnabled:
+                particlesByGrid = {}
+                self.nBins = self.sturgesBinsCalc(len(self.dictHoles))  # TODO; dictHoles should take into a count the grids
+
+                for gridID, rows in self.particlesByIntensityByGrid.items():
+                    particlesByGrid[str(gridID)] = [
+                        {
+                            'intensity': toInt(row['intensity']),
+                            'particles': int(row['particles'])
+                        }
+                        for row in rows
+                        if toInt(row['intensity']) is not None
+                    ]
+
+                data['particlesByIntensityByGrid'] = particlesByGrid
+
+            # 2D class statistics
+            if classesEnabled:
+                gridByHole = {
+                    holeID: str(holeData['Hole'].getGridId())
+                    for holeID, holeData in self.dictHoles.items()
+                }
+
+                particlesByClass = {}
+
+                for classID, rows in self.particlesClassIntensityByGrid.items():
+                    particlesByClass[str(classID)] = [
+                        {
+                            'holeID': str(row['HoleID']),
+                            'gridID': gridByHole.get(row['HoleID']),
+                            'intensity': toInt(row['intensity']),
+                            'goodParticles': int(row['goodParticles'])
+                        }
+                        for row in rows
+                        if toInt(row['intensity']) is not None
+                    ]
+
+                data['particlesClassIntensityByGrid'] = particlesByClass
+
+            os.makedirs(os.path.dirname(outputPath), exist_ok=True)
+
+            with open(outputPath, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, allow_nan=False)
+
+            return outputPath
 
         # --------------------------- CREATE OUTPUTS functions ----------------------
 
